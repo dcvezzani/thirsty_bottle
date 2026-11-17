@@ -19,6 +19,14 @@
 
 **Tables play from a snapshot.** Loading a deck onto a table copies its current saved version, so editing, archiving or deleting the deck never changes a game in progress. The host sees when a newer version exists and can reload it. Each copy of a card is numbered when loaded (for example "Goblin #2 of 3"). The number is visible only to players who can see the card's face.
 
+**Reporting.** Anyone can report a public deck, which hides it from the gallery until reviewed (each player's report counts once; built-in decks can't be hidden). The deck's owner still has it in their library. A server operator reviews reports with the admin tool, pointed at the server's data directory:
+
+```bash
+DATA_DIR=./data node server/dist/admin.js reports          # reported decks, counts and reasons
+DATA_DIR=./data node server/dist/admin.js unhide <deckId>  # back in the gallery, reports cleared
+DATA_DIR=./data node server/dist/admin.js hide <deckId>    # hide without a report
+```
+
 **Export / import** are for backups, moving decks between servers, and offline authoring. You can export any deck you can view. Importing always creates a new private deck that you own.
 
 ## Manifest format

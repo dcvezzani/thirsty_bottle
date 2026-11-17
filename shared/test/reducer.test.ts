@@ -397,3 +397,37 @@ describe('log privacy and undo (2.9)', () => {
     expect(locate(eng.state).size).toBe(52);
   });
 });
+
+describe('seat and host recovery (seat-host-recovery)', () => {
+  it('a returning player takes back their own vacated seat and hand before any earlier empty seat', () => {
+    const { eng, deckZone } = setup([SAM, KIM], undefined, 4);
+    // seats: Alex, Sam, Kim, empty
+    eng.dispatch({ type: 'draw', zone: deckZone, count: 3, from: 'top' }, KIM.playerId, ctx());
+    const kimSeat = eng.state.seats.find((x) => x.playerId === KIM.playerId)!.id;
+    eng.dispatch({ type: 'seatLeave', playerId: SAM.playerId, reason: 'left' }, null, ctx()); // seat 2 empty (no cards)
+    eng.dispatch({ type: 'seatLeave', playerId: KIM.playerId, reason: 'expired' }, null, ctx());
+    expect(eng.state.vacated.map((v) => v.seatId)).toEqual([kimSeat]);
+    eng.dispatch({ type: 'seatJoin', player: KIM }, null, ctx());
+    const seat = eng.state.seats.find((x) => x.playerId === KIM.playerId)!;
+    expect(seat.id).toBe(kimSeat);
+    expect(hand(eng.state, KIM.playerId).cards).toHaveLength(3);
+    expect(eng.state.vacated).toEqual([]);
+  });
+
+  it('when the host is no longer seated, the next player to sit becomes host', () => {
+    const { eng } = setup([SAM]);
+    eng.dispatch({ type: 'seatLeave', playerId: SAM.playerId, reason: 'left' }, null, ctx());
+    eng.dispatch({ type: 'seatLeave', playerId: ALEX.playerId, reason: 'left' }, null, ctx({ connected: new Set() }));
+    expect(eng.state.seats.some((x) => x.playerId)).toBe(false);
+    eng.dispatch({ type: 'seatJoin', player: KIM }, null, ctx());
+    expect(eng.state.hostId).toBe(KIM.playerId);
+    expect(eng.state.log.at(-1)!.text).toBe('Kim is now the host');
+  });
+
+  it('when the host leaves, the longest-seated connected player becomes host', () => {
+    const { eng } = setup([SAM, KIM, LEE]);
+    // Sam sat first but is disconnected → Kim (next longest-seated, connected) becomes host
+    eng.dispatch({ type: 'seatLeave', playerId: ALEX.playerId, reason: 'left' }, null, ctx({ connected: new Set([KIM.playerId, LEE.playerId]) }));
+    expect(eng.state.hostId).toBe(KIM.playerId);
+  });
+});

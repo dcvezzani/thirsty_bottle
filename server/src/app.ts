@@ -98,7 +98,8 @@ export class App {
     this.chat.purge();
     this.purgeTimer = setInterval(() => {
       this.chat.purge();
-      this.images.gc();
+      this.decks.pruneVersions();
+      this.images.gc(); // after pruning, so images used only by pruned versions are collected
     }, 3600_000);
     this.purgeTimer.unref();
     this.deckio.seedBuiltIns();

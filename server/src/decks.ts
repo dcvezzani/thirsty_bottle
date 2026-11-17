@@ -326,6 +326,21 @@ export class Decks {
       .run(archived ? 'archived' : 'active', archived ? Date.now() : null, Date.now(), deckId);
   }
 
+  /**
+   * Deletes saved versions older than maxAgeMs that are neither a deck's current version nor
+   * referenced by a table snapshot (deck-library: prune unreferenced old versions). Drafts are separate rows.
+   */
+  pruneVersions(maxAgeMs = 30 * 24 * 3600_000): number {
+    const r = this.db
+      .prepare(
+        `DELETE FROM deck_versions WHERE created_at < ?
+           AND id NOT IN (SELECT current_version_id FROM decks)
+           AND id NOT IN (SELECT version_id FROM table_decks WHERE version_id IS NOT NULL)`,
+      )
+      .run(Date.now() - maxAgeMs);
+    return r.changes;
+  }
+
   remove(deckId: string, playerId: string) {
     const d = this.row(deckId);
     if (!d || d.owner_id !== playerId) throw notFound();
