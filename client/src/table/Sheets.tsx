@@ -74,6 +74,8 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
   const players = view.seats.filter((s) => s.playerId && s.playerId !== view.me.playerId);
   const { recent, rest } = destinations(view, zone.id);
   const done = () => {
+    // any action taken on the selection ends it, so the next tap starts a fresh selection
+    useUI.getState().clear();
     onClose();
   };
   const title = `${handles.length} card${handles.length === 1 ? '' : 's'} · ${zoneLabel(view, zone)}`;
