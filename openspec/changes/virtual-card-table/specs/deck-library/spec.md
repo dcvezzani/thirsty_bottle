@@ -7,15 +7,107 @@ Lets players author and manage decks of cards: artwork for card fronts and backs
 ## ADDED Requirements
 
 ### Requirement: Deck creation and editing
-The system SHALL let a player create, rename, describe, duplicate and delete decks they own. A deck SHALL have a name, an optional description, a default back image and an ordered list of card definitions.
+The system SHALL let a player create, rename, describe and edit decks they own. A deck SHALL have a name, an optional description, a default back image and an ordered list of card definitions. Decks are stored in the player's library on the server and persist across sessions.
 
 #### Scenario: Create a new deck
 - **WHEN** a player creates a deck named "Standard 52"
 - **THEN** an empty deck named "Standard 52" owned by that player appears in their deck library
 
+#### Scenario: Deck persists across sessions
+- **WHEN** a player saves a deck, closes the app and returns later on the same identity
+- **THEN** the deck is in their library exactly as saved
+
+### Requirement: Explicit save with draft
+The deck editor SHALL keep changes as an unsaved draft until the owner saves. Saving SHALL create the deck's new current version. Discarding SHALL return the deck to its last saved version. A draft SHALL survive leaving the editor or reloading the app.
+
+#### Scenario: Leave with unsaved changes
+- **WHEN** an owner edits 3 cards, leaves the editor without saving and later reopens the deck
+- **THEN** the editor offers to resume the draft or discard it, and the saved version is unchanged
+
+#### Scenario: Others see only saved versions
+- **WHEN** an owner has an unsaved draft of a public deck
+- **THEN** other players, tables and clones see only the last saved version
+
+### Requirement: Card management within a deck
+The owner SHALL be able to add, edit, duplicate, reorder and remove card definitions in a deck. They SHALL be able to change the instance count of several selected cards at once, and copy card definitions from any deck they can view into a deck they own.
+
+#### Scenario: Duplicate a card
+- **WHEN** an owner duplicates the card "Knight"
+- **THEN** a new card "Knight (copy)" with identical artwork, metadata, abilities and count is added after it
+
+#### Scenario: Copy cards from another deck
+- **WHEN** a player selects 4 cards in a public deck owned by someone else and copies them into their own deck
+- **THEN** the 4 card definitions are added to their deck as independent copies, and the source deck is unchanged
+
+#### Scenario: Bulk count change
+- **WHEN** an owner selects 10 cards and sets their count to 2
+- **THEN** all 10 cards have an instance count of 2
+
+### Requirement: Tables use a snapshot of a saved deck
+Loading a deck onto a table SHALL copy the deck's current saved version onto that table. Later edits, archiving or deletion of the deck SHALL NOT change cards on tables where it is already loaded. The host can reload the deck to pick up its newer saved version.
+
+#### Scenario: Edit a deck while it is in play
+- **WHEN** an owner saves changes to a deck that is loaded on an active table
+- **THEN** the table's cards are unchanged, and the host sees that a newer version is available to reload
+
 #### Scenario: Delete a deck in use
-- **WHEN** a player deletes a deck that is currently loaded on an active table
-- **THEN** the deck is removed from the library and the cards already on that table remain playable until the table is reset
+- **WHEN** an archived deck that is loaded on an active table is permanently deleted
+- **THEN** the cards on that table remain fully playable, including artwork and card info
+
+### Requirement: Deck archiving
+An owner SHALL be able to archive an active deck and restore an archived deck. Archived decks SHALL be hidden from the main library view, from the table deck picker and from the public gallery, but stay listed under an Archived view.
+
+#### Scenario: Archive a deck
+- **WHEN** an owner archives the deck "Old Prototype"
+- **THEN** it moves to the Archived view, is no longer offered when loading decks onto a table, and is withdrawn from the public gallery
+
+#### Scenario: Restore a deck
+- **WHEN** an owner restores an archived deck
+- **THEN** it returns to the main library with its content, version and previous visibility setting intact
+
+### Requirement: Only archived decks can be permanently deleted
+Permanent deletion SHALL be available only for archived decks owned by the player, and SHALL require explicit confirmation. Attempts to delete an active deck SHALL be refused. Deletion SHALL NOT affect clones of the deck or table snapshots.
+
+#### Scenario: Delete active deck refused
+- **WHEN** an owner attempts to permanently delete an active deck
+- **THEN** the system refuses and tells them to archive it first
+
+#### Scenario: Delete archived deck
+- **WHEN** an owner permanently deletes an archived deck and confirms
+- **THEN** the deck is removed from their library for good, and existing clones of it remain intact
+
+### Requirement: Deck visibility
+Each deck SHALL have a visibility of private (the default), link (viewable by anyone with its share link), or public (also listed in the public gallery). Only the owner can change it. Archived decks SHALL NOT be viewable through links or the gallery.
+
+#### Scenario: Share by link
+- **WHEN** an owner sets a deck to link visibility and sends the link to a friend
+- **THEN** the friend can open the link to browse the deck's cards and clone it, and the deck does not appear in the gallery
+
+#### Scenario: Archived link stops working
+- **WHEN** a link-visible deck is archived and someone opens its share link
+- **THEN** they are told the deck is unavailable
+
+### Requirement: Public deck gallery
+The system SHALL provide a public deck gallery listing every active public deck, with name, owner, card count, a cover image, and how many times it has been cloned. Players SHALL be able to search the gallery by name or owner, preview a deck's cards, and clone it.
+
+#### Scenario: Find and clone from gallery
+- **WHEN** a player searches the gallery for "tarot" and opens a matching deck
+- **THEN** they can browse its cards and clone it into their own library
+
+### Requirement: Clone a deck
+A player SHALL be able to clone any deck they can view: their own decks, the built-in decks, public or link-shared decks, and decks loaded on a table they are at. Cloning SHALL create an independent active, private deck that the player owns, with the last saved card definitions, counts, metadata, abilities and artwork. A clone of someone else's deck SHALL record its source as "Cloned from <deck> by <owner>".
+
+#### Scenario: Clone another player's deck
+- **WHEN** Sam clones Alex's public deck "Space Fleet"
+- **THEN** Sam owns a new private deck "Space Fleet" that Sam can edit, and it shows "Cloned from Space Fleet by Alex"
+
+#### Scenario: Clone is independent
+- **WHEN** Alex later edits, archives or deletes "Space Fleet"
+- **THEN** Sam's clone is unchanged
+
+#### Scenario: Cannot clone a private deck
+- **WHEN** a player tries to open another player's private deck that is not loaded on a table they are at
+- **THEN** the system refuses as if the deck does not exist
 
 ### Requirement: Card definitions
 Each card definition SHALL have a name, an optional description, a front image, an optional back image (falling back to the deck's default back) and an instance count of at least 1.
@@ -72,7 +164,7 @@ The system SHALL render a card that has no front image as a generated face showi
 - **THEN** its face shows "Ace of Spades" in a standard card frame
 
 ### Requirement: Deck import and export
-The system SHALL export a deck as a single archive containing a JSON manifest and its images. It SHALL import such an archive, or a JSON manifest alone that references image URLs, and report validation errors per card.
+For backups, moving decks between servers and offline authoring, the system SHALL export any deck the player can view as a single archive containing a JSON manifest and its images. It SHALL import such an archive, or a JSON manifest alone that references image URLs, as a new private deck owned by the importer, and report validation errors per card.
 
 #### Scenario: Round-trip export
 - **WHEN** a player exports a deck and imports the resulting file
@@ -83,15 +175,15 @@ The system SHALL export a deck as a single archive containing a JSON manifest an
 - **THEN** the import reports that card's error and does not create the deck
 
 ### Requirement: Built-in starter deck
-The system SHALL provide a read-only standard 52-card deck with optional jokers, which players can use on tables or duplicate into their own library.
+The system SHALL provide a read-only standard 52-card deck with optional jokers, which players can use on tables or clone into their own library.
 
 #### Scenario: Use starter deck
 - **WHEN** a host loads the built-in standard deck onto a table
 - **THEN** 52 cards with `suit` and `rank` metadata are placed in a single face-down pile
 
 ### Requirement: Deck sharing to tables
-A deck owner SHALL be able to load any of their decks onto a table they host. Players at that table SHALL be able to see the deck's card definitions without being able to edit them.
+A host SHALL be able to load onto their table any active deck they own, any built-in deck, and any public or link-shared deck. Participants at that table SHALL be able to browse the loaded deck's card definitions and clone it, but not edit it.
 
 #### Scenario: Non-owner cannot edit
 - **WHEN** a seated player who does not own the loaded deck opens it from the table
-- **THEN** they can browse its card definitions but editing controls are unavailable
+- **THEN** they can browse its card definitions and clone it, but editing controls are unavailable

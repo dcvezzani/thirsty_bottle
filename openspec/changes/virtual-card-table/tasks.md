@@ -28,11 +28,17 @@
 
 ## 4. Deck library backend
 
-- [ ] 4.1 Implement deck and card-def REST CRUD with ownership checks and count ≥ 1 validation. Verify with API tests, including rejecting a count of 0 and the delete-while-in-use behavior.
-- [ ] 4.2 Implement image upload: type/size checks, `sharp` normalization to 750×1050 WebP plus a 250×350 thumbnail, content-addressed storage and access-controlled serving. Verify with tests for an off-ratio image and rejection of a 30 MB TIFF.
-- [ ] 4.3 Implement JSON manifest and `.zip` import/export with per-card validation errors. Verify with a round-trip test and an invalid-count import test.
-- [ ] 4.4 Seed the read-only standard 52-card deck (plus optional jokers) with `suit`/`rank` metadata and generated faces. Verify that loading it creates 52 face-down instances in one pile.
-- [ ] 4.5 Document the deck manifest format in `docs/deck-format.md` with a sample manifest. Verify that the sample imports successfully in a test.
+- [ ] 4.1 Implement deck and card-def REST CRUD with ownership checks and count ≥ 1 validation, card duplicate/reorder/bulk-count, and copying cards from any viewable deck. Verify with API tests, including rejecting a count of 0 and copying cards from a public deck.
+- [ ] 4.2 Implement drafts and versioned save/discard (immutable `deck_versions`, one draft per deck). Verify with API tests showing that non-owners see only the saved version and that a draft survives a reload.
+- [ ] 4.3 Implement the archive/restore lifecycle and archived-only permanent delete with confirmation, plus image garbage collection. Verify with API tests: deleting an active deck is refused, restore keeps the version and visibility, and a clone survives deletion of its source.
+- [ ] 4.4 Implement visibility (private/link/public), share tokens and the `canView` access check (owner, built-in, link, public, loaded on my table; active only; private refuses as not found). Verify with API tests for each access path and for an archived deck's link being refused.
+- [ ] 4.5 Implement cloning (copy the current version, private and owned by the cloner, frozen "Cloned from" label, shared images, clone_count). Verify with API tests: a clone is independent of later source edits and deletion, and an archived source can't be cloned by others.
+- [ ] 4.6 Implement table deck snapshots (`table_decks`) on load, the "newer version available" flag and reload. Verify with an integration test that editing and then deleting the source deck leaves table play and card info intact.
+- [ ] 4.7 Implement the public gallery query (active and public only, FTS search, newest/most-cloned sort, paging) and the report-deck hide. Verify with API tests showing that archiving withdraws a deck from the gallery.
+- [ ] 4.8 Implement image upload: type/size checks, `sharp` normalization to 750×1050 WebP plus a 250×350 thumbnail, content-addressed storage and access-controlled serving. Verify with tests for an off-ratio image and rejection of a 30 MB TIFF.
+- [ ] 4.9 Implement JSON manifest and `.zip` import/export (export any viewable deck; import creates a new private deck owned by the importer) with per-card validation errors. Verify with a round-trip test and an invalid-count import test.
+- [ ] 4.10 Seed the read-only standard 52-card deck (plus optional jokers) with `suit`/`rank` metadata and generated faces. Verify that loading it creates 52 face-down instances in one pile.
+- [ ] 4.11 Document the deck manifest format and deck lifecycle (save, archive, delete, visibility, clone) in `docs/deck-format.md` with a sample manifest. Verify that the sample imports successfully in a test.
 
 ## 5. Lobby and chat backend
 
@@ -52,8 +58,10 @@
 
 ## 8. Deck library UI
 
-- [ ] 8.1 Build the deck list and editor: card grid, card form (name, description, count, front/back upload with a ratio preview), metadata editor with typed values and deck property templates, and the abilities editor. Verify with an end-to-end test that creates a deck with 2 cards, custom metadata and art.
-- [ ] 8.2 Add import/export buttons and the generated text-only card face renderer. Verify with an end-to-end test that exports and re-imports a deck and checks that a text-only card renders its name.
+- [ ] 8.1 Build the library screen with tabs (My decks · Archived · Gallery): archive/restore, delete-with-confirm on archived decks only, a visibility picker with a copyable share link, gallery search and preview, Clone buttons, and the `/d/:token` link view. Verify with an end-to-end test where player B finds player A's public deck in the gallery, clones it and edits the clone, and A's deck is unchanged.
+- [ ] 8.2 Build the deck editor with draft/save/discard (resume-draft prompt and an unsaved indicator) and card management (add, duplicate, reorder, multi-select bulk count, copy cards from another deck). Verify with an end-to-end test that unsaved edits survive a reload and that discard restores the saved version.
+- [ ] 8.3 Build the card form (name, description, count, front/back upload with a ratio preview), metadata editor with typed values and deck property templates, and the abilities editor. Verify with an end-to-end test that creates a deck with 2 cards, custom metadata and art.
+- [ ] 8.4 Add import/export buttons and the generated text-only card face renderer. Verify with an end-to-end test that exports and re-imports a deck and checks that a text-only card renders its name.
 
 ## 9. Table UI
 
@@ -65,7 +73,7 @@
 - [ ] 9.6 Add group drag (ordered stack with a count badge, drop-zone highlights, insertion gap, drop-on-seat passes), sent as a single multi-handle move intent. Verify with an end-to-end test that 5 cards are passed in one drag, the log shows one entry, and one undo restores all 5.
 - [ ] 9.7 Add the contextual action sheet (Flip, Move to…, Pass to…, Show to…, Peek, Shuffle, Cut, Draw top/bottom/random, Deal, Gather, Fan out) with the 3 recent destinations first and "Send again". Verify with end-to-end tests that two players pass and show cards with correct faces, and that "Send again" repeats the last destination.
 - [ ] 9.8 Add optimistic prediction for deterministic actions, pending animations for random ones, rebase-and-animate on rejection, and interpolated live drag previews of other players. Verify with an end-to-end test of the rejected last-card drag animating back, plus a manual check for 60fps scrub and drag of a 30-card hand on a throttled-CPU profile.
-- [ ] 9.9 Build the card info sheet (still-hold or right-click) with full metadata and abilities for visible cards, the hidden-card view and the deck reference browser. Verify with end-to-end tests that a face-down card's info shows no identity.
+- [ ] 9.9 Build the card info sheet (still-hold or right-click) with full metadata and abilities for visible cards, the hidden-card view, and the deck reference browser with "Clone to my library". Verify with end-to-end tests that a face-down card's info shows no identity.
 - [ ] 9.10 Build the table drawer (Room · Lobby · Log · Info), the counters/notes panel, the mode toggle with turn controls, the "Your turn" notice with vibration, the undo button, and host management menus. Verify with end-to-end tests for switching modes mid-game and an out-of-turn action being refused.
 - [ ] 9.11 Add action feedback: move, flip, shuffle and deal animations with actor labels in player colors. Verify by manually reviewing a recorded 4-player deal on a phone viewport.
 

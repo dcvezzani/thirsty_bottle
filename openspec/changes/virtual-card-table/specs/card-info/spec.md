@@ -31,6 +31,10 @@ Participants SHALL be able to browse the full list of card definitions for every
 - **WHEN** a player opens the deck reference for the loaded deck
 - **THEN** they see each definition with its artwork, metadata and instance count, and no current locations are shown
 
+#### Scenario: Clone from the table
+- **WHEN** a player taps "Clone to my library" in the deck reference
+- **THEN** a clone of the table's deck is added to their library, as defined in deck-library
+
 ### Requirement: Zoom from hand
 A player SHALL be able to see an enlarged view of any card in their own hand without leaving the table, by hovering (pointer) or scrubbing (touch, as defined in card-handling).
 

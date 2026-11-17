@@ -55,18 +55,28 @@ The client applies its own intent locally through the same reducer, but only for
 The reducer has an `authorize(state, actor, action)` step. In turn-based mode it rejects actions that touch shared zones or other players' zones unless the actor is the active player. Own-hand reordering, card info, chat and consent responses are always allowed. Switching mode is just another action, so it is ordered, logged and undoable like any other.
 
 ### D6. Persistence: SQLite with snapshot plus append log
-- Tables: `players`, `decks`, `card_defs` (metadata as a JSON column), `images`, `tables`, `table_snapshots`, `table_actions`, `chat_messages`.
+- Tables: `players`, `decks`, `deck_versions`, `deck_drafts`, `card_defs` (metadata as a JSON column, keyed to a deck version), `images`, `tables`, `table_decks`, `table_snapshots`, `table_actions`, `chat_messages`.
 - Each table persists a full snapshot every 50 actions and on idle, plus an append-only action log in between. On restart, the server loads the latest snapshot and replays the actions after it. This also powers undo: the server keeps the inverse of the last action.
 - Images live on disk under `data/images/<sha256>.<webp>` (content-addressed, deduplicated). They are normalized by `sharp` to 750×1050 WebP with a 250×350 thumbnail.
 
 ### D7. Card metadata model
 `CardDef = {id, name, description?, frontImageId?, backImageId?, count, metadata: Record<string, string|number|boolean|string[]>, abilities?: {trigger, effect, value?, target}[]}`. Decks carry `propertyTemplate: {key, type}[]` to drive the editor. The JSON manifest format matches this shape. A `.zip` export bundles `deck.json` and `images/`. CSV import is out of scope, because spreadsheet tools can export JSON through templates.
 
+### D7a. Deck lifecycle, versions, cloning and gallery
+- `decks` = `{id, owner_id, name, description, status: active|archived, archived_at?, visibility: private|link|public, share_token?, cloned_from_deck_id?, cloned_from_label?, current_version_id, clone_count}`.
+- **Versions:** each Save writes an immutable `deck_versions` row holding the full card list. `deck_drafts` holds one working copy per deck, written as the owner edits (debounced), and is cleared on save or discard. Readers other than the owner always resolve `current_version_id`.
+- **Table snapshots:** loading a deck copies the version's card definitions into `table_decks` (JSON). Table play never reads `decks` again, which makes edit, archive and delete safe while a game is running. The host gets a "newer version available" flag by comparing version IDs.
+- **Cloning:** a server-side copy of the current version into a new deck owned by the cloner. Because images are content-addressed (D6), they are shared without being copied. The source's `clone_count` goes up, and the source name and owner are stored as a frozen label so the attribution survives the source's deletion.
+- **Deletion:** allowed only when `status = archived`. This removes the deck, its versions and its draft. A periodic garbage collector removes image files that no longer have any reference from `deck_versions`, `deck_drafts` or `table_decks`.
+- **Access check:** one `canView(player, deck)` function governs viewing. It allows the owner; built-in decks; `link` decks with a valid share token; `public` decks; and any deck loaded on a table the player is currently at (served from the table snapshot). In every case except the owner, the deck must also be active. A private deck refuses with "not found", so its existence isn't revealed.
+- **Gallery:** a paged query over decks that are public and active, with a name/owner search (SQLite FTS5) and sorting by newest or most cloned.
+- **Routes:** `/decks` (tabs: My decks · Archived · Gallery), `/decks/:id` editor or preview, and `/d/:shareToken` link view.
+
 ### D8. Identity
 On first visit the server issues a random 256-bit device token, which the client stores in `localStorage`. It is sent on WebSocket connect and as a bearer token for REST calls. The display name and color are stored per player. There are no passwords. A table password is checked server-side against an Argon2 hash.
 
 ### D9. Mobile UI architecture
-- Routes: `/` lobby (tabs: Tables · Players · Chat), `/decks` library and editor, `/t/:tableId` table.
+- Routes: `/` lobby (tabs: Tables · Players · Chat), `/decks` library, gallery and editor (see D7a), `/t/:tableId` table.
 - Table screen: a zoomable/pannable board (shared zones) in the upper area, your fanned hand along the bottom edge, and a slide-up drawer with tabs **Room · Lobby · Log · Info**. Lobby chat is reachable from that drawer, which satisfies the chat spec.
 - Interaction (see D11): tap toggles selection, a sideways slide scrubs (preview, or paint-select once something is selected), a stationary hold opens card info, pulling out drags the card or selection, and a contextual action sheet lists every action for the selection (Flip, Show to…, Pass to…, Move to…, Peek). Every gesture has a non-gesture fallback.
 - Cards render as absolutely positioned elements moved with `transform` (GPU compositing), and images load from thumbnails first.
@@ -94,6 +104,8 @@ Shuffles use Fisher–Yates driven by `crypto.randomInt`. Random draws and rando
 - [Optimistic prediction diverges in real-time contention] → Prediction is limited to deterministic operations, and the rebase-and-animate approach keeps divergence brief and visible rather than silent.
 - [Uploaded images could be abusive or very large] → There is a size limit, decoding happens in `sharp` (which rejects malformed files), images are only served to users who can access the deck or table, and there is no public gallery.
 - [Gesture conflicts with browser scroll or zoom on mobile] → Use `touch-action: none` only on card zones, and pan the board with two fingers or on empty board space. Tune thresholds in an on-device test pass.
+- [The public gallery may receive unwanted or infringing artwork] → Decks are opt-in public. Add a "report deck" action that hides a deck pending review by a server admin (a CLI command in v1).
+- [Deck versions accumulate storage] → Versions are small JSON rows and images are deduplicated. Prune versions that are neither current nor referenced by `table_decks` once they are older than 30 days.
 - [Single-process design limits scale] → Acceptable for friend groups. Table state is isolated per table, so sharding by table ID later would be straightforward.
 
 ## Migration Plan
