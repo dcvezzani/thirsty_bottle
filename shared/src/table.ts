@@ -1,0 +1,285 @@
+import { z } from 'zod';
+import { CardDefSchema, ImageIdSchema, type CardDef } from './cards.js';
+
+export const MAX_SEATS = 12;
+export const UNDO_WINDOW_MS = 10_000;
+
+export type TableMode = 'realtime' | 'turn';
+export type ZoneLayout = 'pile' | 'spread' | 'free';
+export type ZoneKind = 'shared' | 'hand';
+
+/** A deck snapshot loaded onto a table. Never changes after load (until reload). */
+export interface TableDeck {
+  id: string;
+  sourceDeckId: string | null;
+  versionId: string | null;
+  name: string;
+  backImageId?: string;
+  defs: CardDef[];
+  /** Zone the deck's cards start in on load/reset. */
+  homeZoneId: string;
+}
+
+export interface CardInst {
+  id: string;
+  deckId: string;
+  defId: string;
+  copyNo: number;
+  copyOf: number;
+  faceUp: boolean;
+  /** Player ids the card is currently shown to; '*' = everyone. */
+  shownTo: string[];
+  shownBy: string | null;
+  peekedBy: string[];
+}
+
+export interface Zone {
+  id: string;
+  name: string;
+  kind: ZoneKind;
+  /** For hand zones: the seat id that owns it. */
+  seatId: string | null;
+  layout: ZoneLayout;
+  color: string;
+  x: number;
+  y: number;
+  /** Ordered instance ids; index 0 is the top of a pile / leftmost in a spread. */
+  cards: string[];
+  /** Positions of cards in free layout, 0..1 relative to the zone. */
+  pos: Record<string, { x: number; y: number }>;
+}
+
+export interface Seat {
+  id: string;
+  playerId: string | null;
+  name: string;
+  color: string;
+}
+
+export interface Participant {
+  playerId: string;
+  name: string;
+  color: string;
+}
+
+export interface Counter {
+  id: string;
+  label: string;
+  value: number;
+}
+
+export interface LogEntry {
+  id: number;
+  at: number;
+  actor: string | null;
+  text: string;
+  /** Per-player alternative text revealing details only that player may know. */
+  privateText?: Record<string, string>;
+  kind: 'action' | 'system' | 'turn';
+  /** Card-action entries can be hidden by players who turn off card-action messages in room chat. */
+  cardAction?: boolean;
+}
+
+export interface TakeRequest {
+  id: string;
+  from: string; // requesting player
+  seatId: string; // hand owner seat
+  cards: string[];
+  to: string; // destination zone
+  at: number;
+}
+
+export interface Vacated {
+  seatId: string;
+  playerName: string;
+}
+
+export interface TableSettings {
+  name: string;
+  seatLimit: number | null;
+  visibility: 'public' | 'private';
+  spectatorsAllowed: boolean;
+  openHands: boolean;
+  playersMaySwitchMode: boolean;
+  locked: boolean;
+  hasPassword: boolean;
+}
+
+export interface TableState {
+  id: string;
+  createdAt: number;
+  hostId: string;
+  settings: TableSettings;
+  mode: TableMode;
+  turn: { active: string | null; direction: 1 | -1 };
+  seats: Seat[];
+  spectators: Participant[];
+  zones: Record<string, Zone>;
+  zoneOrder: string[];
+  cards: Record<string, CardInst>;
+  decks: Record<string, TableDeck>;
+  counters: Counter[];
+  notes: string;
+  log: LogEntry[];
+  logSeq: number;
+  requests: TakeRequest[];
+  vacated: Vacated[];
+  /** Monotonic id source for zones, seats, counters etc. (deterministic across replay). */
+  idSeq: number;
+  /** Seat ids in the order players first sat, used for host auto-transfer. */
+  seatedOrder: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Actions (the same shape on the wire, with card references as opaque handles,
+// and inside the reducer, with card references resolved to instance ids).
+// ---------------------------------------------------------------------------
+
+const id = z.string().min(1).max(100);
+const cardList = z.array(id).min(1).max(600);
+const zoneColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const TableDeckSchema = z.object({
+  id,
+  sourceDeckId: z.string().nullable(),
+  versionId: z.string().nullable(),
+  name: z.string().max(100),
+  backImageId: ImageIdSchema.optional(),
+  defs: z.array(CardDefSchema),
+  homeZoneId: id,
+});
+
+export const ActionSchema = z.discriminatedUnion('type', [
+  // --- cards
+  z.object({
+    type: z.literal('move'),
+    cards: cardList,
+    to: id,
+    index: z.number().int().min(0).optional(),
+    face: z.enum(['up', 'down']).optional(),
+    pos: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+  }),
+  z.object({ type: z.literal('flip'), cards: cardList }),
+  z.object({ type: z.literal('flipZone'), zone: id, face: z.enum(['up', 'down']).optional() }),
+  z.object({ type: z.literal('shuffle'), zone: id }),
+  z.object({
+    type: z.literal('cut'),
+    zone: id,
+    depth: z.number().int().min(1).optional(),
+    mode: z.enum(['complete', 'split']).default('complete'),
+  }),
+  z.object({
+    type: z.literal('draw'),
+    zone: id,
+    count: z.number().int().min(1).max(500),
+    from: z.enum(['top', 'bottom', 'random']),
+    to: id.optional(),
+    face: z.enum(['up', 'down']).optional(),
+  }),
+  z.object({
+    type: z.literal('deal'),
+    zone: id,
+    count: z.number().int().min(1).max(500),
+    seats: z.array(id).min(1).max(12),
+    startSeat: id.optional(),
+    face: z.enum(['up', 'down']).default('down'),
+  }),
+  z.object({ type: z.literal('show'), cards: cardList, to: z.union([z.literal('all'), z.array(id).min(1)]) }),
+  z.object({ type: z.literal('unshow'), cards: cardList }),
+  z.object({
+    type: z.literal('peek'),
+    cards: cardList.optional(),
+    zone: id.optional(),
+    count: z.number().int().min(1).max(500).optional(),
+  }),
+  z.object({ type: z.literal('unpeek'), cards: cardList.optional() }),
+  z.object({ type: z.literal('gather'), zones: z.union([z.literal('all'), z.array(id).min(1)]), to: id }),
+  z.object({ type: z.literal('respondTake'), requestId: id, approve: z.boolean() }),
+  // --- zones
+  z.object({
+    type: z.literal('zoneAdd'),
+    name: z.string().min(1).max(40),
+    layout: z.enum(['pile', 'spread', 'free']),
+    color: zoneColor.optional(),
+    x: z.number().min(0).max(1).optional(),
+    y: z.number().min(0).max(1).optional(),
+  }),
+  z.object({
+    type: z.literal('zoneUpdate'),
+    zone: id,
+    name: z.string().min(1).max(40).optional(),
+    layout: z.enum(['pile', 'spread', 'free']).optional(),
+    color: zoneColor.optional(),
+    x: z.number().min(0).max(1).optional(),
+    y: z.number().min(0).max(1).optional(),
+  }),
+  z.object({ type: z.literal('zoneRemove'), zone: id, moveTo: id.optional() }),
+  // --- counters & notes
+  z.object({ type: z.literal('counterAdd'), label: z.string().min(1).max(40), value: z.number().int().default(0) }),
+  z.object({ type: z.literal('counterChange'), counter: id, delta: z.number().int() }),
+  z.object({ type: z.literal('counterSet'), counter: id, value: z.number().int(), label: z.string().max(40).optional() }),
+  z.object({ type: z.literal('counterRemove'), counter: id }),
+  z.object({ type: z.literal('setNotes'), notes: z.string().max(5000) }),
+  // --- turns
+  z.object({ type: z.literal('setMode'), mode: z.enum(['realtime', 'turn']), active: id.optional() }),
+  z.object({ type: z.literal('endTurn') }),
+  z.object({ type: z.literal('reverse') }),
+  z.object({ type: z.literal('skip') }),
+  z.object({ type: z.literal('setActive'), seat: id }),
+  // --- undo
+  z.object({ type: z.literal('undo') }),
+  // --- host / seating
+  z.object({ type: z.literal('setHost'), playerId: id }),
+  z.object({
+    type: z.literal('settings'),
+    name: z.string().min(1).max(60).optional(),
+    seatLimit: z.number().int().min(1).max(12).nullable().optional(),
+    visibility: z.enum(['public', 'private']).optional(),
+    spectatorsAllowed: z.boolean().optional(),
+    openHands: z.boolean().optional(),
+    playersMaySwitchMode: z.boolean().optional(),
+    locked: z.boolean().optional(),
+  }),
+  z.object({ type: z.literal('moveSeat'), seat: id, toIndex: z.number().int().min(0) }),
+  z.object({ type: z.literal('resolveVacated'), seat: id, returnTo: z.union([z.literal('keep'), id]) }),
+  z.object({ type: z.literal('reset') }),
+  z.object({ type: z.literal('unloadDeck'), deck: id }),
+]);
+export type Action = z.infer<typeof ActionSchema>;
+export type ActionType = Action['type'];
+
+/** Actions only the server issues (seating changes, deck loading); never accepted from clients. */
+export type SystemAction =
+  | { type: 'seatJoin'; player: Participant; seatId?: string }
+  | { type: 'spectate'; player: Participant }
+  | { type: 'seatLeave'; playerId: string; reason: 'left' | 'kicked' | 'expired' }
+  | { type: 'loadDeck'; deck: z.infer<typeof TableDeckSchema>; zone?: string }
+  | { type: 'reloadDeck'; deckId: string; deck: z.infer<typeof TableDeckSchema> }
+  | { type: 'autoHost'; playerId: string }
+  | { type: 'autoPass' }
+  | { type: 'passwordChanged'; hasPassword: boolean }
+  | { type: 'renamePlayer'; playerId: string; name: string; color: string };
+
+export type AnyAction = Action | SystemAction;
+
+/** Card actions that the take-from-hand / turn gates and undo apply to. */
+export const UNDOABLE: ReadonlySet<string> = new Set([
+  'move',
+  'flip',
+  'flipZone',
+  'shuffle',
+  'cut',
+  'draw',
+  'deal',
+  'show',
+  'unshow',
+  'peek',
+  'unpeek',
+  'gather',
+  'counterAdd',
+  'counterChange',
+  'counterSet',
+  'counterRemove',
+  'setNotes',
+  'respondTake',
+]);

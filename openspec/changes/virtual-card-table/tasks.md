@@ -8,15 +8,15 @@
 
 ## 2. Shared protocol and table reducer
 
-- [ ] 2.1 Define `CardDef`, `Deck`, `TableState`, `Zone`, `Seat`, `Action` and `Event` types with zod schemas in `shared/`. Verify with schema unit tests that accept valid samples and reject malformed ones.
-- [ ] 2.2 Implement the pure table reducer for move, flip, flip-zone, reorder, pass, gather, counters and zone CRUD. Verify with unit tests covering each action, including face-state preservation and "flip during move".
-- [ ] 2.3 Assign `copyNo`/`copyOf` per definition in deck order when a deck snapshot is loaded (renumbered on reload, scoped per loaded deck). Verify with unit tests that a count-3 definition yields #1–#3 and that numbers are unchanged after shuffle, move, gather and reset.
-- [ ] 2.4 Implement shuffle, cut (complete and split) and draw (top, bottom, random) with an injectable secure RNG. Verify with unit tests, including draw-more-than-available and a chi-square uniformity test of shuffle.
-- [ ] 2.5 Implement deal (round-robin, start seat, face up or down). Verify that a 4×13 deal unit test empties the pile and gives each seat 13 cards in rotation order.
-- [ ] 2.6 Implement show, peek and their automatic ending on move or gather. Verify with unit tests for show-to-one, show-to-all and show-ends-on-move.
-- [ ] 2.7 Implement the `authorize` step: spectators read-only, the take-from-hand consent flow, the open-hands option, and the turn-based gate (own-hand reorder always allowed). Verify with unit tests for each turn-modes and table-play permission scenario.
-- [ ] 2.8 Implement turn actions (setMode, endTurn, reverse, skip, setActive) and the next-seat calculation that skips empty or disconnected seats. Verify with unit tests for the turn-modes scenarios.
-- [ ] 2.9 Implement log entries worded so they never reveal hidden identities, and single-step undo with the 10-second, no-intervening-action window. Verify with unit tests.
+- [x] 2.1 Define `CardDef`, `Deck`, `TableState`, `Zone`, `Seat`, `Action` and `Event` types with zod schemas in `shared/`. Verify with schema unit tests that accept valid samples and reject malformed ones.
+- [x] 2.2 Implement the pure table reducer for move, flip, flip-zone, reorder, pass, gather, counters and zone CRUD. Verify with unit tests covering each action, including face-state preservation and "flip during move".
+- [x] 2.3 Assign `copyNo`/`copyOf` per definition in deck order when a deck snapshot is loaded (renumbered on reload, scoped per loaded deck). Verify with unit tests that a count-3 definition yields #1–#3 and that numbers are unchanged after shuffle, move, gather and reset.
+- [x] 2.4 Implement shuffle, cut (complete and split) and draw (top, bottom, random) with an injectable secure RNG. Verify with unit tests, including draw-more-than-available and a chi-square uniformity test of shuffle.
+- [x] 2.5 Implement deal (round-robin, start seat, face up or down). Verify that a 4×13 deal unit test empties the pile and gives each seat 13 cards in rotation order.
+- [x] 2.6 Implement show, peek and their automatic ending on move or gather. Verify with unit tests for show-to-one, show-to-all and show-ends-on-move.
+- [x] 2.7 Implement the `authorize` step: spectators read-only, the take-from-hand consent flow, the open-hands option, and the turn-based gate (own-hand reorder always allowed). Verify with unit tests for each turn-modes and table-play permission scenario.
+- [x] 2.8 Implement turn actions (setMode, endTurn, reverse, skip, setActive) and the next-seat calculation that skips empty or disconnected seats. Verify with unit tests for the turn-modes scenarios.
+- [x] 2.9 Implement log entries worded so they never reveal hidden identities, and single-step undo with the 10-second, no-intervening-action window. Verify with unit tests.
 
 ## 3. Server core and visibility
 
