@@ -201,3 +201,58 @@ A host SHALL be able to load onto their table any active deck they own, any buil
 #### Scenario: Non-owner cannot edit
 - **WHEN** a seated player who does not own the loaded deck opens it from the table
 - **THEN** they can browse its card definitions and clone it, but editing controls are unavailable
+
+### Requirement: Report a public deck
+Any player who can view a public deck that is not built in SHALL be able to report it, with an optional reason. A report SHALL hide the deck from the public gallery until an admin reviews it. Reporting the same deck again by the same player SHALL have no additional effect.
+
+#### Scenario: Report hides from the gallery
+- **WHEN** a player reports a public deck
+- **THEN** the deck no longer appears in gallery searches, and its owner still sees it in their library
+
+#### Scenario: Built-in decks cannot be hidden
+- **WHEN** a player reports a built-in deck
+- **THEN** the built-in deck stays available to everyone
+
+### Requirement: Admin review of reports
+A server operator SHALL be able to list reported decks with report counts and reasons, unhide a deck (which clears its reports and returns it to the gallery), or hide a deck, using a command-line tool run against the server's data directory.
+
+#### Scenario: Unhide after review
+- **WHEN** the operator runs the unhide command for a reported public deck
+- **THEN** the deck appears in the gallery again and its reports are cleared
+
+#### Scenario: List reports
+- **WHEN** the operator runs the reports command
+- **THEN** each reported deck is listed with its name, number of reports and reasons
+
+### Requirement: Image access
+The system SHALL serve an uploaded image only to its uploader, to players who can view a deck that uses it (as owner, built-in, public, or link with its share token), and to players at a table where a deck using it is loaded. Requests from anyone else SHALL be refused as not found.
+
+#### Scenario: Private artwork stays private
+- **WHEN** a player who cannot view a private deck requests one of its images
+- **THEN** the server responds as if the image does not exist
+
+#### Scenario: Table participants see loaded artwork
+- **WHEN** a private deck is loaded on a table and a seated player requests one of its images
+- **THEN** the image is served
+
+### Requirement: Image requests work without headers per window
+Image URLs SHALL carry a signed key identifying the requesting player, so that images display in each browser window as that window's player without cookies or request headers. A forged or tampered key SHALL be refused as not found.
+
+#### Scenario: Two players in one browser
+- **WHEN** two windows in the same browser play as different players
+- **THEN** each window's images load using its own player's access
+
+#### Scenario: Forged key
+- **WHEN** an image is requested with a key that does not match its signature
+- **THEN** the server responds as if the image does not exist
+
+### Requirement: Prune unreferenced old versions
+The system SHALL periodically delete saved deck versions that are older than 30 days and are neither a deck's current version nor referenced by any table snapshot. Pruning SHALL NOT affect current versions, unsaved drafts or decks loaded on tables. Images used only by pruned versions SHALL then become eligible for garbage collection.
+
+#### Scenario: Old superseded version
+- **WHEN** a deck has been saved several times and its first version is 40 days old and not loaded on any table
+- **THEN** that version is deleted, and the current version and draft are unchanged
+
+#### Scenario: Version in use on a table
+- **WHEN** a 40-day-old version is loaded on an open table
+- **THEN** it is kept and the table keeps working

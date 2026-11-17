@@ -129,3 +129,39 @@ The lobby SHALL be fully usable on a 360-pixel-wide touch screen, with tables, o
 #### Scenario: Phone layout
 - **WHEN** the lobby is opened on a phone in portrait
 - **THEN** tables, players and chat are each reachable with one tap, with no horizontal scrolling
+
+### Requirement: Recovery code
+A player SHALL be able to copy a recovery code for their identity, and SHALL be able to continue as that player in any window or browser by entering the code in the identity picker. The code SHALL be treated as a secret. An unknown code SHALL be refused.
+
+#### Scenario: Continue on another device
+- **WHEN** a player copies their recovery code and enters it in the identity picker of a different browser
+- **THEN** that browser plays as the same player, with the same decks and table seat
+
+#### Scenario: Unknown code
+- **WHEN** someone enters a code that matches no player
+- **THEN** they are told the code is unknown and no identity changes
+
+### Requirement: Change display name and color
+A player SHALL be able to change their display name (1–24 characters) and color at any time after onboarding. The change SHALL appear in the lobby presence list, on their seat at any table they are at, and on chat messages they send afterwards. Earlier chat messages keep the name they were sent with.
+
+#### Scenario: Rename while seated
+- **WHEN** a seated player changes their name from "Alex" to "Alexandra"
+- **THEN** other players see "Alexandra" in the lobby list and on that seat
+
+#### Scenario: Invalid name
+- **WHEN** a player submits an empty or 25-character name
+- **THEN** the change is refused and their name is unchanged
+
+### Requirement: Rejoin your own seat
+When a player who left a seat with cards in hand joins the table again without choosing a seat, the system SHALL seat them at their own vacated seat (with its hand), provided it is still empty, before any other empty seat.
+
+#### Scenario: Return after the grace period
+- **WHEN** a player lost their seat after the reconnect grace period, their hand was kept, and they join again
+- **THEN** they sit at their previous seat with the same hand
+
+### Requirement: A seated host always exists while players are seated
+When the host leaves, the host role SHALL pass to the longest-seated connected player. If the table has no seated host when a player sits down, that player SHALL become host.
+
+#### Scenario: Everyone left, someone returns
+- **WHEN** all players including the host have left and one player sits down again
+- **THEN** that player becomes the host
