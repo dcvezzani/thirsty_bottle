@@ -100,6 +100,8 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .banner.offline { background: #f7d0d0; color: #6a1010; }
 .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
+  /* sheets also open over the table, whose felt sets white text: reset to the panel's ink */
+  color: var(--ink);
   background: var(--panel); width: 100%; max-width: 640px; max-height: 88vh; overflow: auto;
   border-radius: 16px 16px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
