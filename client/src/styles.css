@@ -39,7 +39,10 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
-button, input, select, textarea { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: var(--ink); }
+/* controls carry their own light background, so they never inherit the felt's white text;
+   buttons styled for the felt (topbar, seats, selection bar, …) set their colour explicitly */
+::placeholder { color: var(--ink-2); opacity: 1; }
 button {
   min-height: var(--tap);
   min-width: var(--tap);
