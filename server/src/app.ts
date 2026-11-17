@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
@@ -55,6 +56,7 @@ export class App {
   /** Player id → the table they are seated at or watching. */
   playerTables = new Map<string, string>();
   closing = false;
+  private secret!: Buffer;
   private purgeTimer: NodeJS.Timeout | null = null;
 
   constructor(opts: Partial<AppOptions> & { dataDir: string }) {
@@ -67,6 +69,9 @@ export class App {
       ...opts,
     };
     this.db = openDb(this.opts.dataDir);
+    const secretFile = path.join(this.opts.dataDir, 'secret.key');
+    if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(32), { mode: 0o600 });
+    this.secret = fs.readFileSync(secretFile);
     this.players = new Players(this.db);
     this.chat = new Chat(this);
     this.hub = new Hub(this);
@@ -142,6 +147,19 @@ export class App {
     await this.decks.reloadOnTable(s, tableDeckId);
   }
 
+  /** Per-player key for image URLs (<img> cannot send headers; cookies are shared across tabs). */
+  imageKey(pid: string): string {
+    return `${pid}.${crypto.createHmac('sha256', this.secret).update(pid).digest('base64url').slice(0, 22)}`;
+  }
+
+  playerFromImageKey(k: string | undefined): string | null {
+    if (!k) return null;
+    const pid = k.slice(0, k.lastIndexOf('.'));
+    const a = Buffer.from(this.imageKey(pid));
+    const b = Buffer.from(k);
+    return a.length === b.length && crypto.timingSafeEqual(a, b) ? pid : null;
+  }
+
   /** Resolves the bearer token on a request. */
   auth(req: FastifyRequest, required = true): Player | null {
     const h = req.headers.authorization;
@@ -171,12 +189,12 @@ export class App {
     app.post('/api/players', async (req) => {
       const body = z.object({ name: DisplayNameSchema, color: PlayerColorSchema }).parse(req.body);
       const { token, player } = this.players.create(body.name, body.color);
-      return { token, player: { id: player.id, name: player.name, color: player.color } };
+      return { token, player: { id: player.id, name: player.name, color: player.color }, imageKey: this.imageKey(player.id) };
     });
 
     app.get('/api/me', async (req) => {
       const p = this.auth(req)!;
-      return { player: { id: p.id, name: p.name, color: p.color }, tableId: this.playerTables.get(p.id) ?? null };
+      return { player: { id: p.id, name: p.name, color: p.color }, tableId: this.playerTables.get(p.id) ?? null, imageKey: this.imageKey(p.id) };
     });
 
     app.get('/api/tables/:id', async (req) => {
@@ -211,8 +229,8 @@ export class App {
     app.get('/api/images/:file', async (req, reply) => {
       const m = /^([a-f0-9]{64})(\.thumb)?\.webp$/.exec((req.params as any).file);
       if (!m) throw new HttpError(404, 'NOT_FOUND', 'Not found');
-      const me = this.auth(req, false);
-      if (!this.images.exists(m[1]) || !this.images.canFetch(m[1], me?.id ?? null, (req.query as any).share))
+      const pid = this.auth(req, false)?.id ?? this.playerFromImageKey((req.query as any).k);
+      if (!this.images.exists(m[1]) || !this.images.canFetch(m[1], pid, (req.query as any).share))
         throw new HttpError(404, 'NOT_FOUND', 'Not found');
       reply.header('cache-control', 'private, max-age=31536000, immutable');
       return reply.type('image/webp').send(fs.createReadStream(this.images.file(m[1], !!m[2])));

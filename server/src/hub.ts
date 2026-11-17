@@ -152,6 +152,7 @@ export class Hub {
             visibility: msg.visibility,
             passwordHash: hash,
             spectatorsAllowed: msg.spectatorsAllowed,
+            layout: msg.layout,
           },
         );
         app.playerTables.set(me.id, s.id);
@@ -187,12 +188,11 @@ export class Hub {
           }
           app.playerTables.set(me.id, s.id);
         } else if (msg.seatId && !s.isSeated(me.id) && !msg.spectate) {
-          // spectator taking a seat
+          // a spectator taking a seat
           if (s.state.settings.locked) throw new ActionError('LOCKED', 'The table is locked');
           s.apply({ type: 'seatJoin', player: p, seatId: msg.seatId }, null);
-        } else if (!s.isSeated(me.id) && !msg.spectate && msg.seatId === undefined && msg.password === undefined) {
-          // already spectating; rejoin as spectator (reconnect)
         }
+        // otherwise: already at the table (e.g. reconnecting): just resend the snapshot
         s.attach(me.id);
         app.chat.sendHistory(tableChannel(s.id), me.id);
         this.lobbyChanged();
@@ -295,7 +295,7 @@ export class Hub {
     const tid = this.app.playerTables.get(p.id);
     if (tid) this.app.tables.get(tid)?.onConnected(p.id);
     this.lobbyChanged(true);
-    ok({ player: this.publicPlayer(p), tableId: tid ?? null });
+    ok({ player: this.publicPlayer(p), tableId: tid ?? null, imageKey: this.app.imageKey(p.id) });
   }
 
   // ------------------------------------------------------------------ lobby presence

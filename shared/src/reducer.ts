@@ -73,6 +73,8 @@ export interface CreateTableOptions {
   spectatorsAllowed: boolean;
   hasPassword: boolean;
   now: number;
+  /** Starting layout: 'standard' adds a Discard pile and a Table spread; 'blank' adds nothing. */
+  layout?: 'standard' | 'blank';
 }
 
 export function createTableState(o: CreateTableOptions): TableState {
@@ -108,8 +110,10 @@ export function createTableState(o: CreateTableOptions): TableState {
     idSeq: 0,
     seatedOrder: [],
   };
-  addZone(s, { name: 'Discard', layout: 'pile', x: 0.7, y: 0.1 });
-  addZone(s, { name: 'Table', layout: 'spread', x: 0.05, y: 0.45 });
+  if ((o.layout ?? 'standard') === 'standard') {
+    addZone(s, { name: 'Discard', layout: 'pile', x: 0.7, y: 0.1 });
+    addZone(s, { name: 'Table', layout: 'spread', x: 0.05, y: 0.45 });
+  }
   const n = o.seatLimit ?? 1;
   for (let i = 0; i < n; i++) addSeat(s);
   s.seats[0].playerId = o.host.playerId;

@@ -291,6 +291,11 @@ describe('images (4.8)', () => {
     expect((await api(srv, 'GET', `/api/images/${img.id}.thumb.webp`, undefined, sam.token)).status).toBe(404);
     await A('PUT', `/api/decks/${d.id}/visibility`, { visibility: 'public' });
     expect((await api(srv, 'GET', `/api/images/${img.id}.thumb.webp`, undefined, sam.token)).status).toBe(200);
+    // signed per-player image keys work without headers; forged keys do not
+    const key = srv.app.imageKey(alex.player.id);
+    const priv = (await uploadPng(alex.token, 210, 290)).data;
+    expect((await api(srv, 'GET', `/api/images/${priv.id}.webp?k=${key}`)).status).toBe(200);
+    expect((await api(srv, 'GET', `/api/images/${priv.id}.webp?k=${alex.player.id}.forged`)).status).toBe(404);
   });
 });
 

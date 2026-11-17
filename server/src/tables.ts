@@ -327,6 +327,7 @@ export interface CreateTableInput {
   visibility: 'public' | 'private';
   passwordHash: string | null;
   spectatorsAllowed: boolean;
+  layout?: 'standard' | 'blank';
 }
 
 export class Tables {
@@ -371,6 +372,7 @@ export class Tables {
       spectatorsAllowed: input.spectatorsAllowed,
       hasPassword: !!input.passwordHash,
       now,
+      layout: input.layout,
     });
     this.app.db
       .prepare('INSERT INTO game_tables (id, state, version, password_hash, created_at) VALUES (?, ?, 0, ?, ?)')

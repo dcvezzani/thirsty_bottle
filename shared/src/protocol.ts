@@ -191,6 +191,7 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
     spectatorsAllowed: z.boolean().default(true),
     deckId: z.string().max(64).optional(),
     shareToken: z.string().max(64).optional(),
+    layout: z.enum(['standard', 'blank']).default('standard'),
   }),
   z.object({
     t: z.literal('table.join'),

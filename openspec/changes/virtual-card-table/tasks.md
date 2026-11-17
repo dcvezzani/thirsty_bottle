@@ -43,9 +43,9 @@
 
 ## 5. Lobby and chat backend
 
-- [ ] 5.1 Implement the table lifecycle: create (optional seat count or open seating, visibility, optional password hash, spectators, deck, layout), mid-game join (empty hand, appended to seat and turn order, blocked when locked or at 12), list, join/seat choice, spectate, leave (hand handling), invite links and closing after 30 minutes empty. Verify with integration tests for the lobby scenarios, including a minimal name-only table, joining an open table mid-game, and the 12-seat cap.
-- [ ] 5.2 Implement host controls: settings (including setting or removing the password and seat count), lock, move seat, kick, designate host (always allowed for the current host, regardless of mode or turn), load/unload deck, reset, close. Verify with integration tests, including kick → returned to lobby and host handover during another player's turn.
-- [ ] 5.3 Implement lobby and room chat channels with membership checks, 100-message history, retention, the 500-character limit, the 5-messages-per-5-seconds throttle, system messages, personal mute and host room mute. Verify with integration tests showing that room chat does not leak to the lobby and that a seated player can post to the lobby.
+- [x] 5.1 Implement the table lifecycle: create (optional seat count or open seating, visibility, optional password hash, spectators, deck, layout), mid-game join (empty hand, appended to seat and turn order, blocked when locked or at 12), list, join/seat choice, spectate, leave (hand handling), invite links and closing after 30 minutes empty. Verify with integration tests for the lobby scenarios, including a minimal name-only table, joining an open table mid-game, and the 12-seat cap.
+- [x] 5.2 Implement host controls: settings (including setting or removing the password and seat count), lock, move seat, kick, designate host (always allowed for the current host, regardless of mode or turn), load/unload deck, reset, close. Verify with integration tests, including kick → returned to lobby and host handover during another player's turn.
+- [x] 5.3 Implement lobby and room chat channels with membership checks, 100-message history, retention, the 500-character limit, the 5-messages-per-5-seconds throttle, system messages, personal mute and host room mute. Verify with integration tests showing that room chat does not leak to the lobby and that a seated player can post to the lobby.
 
 ## 6. Client foundation
 
