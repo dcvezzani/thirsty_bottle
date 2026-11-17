@@ -54,15 +54,15 @@
 
 ## 7. Lobby UI
 
-- [ ] 7.1 Build the mobile lobby with tabs (Tables · Players · Chat): table list with status badges, presence list, create-table sheet (only the name required; seat count and password optional), "open seating" display, join/spectate/password flows and invite-link handling. Verify with Playwright at a 360×740 viewport, checking that there is no horizontal scroll and that touch targets are at least 44px.
-- [ ] 7.2 Build the chat component (shared by lobby and room) with plain-text rendering, unread badges, system-message styling and mute. Verify with an end-to-end test that two players exchange lobby messages and that a `<script>` message stays inert.
+- [x] 7.1 Build the mobile lobby with tabs (Tables · Players · Chat): table list with status badges, presence list, create-table sheet (only the name required; seat count and password optional), "open seating" display, join/spectate/password flows and invite-link handling. Verify with Playwright at a 360×740 viewport, checking that there is no horizontal scroll and that touch targets are at least 44px.
+- [x] 7.2 Build the chat component (shared by lobby and room) with plain-text rendering, unread badges, system-message styling and mute. Verify with an end-to-end test that two players exchange lobby messages and that a `<script>` message stays inert.
 
 ## 8. Deck library UI
 
-- [ ] 8.1 Build the library screen with tabs (My decks · Archived · Gallery): archive/restore, delete-with-confirm on archived decks only, a visibility picker with a copyable share link, gallery search and preview, Clone buttons, and the `/d/:token` link view. Verify with an end-to-end test where player B finds player A's public deck in the gallery, clones it and edits the clone, and A's deck is unchanged.
-- [ ] 8.2 Build the deck editor with draft/save/discard (resume-draft prompt and an unsaved indicator) and card management (add, duplicate, reorder, multi-select bulk count, copy cards from another deck). Verify with an end-to-end test that unsaved edits survive a reload and that discard restores the saved version.
-- [ ] 8.3 Build the card form (name, description, count, front/back upload with a ratio preview), metadata editor with typed values and deck property templates, and the abilities editor. Verify with an end-to-end test that creates a deck with 2 cards, custom metadata and art.
-- [ ] 8.4 Add import/export buttons and the generated text-only card face renderer. Verify with an end-to-end test that exports and re-imports a deck and checks that a text-only card renders its name.
+- [x] 8.1 Build the library screen with tabs (My decks · Archived · Gallery): archive/restore, delete-with-confirm on archived decks only, a visibility picker with a copyable share link, gallery search and preview, Clone buttons, and the `/d/:token` link view. Verify with an end-to-end test where player B finds player A's public deck in the gallery, clones it and edits the clone, and A's deck is unchanged.
+- [x] 8.2 Build the deck editor with draft/save/discard (resume-draft prompt and an unsaved indicator) and card management (add, duplicate, reorder, multi-select bulk count, copy cards from another deck). Verify with an end-to-end test that unsaved edits survive a reload and that discard restores the saved version.
+- [x] 8.3 Build the card form (name, description, count, front/back upload with a ratio preview), metadata editor with typed values and deck property templates, and the abilities editor. Verify with an end-to-end test that creates a deck with 2 cards, custom metadata and art.
+- [x] 8.4 Add import/export buttons and the generated text-only card face renderer. Verify with an end-to-end test that exports and re-imports a deck and checks that a text-only card renders its name.
 
 ## 9. Table UI
 
