@@ -80,10 +80,10 @@
 
 ## 10. Integration checks
 
-- [ ] 10.1 Run a 4-player end-to-end game of Hearts (load the standard deck, shuffle, deal 13, pass 3 cards, play tricks to a shared spread, gather, score with counters) in turn-based mode, then switch to real-time mid-hand. Verify that the test passes with every client consistent at the end.
-- [ ] 10.2 Run a network-level hidden-information audit: capture every WebSocket frame for one player across the Hearts test and assert that no other player's hidden card definitions appear. Verify that the test passes.
-- [ ] 10.3 Run a performance check: a 12-seat, 500-card table with a scripted burst of actions, asserting that p95 server action-to-broadcast time is under 50 ms and client latency is under 300 ms on localhost. Verify that the benchmark meets the thresholds.
-- [ ] 10.4 Run the restart-resilience check: kill and restart the server during the Hearts test and verify that all clients reconnect to identical state.
+- [x] 10.1 Run a 4-player end-to-end game of Hearts (load the standard deck, shuffle, deal 13, pass 3 cards, play tricks to a shared spread, gather, score with counters) in turn-based mode, then switch to real-time mid-hand. Verify that the test passes with every client consistent at the end.
+- [x] 10.2 Run a network-level hidden-information audit: capture every WebSocket frame for one player across the Hearts test and assert that no other player's hidden card definitions appear. Verify that the test passes.
+- [x] 10.3 Run a performance check: a 12-seat, 500-card table with a scripted burst of actions, asserting that p95 server action-to-broadcast time is under 50 ms and client latency is under 300 ms on localhost. Verify that the benchmark meets the thresholds.
+- [x] 10.4 Run the restart-resilience check: kill and restart the server during the Hearts test and verify that all clients reconnect to identical state.
 
 ## Workflow follow-up
 
