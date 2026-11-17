@@ -18,11 +18,19 @@ For a card whose face the viewer cannot see, the details view SHALL show only th
 
 #### Scenario: Inspect a face-down card
 - **WHEN** a player opens info on a face-down card in the draw pile
-- **THEN** the view shows the back image and "Draw pile, card 7 of 40" and shows no name, description or metadata
+- **THEN** the view shows the back image and "Draw pile, card 7 of 40" and shows no name, description, metadata or copy number
+
+#### Scenario: Inspect a visible duplicate
+- **WHEN** a player opens info on the face-up card "Goblin #2 of 3"
+- **THEN** the view includes "Copy 2 of 3" alongside its name, description, metadata and abilities
+
+#### Scenario: Single-copy card info
+- **WHEN** a player opens info on a visible card whose definition has instance count 1
+- **THEN** the view shows "Copy 1 of 1"
 
 #### Scenario: Inspect an opponent's hand card
 - **WHEN** a player opens info on a card in another player's hand that has not been shown to them
-- **THEN** the view shows only the back image and the holder's name
+- **THEN** the view shows only the back image and the holder's name, with no copy number
 
 ### Requirement: Card definition reference
 Participants SHALL be able to browse the full list of card definitions for every deck loaded on the table, without learning where any specific instance is located.

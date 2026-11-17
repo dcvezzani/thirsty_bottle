@@ -34,9 +34,9 @@ This is a greenfield repository: it contains nothing except the OpenSpec scaffol
 **Alternatives considered:** Unity, Godot and Phaser. A game engine adds a heavy WebGL bundle and weak native text and UI handling (chat, forms, deck editor). Its strengths, physics and 3D, are not needed for a card table. DOM/CSS transforms handle tens of animated cards easily and give accessibility and text rendering for free. Phaser stays an option later for a canvas-rendered board if performance demands it. Socket.IO was rejected in favor of plain `ws` plus our own small reconnection layer, because the protocol needs explicit versioning anyway.
 
 ### D2. The server owns the table state, and each viewer receives a filtered projection
-The canonical `TableState` holds zones, ordered lists of instance IDs, each instance's `{defId, faceUp, shownTo[], peekedBy[]}`, seats, mode, turn, counters and the log. After each accepted action, the server builds a **projection per recipient**:
-- A card the viewer may see → `{handle, defId, faceUp, …}`.
-- A card the viewer may not see → `{handle, back: backImageId}`.
+The canonical `TableState` holds zones, ordered lists of instance IDs, each instance's `{defId, tableDeckId, copyNo, copyOf, faceUp, shownTo[], peekedBy[]}` (`copyNo`/`copyOf` are assigned in deck order when the deck snapshot is loaded, and are fixed until a reload), seats, mode, turn, counters and the log. After each accepted action, the server builds a **projection per recipient**:
+- A card the viewer may see → `{handle, defId, copyNo, copyOf, faceUp, …}`.
+- A card the viewer may not see → `{handle, back: backImageId}`. It never includes `copyNo`, because a visible per-copy number on hidden cards would act like a marked card.
 
 **Handles** are opaque per-viewer IDs. A hidden card's handle is regenerated whenever the card moves into or within a hidden position (shuffle, move into a pile, pass between hands), which satisfies the "cannot track shuffled card" scenario. The server keeps a per-viewer `handle → instanceId` map to resolve incoming intents.
 

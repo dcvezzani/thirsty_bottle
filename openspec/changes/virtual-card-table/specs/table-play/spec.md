@@ -138,6 +138,25 @@ Spectators SHALL see shared zones, counters and the log, but SHALL NOT see priva
 - **WHEN** a spectator watches a table
 - **THEN** they see face-up shared cards and hand counts, and every card action control is hidden
 
+### Requirement: Copy number display
+Card faces of definitions with more than one instance SHALL show a small copy-number badge (for example "2/3") in a corner, without altering the artwork. Log entries, move menus and selection summaries that name a visible duplicate SHALL include its copy number. Copy numbers SHALL never be shown for a card whose face the viewer cannot see.
+
+#### Scenario: Badge on a visible duplicate
+- **WHEN** "Goblin #2 of 3" is face up in a shared spread
+- **THEN** every participant sees a "2/3" badge on its face
+
+#### Scenario: Single copy has no badge
+- **WHEN** a card whose definition has instance count 1 is face up
+- **THEN** no copy-number badge is shown on its face
+
+#### Scenario: Log names the copy
+- **WHEN** Alex plays "Goblin #2 of 3" face up
+- **THEN** the log reads "Alex played Goblin #2"
+
+#### Scenario: Face-down duplicates are indistinguishable
+- **WHEN** two copies of "Goblin" lie face down in a spread
+- **THEN** both show the identical back image with no badge or other distinguishing mark
+
 ### Requirement: Action feedback
 The client SHALL animate card movement, flips, shuffles and deals. It SHALL indicate the actor (for example, a highlight in the player's color or a short floating label) so participants can follow what happened.
 

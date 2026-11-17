@@ -10,18 +10,19 @@
 
 - [ ] 2.1 Define `CardDef`, `Deck`, `TableState`, `Zone`, `Seat`, `Action` and `Event` types with zod schemas in `shared/`. Verify with schema unit tests that accept valid samples and reject malformed ones.
 - [ ] 2.2 Implement the pure table reducer for move, flip, flip-zone, reorder, pass, gather, counters and zone CRUD. Verify with unit tests covering each action, including face-state preservation and "flip during move".
-- [ ] 2.3 Implement shuffle, cut (complete and split) and draw (top, bottom, random) with an injectable secure RNG. Verify with unit tests, including draw-more-than-available and a chi-square uniformity test of shuffle.
-- [ ] 2.4 Implement deal (round-robin, start seat, face up or down). Verify that a 4×13 deal unit test empties the pile and gives each seat 13 cards in rotation order.
-- [ ] 2.5 Implement show, peek and their automatic ending on move or gather. Verify with unit tests for show-to-one, show-to-all and show-ends-on-move.
-- [ ] 2.6 Implement the `authorize` step: spectators read-only, the take-from-hand consent flow, the open-hands option, and the turn-based gate (own-hand reorder always allowed). Verify with unit tests for each turn-modes and table-play permission scenario.
-- [ ] 2.7 Implement turn actions (setMode, endTurn, reverse, skip, setActive) and the next-seat calculation that skips empty or disconnected seats. Verify with unit tests for the turn-modes scenarios.
-- [ ] 2.8 Implement log entries worded so they never reveal hidden identities, and single-step undo with the 10-second, no-intervening-action window. Verify with unit tests.
+- [ ] 2.3 Assign `copyNo`/`copyOf` per definition in deck order when a deck snapshot is loaded (renumbered on reload, scoped per loaded deck). Verify with unit tests that a count-3 definition yields #1–#3 and that numbers are unchanged after shuffle, move, gather and reset.
+- [ ] 2.4 Implement shuffle, cut (complete and split) and draw (top, bottom, random) with an injectable secure RNG. Verify with unit tests, including draw-more-than-available and a chi-square uniformity test of shuffle.
+- [ ] 2.5 Implement deal (round-robin, start seat, face up or down). Verify that a 4×13 deal unit test empties the pile and gives each seat 13 cards in rotation order.
+- [ ] 2.6 Implement show, peek and their automatic ending on move or gather. Verify with unit tests for show-to-one, show-to-all and show-ends-on-move.
+- [ ] 2.7 Implement the `authorize` step: spectators read-only, the take-from-hand consent flow, the open-hands option, and the turn-based gate (own-hand reorder always allowed). Verify with unit tests for each turn-modes and table-play permission scenario.
+- [ ] 2.8 Implement turn actions (setMode, endTurn, reverse, skip, setActive) and the next-seat calculation that skips empty or disconnected seats. Verify with unit tests for the turn-modes scenarios.
+- [ ] 2.9 Implement log entries worded so they never reveal hidden identities, and single-step undo with the 10-second, no-intervening-action window. Verify with unit tests.
 
 ## 3. Server core and visibility
 
 - [ ] 3.1 Set up the Fastify server, static client serving, the `ws` endpoint, zod message validation, the 64 KB limit and per-connection rate limiting. Verify with tests showing that malformed or oversized messages get error responses and the connection stays open.
 - [ ] 3.2 Implement device-token identity (issue, store, resume), display name, color and duplicate-name suffixes. Verify with tests that reconnecting with the same token restores the identity.
-- [ ] 3.3 Implement per-viewer projection with opaque handles that are regenerated on hidden moves and shuffles, plus the per-viewer handle map. Verify with tests showing that projected events for player B never contain player A's hand card definitions, and that a shuffled hidden card's handle never reappears.
+- [ ] 3.3 Implement per-viewer projection with opaque handles that are regenerated on hidden moves and shuffles, plus the per-viewer handle map. Verify with tests showing that projected events for player B never contain player A's hand card definitions, that a shuffled hidden card's handle never reappears, and that no hidden card's projection includes `copyNo`.
 - [ ] 3.4 Implement the table session: intent → authorize → reduce → version++ → project → broadcast, with acks and snapshot-on-gap. Verify with integration tests using two WebSocket clients for the simultaneous-last-card scenario.
 - [ ] 3.5 Implement SQLite migrations, snapshot plus action-log persistence, and replay on startup. Verify with a test that restarts the server mid-game and checks identical zones, order and hands.
 - [ ] 3.6 Implement presence, the 2-minute reconnect grace period, the disconnected-seat indicator after 5 seconds, host auto-transfer and turn auto-pass on grace expiry. Verify with integration tests using fake timers.
@@ -65,7 +66,7 @@
 
 ## 9. Table UI
 
-- [ ] 9.1 Build the board renderer: zones (pile/spread/free) with transform-positioned cards, pan and zoom, and seat markers with connection and active-turn indicators. Verify with component tests and a Playwright screenshot at 375px and 1280px.
+- [ ] 9.1 Build the board renderer: zones (pile/spread/free) with transform-positioned cards, pan and zoom, seat markers with connection and active-turn indicators, and copy-number badges on visible faces of duplicated definitions (none for single copies or hidden cards). Verify with component tests and a Playwright screenshot at 375px and 1280px.
 - [ ] 9.2 Build the fanned hand: adaptive overlap, a raised selection, hover enlarge on desktop and drag-to-reorder. Verify with a Playwright test where 20 cards on 375px all stay tappable.
 - [ ] 9.3 Implement the zone gesture recognizer (axis lock, scrub, drag, 450 ms still-hold, tap) with layout-math hit-testing. Verify with unit tests feeding simulated pointer sequences for each gesture and the scrub-then-pull-out transition.
 - [ ] 9.4 Add scrub-to-preview with magnification and haptic ticks for hands, spreads and fanned-out piles (backs only for hidden cards). Verify with a Playwright touch-emulation test that the preview shows each card in turn and that releasing changes nothing.
@@ -73,7 +74,7 @@
 - [ ] 9.6 Add group drag (ordered stack with a count badge, drop-zone highlights, insertion gap, drop-on-seat passes), sent as a single multi-handle move intent. Verify with an end-to-end test that 5 cards are passed in one drag, the log shows one entry, and one undo restores all 5.
 - [ ] 9.7 Add the contextual action sheet (Flip, Move to…, Pass to…, Show to…, Peek, Shuffle, Cut, Draw top/bottom/random, Deal, Gather, Fan out) with the 3 recent destinations first and "Send again". Verify with end-to-end tests that two players pass and show cards with correct faces, and that "Send again" repeats the last destination.
 - [ ] 9.8 Add optimistic prediction for deterministic actions, pending animations for random ones, rebase-and-animate on rejection, and interpolated live drag previews of other players. Verify with an end-to-end test of the rejected last-card drag animating back, plus a manual check for 60fps scrub and drag of a 30-card hand on a throttled-CPU profile.
-- [ ] 9.9 Build the card info sheet (still-hold or right-click) with full metadata and abilities for visible cards, the hidden-card view, and the deck reference browser with "Clone to my library". Verify with end-to-end tests that a face-down card's info shows no identity.
+- [ ] 9.9 Build the card info sheet (still-hold or right-click) with full metadata and abilities for visible cards, the hidden-card view, and the deck reference browser with "Clone to my library". It shows "Copy n of N" and the source deck name when the name is ambiguous. Verify with end-to-end tests that a face-down card's info shows no identity or copy number, and that two face-up copies of the same card show different copy numbers in card info and in the log.
 - [ ] 9.10 Build the table drawer (Room · Lobby · Log · Info), the counters/notes panel, the mode toggle with turn controls, the "Your turn" notice with vibration, the undo button, and host management menus. Verify with end-to-end tests for switching modes mid-game and an out-of-turn action being refused.
 - [ ] 9.11 Add action feedback: move, flip, shuffle and deal animations with actor labels in player colors. Verify by manually reviewing a recorded 4-player deal on a phone viewport.
 

@@ -14,11 +14,15 @@ The server SHALL be the single source of truth for lobby state, table state, car
 - **THEN** the server rejects the action and every client's state is unchanged
 
 ### Requirement: Per-viewer state filtering
-For each recipient, the server SHALL send only information that recipient may see. Card identities SHALL be withheld for face-down cards, other players' hands, and unshown peeks. Hidden cards SHALL be referenced by identifiers that do not stay the same when the card moves between hidden positions.
+For each recipient, the server SHALL send only information that recipient may see. Card identities, including copy numbers, SHALL be withheld for face-down cards, other players' hands, and unshown peeks. Hidden cards SHALL be referenced by identifiers that do not stay the same when the card moves between hidden positions.
 
 #### Scenario: Network traffic hides opponent hand
 - **WHEN** an observer inspects all WebSocket messages received by one player's client during a deal
 - **THEN** no message contains the name, image or metadata of cards dealt to other players
+
+#### Scenario: Copy numbers do not leak
+- **WHEN** a client receives updates about face-down copies of a duplicated card
+- **THEN** no message contains a copy number for any card whose face that client cannot see
 
 #### Scenario: Cannot track shuffled card
 - **WHEN** a face-down card is moved into a pile and the pile is shuffled

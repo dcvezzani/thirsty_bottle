@@ -127,6 +127,21 @@ When a deck is loaded onto a table, the system SHALL create one distinct card in
 - **WHEN** a deck containing a definition "Goblin" with instance count 3 is loaded onto a table
 - **THEN** the table contains 3 separate "Goblin" card instances that can be moved independently
 
+### Requirement: Copy numbering on load
+When a deck is loaded onto a table, each instance SHALL be assigned a copy number from 1 to N, where N is its definition's instance count, in deck order (for example "Goblin #2 of 3"). Copy numbers SHALL stay fixed for the life of the table through moves, shuffles, gathers and resets. Reloading the deck SHALL renumber its instances.
+
+#### Scenario: Duplicates are distinguishable
+- **WHEN** a deck with "Goblin" at instance count 3 is loaded onto a table
+- **THEN** the three instances are numbered "Goblin #1 of 3", "#2 of 3" and "#3 of 3"
+
+#### Scenario: Numbers survive shuffling
+- **WHEN** the pile holding "Goblin #2 of 3" is shuffled and that card is later drawn and played face up
+- **THEN** it is still shown as "Goblin #2 of 3"
+
+#### Scenario: Same-named cards from two decks
+- **WHEN** two loaded decks both contain a card named "Goblin"
+- **THEN** each instance's card info also names the deck it came from, and each deck's copies are numbered separately
+
 ### Requirement: Flexible card metadata
 Card definitions SHALL support an open set of metadata properties. Each property has a key and a value of type text, number, boolean or list of text. Decks SHALL be able to declare suggested property keys that their cards share.
 
