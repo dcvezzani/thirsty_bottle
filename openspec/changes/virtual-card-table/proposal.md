@@ -13,8 +13,9 @@ We want to play any card game with friends over the network: classics like heart
 - **Card info**: any player can open a card they are allowed to see and view its name, description, artwork and all of its metadata.
 - **Virtual table**: free-form zones (draw piles, discard piles, hands, face-up and face-down spreads, per-player areas). Common physical actions work in any game: shuffle, cut, deal, draw from the top, bottom or at random, flip, move or pass cards between players, show a card to one player or to everyone, peek, and recall cards to a deck. **No game rules are enforced.**
 - **Turn modes**: each table can switch between *real-time* (anyone acts any time) and *turn-based* (only the active player acts, and the turn passes in seat order) at any moment.
-- **Lobby & table management**: see open tables, then create, join, spectate or leave them. Hosts can configure, lock, kick players and reset a table. The lobby shows who is online.
+- **Lobby & table management**: see open tables, then create, join, spectate or leave them. Only a name is required to create a table: seat count (or open seating, where players can join mid-game) and password are optional. Hosts can configure, lock, kick players, reset a table, and hand host to another player at any time. The lobby shows who is online.
 - **Chat**: a global lobby chat, plus a per-table room chat. Lobby chat stays available while seated at a table.
+- **Multiple players per browser**: each browser tab can be a separate player (handy for debugging), and each tab reconnects as its own player after network drops.
 - **Real-time sync**: every state change goes through the server. Clients show optimistic local feedback and reconcile with the server, and reconnect without losing their seat or hand.
 
 ## Capabilities

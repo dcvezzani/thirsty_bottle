@@ -52,6 +52,10 @@ While a player drags cards, other participants SHALL see a throttled live previe
 ### Requirement: Reconnection
 If a client disconnects, the server SHALL hold that player's seat and private state for a grace period of 2 minutes. A reconnecting client SHALL resume with a fresh snapshot without manual steps.
 
+#### Scenario: Reconnect with several players in one browser
+- **WHEN** the network drops for 30 seconds while "Alex" and "Sam" are seated at a table in two tabs of the same browser
+- **THEN** each tab reconnects automatically as its own player to its own seat and hand
+
 #### Scenario: Phone sleeps briefly
 - **WHEN** a player's phone loses connection for 60 seconds and then reconnects
 - **THEN** the player is back in the same seat with the same hand, and the table shows them as connected again

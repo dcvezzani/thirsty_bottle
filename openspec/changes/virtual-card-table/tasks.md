@@ -21,7 +21,7 @@
 ## 3. Server core and visibility
 
 - [ ] 3.1 Set up the Fastify server, static client serving, the `ws` endpoint, zod message validation, the 64 KB limit and per-connection rate limiting. Verify with tests showing that malformed or oversized messages get error responses and the connection stays open.
-- [ ] 3.2 Implement device-token identity (issue, store, resume), display name, color and duplicate-name suffixes. Verify with tests that reconnecting with the same token restores the identity.
+- [ ] 3.2 Implement player-token identity (issue, resume), display name, color, duplicate-name suffixes, and one active socket per token (the newer connection wins and the older one receives `session.replaced`). Verify with tests that reconnecting with the same token restores the identity and that a second socket replaces the first.
 - [ ] 3.3 Implement per-viewer projection with opaque handles that are regenerated on hidden moves and shuffles, plus the per-viewer handle map. Verify with tests showing that projected events for player B never contain player A's hand card definitions, that a shuffled hidden card's handle never reappears, and that no hidden card's projection includes `copyNo`.
 - [ ] 3.4 Implement the table session: intent → authorize → reduce → version++ → project → broadcast, with acks and snapshot-on-gap. Verify with integration tests using two WebSocket clients for the simultaneous-last-card scenario.
 - [ ] 3.5 Implement SQLite migrations, snapshot plus action-log persistence, and replay on startup. Verify with a test that restarts the server mid-game and checks identical zones, order and hands.
@@ -43,18 +43,18 @@
 
 ## 5. Lobby and chat backend
 
-- [ ] 5.1 Implement the table lifecycle: create (seats, visibility, password hash, spectators, deck, layout), list, join/seat choice, spectate, leave (hand handling), invite links and closing after 30 minutes empty. Verify with integration tests for the lobby scenarios.
-- [ ] 5.2 Implement host controls: settings, lock, move seat, kick, transfer host, load/unload deck, reset, close. Verify with integration tests including kick → returned to lobby.
+- [ ] 5.1 Implement the table lifecycle: create (optional seat count or open seating, visibility, optional password hash, spectators, deck, layout), mid-game join (empty hand, appended to seat and turn order, blocked when locked or at 12), list, join/seat choice, spectate, leave (hand handling), invite links and closing after 30 minutes empty. Verify with integration tests for the lobby scenarios, including a minimal name-only table, joining an open table mid-game, and the 12-seat cap.
+- [ ] 5.2 Implement host controls: settings (including setting or removing the password and seat count), lock, move seat, kick, designate host (always allowed for the current host, regardless of mode or turn), load/unload deck, reset, close. Verify with integration tests, including kick → returned to lobby and host handover during another player's turn.
 - [ ] 5.3 Implement lobby and room chat channels with membership checks, 100-message history, retention, the 500-character limit, the 5-messages-per-5-seconds throttle, system messages, personal mute and host room mute. Verify with integration tests showing that room chat does not leak to the lobby and that a seated player can post to the lobby.
 
 ## 6. Client foundation
 
 - [ ] 6.1 Build the app shell: routing (`/`, `/decks`, `/t/:id`), the WebSocket client with automatic reconnect and backoff, Zustand stores, version-gap detection and the snapshot request. Verify with unit tests of the connection store and a manual reconnect check (toggling offline in devtools).
-- [ ] 6.2 Build the onboarding screen (name and color) and PWA manifest/service worker. Verify with an end-to-end test that the first visit and a reload keep the identity, and with a Lighthouse PWA installability check.
+- [ ] 6.2 Build the onboarding screen (name and color), per-tab identity (`sessionStorage` token, `localStorage` identity list, "continue as…" picker, `BroadcastChannel` duplicate-tab detection, "open in another window" notice, `?newPlayer`), and PWA manifest/service worker. Verify with end-to-end tests: two tabs in one browser context play as different players at one table; a reload keeps each tab's identity; and both tabs reconnect to their own seats after the network is toggled offline and back. Also verify with a Lighthouse PWA installability check.
 
 ## 7. Lobby UI
 
-- [ ] 7.1 Build the mobile lobby with tabs (Tables · Players · Chat): table list with status badges, presence list, create-table sheet, join/spectate/password flows and invite-link handling. Verify with Playwright at a 360×740 viewport, checking that there is no horizontal scroll and that touch targets are at least 44px.
+- [ ] 7.1 Build the mobile lobby with tabs (Tables · Players · Chat): table list with status badges, presence list, create-table sheet (only the name required; seat count and password optional), "open seating" display, join/spectate/password flows and invite-link handling. Verify with Playwright at a 360×740 viewport, checking that there is no horizontal scroll and that touch targets are at least 44px.
 - [ ] 7.2 Build the chat component (shared by lobby and room) with plain-text rendering, unread badges, system-message styling and mute. Verify with an end-to-end test that two players exchange lobby messages and that a `<script>` message stays inert.
 
 ## 8. Deck library UI

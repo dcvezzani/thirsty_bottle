@@ -73,7 +73,10 @@ The reducer has an `authorize(state, actor, action)` step. In turn-based mode it
 - **Routes:** `/decks` (tabs: My decks · Archived · Gallery), `/decks/:id` editor or preview, and `/d/:shareToken` link view.
 
 ### D8. Identity
-On first visit the server issues a random 256-bit device token, which the client stores in `localStorage`. It is sent on WebSocket connect and as a bearer token for REST calls. The display name and color are stored per player. There are no passwords. A table password is checked server-side against an Argon2 hash.
+On first visit the server issues a random 256-bit player token. It is sent on WebSocket connect and as a bearer token for REST calls.
+- **Per-window identity:** the active token is kept in `sessionStorage`, which is scoped to one tab and survives reloads, so each tab can be a different player. `localStorage` keeps a list of the identities used in this browser (`{token, name, color}`) for the "continue as…" picker in a new tab. A WebSocket reconnect after a network drop reuses the tab's `sessionStorage` token, so no user step is needed.
+- **Duplicated tabs and the same player in two tabs:** browsers copy `sessionStorage` when a tab is duplicated. On startup each tab announces its token on a `BroadcastChannel`. If another live tab already holds it, the new tab shows the identity picker instead of silently sharing it. If a user deliberately continues as the same player in two tabs, the server allows one active socket per token. The newer connection wins, and the older one receives `session.replaced` and shows the "open in another window" notice with "take back".
+- A `?newPlayer` URL parameter opens the onboarding screen directly, a shortcut for debugging. The display name and color are stored per player. There are no passwords. A table password is optional. When one is set it is checked server-side against an Argon2 hash.
 
 ### D9. Mobile UI architecture
 - Routes: `/` lobby (tabs: Tables · Players · Chat), `/decks` library, gallery and editor (see D7a), `/t/:tableId` table.
@@ -96,11 +99,15 @@ Shuffles use Fisher–Yates driven by `crypto.randomInt`. Random draws and rando
 
 **Alternatives considered:** a gesture library such as Hammer.js or use-gesture. It is unnecessary for this narrow set of gestures and adds coupling to how it handles axis locking. Per-card DOM hit-testing breaks down with heavily overlapped fans.
 
+### D12. Seating
+Seats are an ordered list on the table. A fixed table has `seatLimit` 1–12. An open table has `seatLimit = null`, and seats are appended on join and removed on leave, with a hard cap of 12. Turn order follows the seat list, so a player who joins mid-game is naturally last until the host moves them. Host transfer is a table action (`setHost`) that is always authorized for the current host, regardless of mode, turn or lock.
+
 ## Risks / Trade-offs
 
 - [Per-viewer projection costs CPU on large tables] → Tables have at most 12 seats and a few hundred cards. Projections are computed incrementally (per event, not by diffing the full state). Measure with a 12-seat, 500-card benchmark test.
 - [Handle remapping complicates the client's animation continuity] → The server sends `{fromHandle, toHandle}` pairs in move events, so the client can animate a hidden card that is renamed in flight.
-- [A device-token identity is lost if browser storage is cleared] → Accepted for v1. Offer a "copy recovery code" in settings that is the token itself.
+- [A player-token identity is lost if browser storage is cleared] → Accepted for v1. Offer a "copy recovery code" in settings that is the token itself, and a "continue with recovery code" entry in the identity picker.
+- [Per-tab identity means a new tab doesn't automatically use the same player] → The identity picker defaults to the most recently used identity with one tap, so normal single-player use stays one tap.
 - [Optimistic prediction diverges in real-time contention] → Prediction is limited to deterministic operations, and the rebase-and-animate approach keeps divergence brief and visible rather than silent.
 - [Uploaded images could be abusive or very large] → There is a size limit, decoding happens in `sharp` (which rejects malformed files), images are only served to users who can access the deck or table, and there is no public gallery.
 - [Gesture conflicts with browser scroll or zoom on mobile] → Use `touch-action: none` only on card zones, and pan the board with two fingers or on empty board space. Tune thresholds in an on-device test pass.
