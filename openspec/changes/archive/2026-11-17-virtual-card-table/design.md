@@ -28,7 +28,7 @@ This is a greenfield repository: it contains nothing except the OpenSpec scaffol
 ### D1. Stack: TypeScript monorepo, React + Vite client, Node server
 - `shared/`: protocol types and zod schemas, and the table reducer (so the client can run it for optimistic prediction).
 - `server/`: Node 22, Fastify (HTTP, static files, uploads), `ws` for WebSockets, `better-sqlite3`, and `sharp` for images.
-- `client/`: React 18 + Vite, Zustand for state, Framer Motion / CSS transforms for card animation, and `vite-plugin-pwa`.
+- `client/`: React 18 + Vite, Zustand for state, CSS transforms plus Web Animations API FLIP for card animation (Framer Motion turned out to be unnecessary), and `vite-plugin-pwa`. New app versions activate on the next launch rather than reloading mid-game.
 - npm workspaces. Vitest for unit tests, Playwright for end-to-end tests (multiple browser contexts simulate multiple players).
 
 **Alternatives considered:** Unity, Godot and Phaser. A game engine adds a heavy WebGL bundle and weak native text and UI handling (chat, forms, deck editor). Its strengths, physics and 3D, are not needed for a card table. DOM/CSS transforms handle tens of animated cards easily and give accessibility and text rendering for free. Phaser stays an option later for a canvas-rendered board if performance demands it. Socket.IO was rejected in favor of plain `ws` plus our own small reconnection layer, because the protocol needs explicit versioning anyway.
@@ -58,6 +58,8 @@ The reducer has an `authorize(state, actor, action)` step. In turn-based mode it
 - Tables: `players`, `decks`, `deck_versions`, `deck_drafts`, `card_defs` (metadata as a JSON column, keyed to a deck version), `images`, `tables`, `table_decks`, `table_snapshots`, `table_actions`, `chat_messages`.
 - Each table persists a full snapshot every 50 actions and on idle, plus an append-only action log in between. On restart, the server loads the latest snapshot and replays the actions after it. This also powers undo: the server keeps the inverse of the last action.
 - Images live on disk under `data/images/<sha256>.<webp>` (content-addressed, deduplicated). They are normalized by `sharp` to 750×1050 WebP with a 250×350 thumbnail.
+- Image requests are authorized by a signed per-player key in the URL (`?k=<playerId>.<hmac>`), since `<img>` tags cannot send headers. A cookie was rejected because cookies are shared across tabs, which would break per-tab identities (D8). The HMAC secret lives in `DATA_DIR/secret.key`.
+- Each action is appended to the log immediately, together with its recorded random draws, time and connected players, so replay is deterministic. A server killed with SIGKILL loses no accepted actions.
 
 ### D7. Card metadata model
 `CardDef = {id, name, description?, frontImageId?, backImageId?, count, metadata: Record<string, string|number|boolean|string[]>, abilities?: {trigger, effect, value?, target}[]}`. Decks carry `propertyTemplate: {key, type}[]` to drive the editor. The JSON manifest format matches this shape. A `.zip` export bundles `deck.json` and `images/`. CSV import is out of scope, because spreadsheet tools can export JSON through templates.
@@ -80,7 +82,7 @@ On first visit the server issues a random 256-bit player token. It is sent on We
 
 ### D9. Mobile UI architecture
 - Routes: `/` lobby (tabs: Tables · Players · Chat), `/decks` library, gallery and editor (see D7a), `/t/:tableId` table.
-- Table screen: a zoomable/pannable board (shared zones) in the upper area, your fanned hand along the bottom edge, and a slide-up drawer with tabs **Room · Lobby · Log · Info**. Lobby chat is reachable from that drawer, which satisfies the chat spec.
+- Table screen: a scrollable board in the upper area (shared zones laid out in flow order: piles in a row, then spreads and free areas, ordered by each zone's y/x position, which the host can adjust). Card size zooms with +/- buttons; pinch-zoom was not built. Then your fanned hand along the bottom edge, and a slide-up drawer with tabs **Room · Lobby · Log · Info**. Lobby chat is reachable from that drawer, which satisfies the chat spec.
 - Interaction (see D11): tap toggles selection, a sideways slide scrubs (preview, or paint-select once something is selected), a stationary hold opens card info, pulling out drags the card or selection, and a contextual action sheet lists every action for the selection (Flip, Show to…, Pass to…, Move to…, Peek). Every gesture has a non-gesture fallback.
 - Cards render as absolutely positioned elements moved with `transform` (GPU compositing), and images load from thumbnails first.
 
@@ -96,6 +98,8 @@ Shuffles use Fisher–Yates driven by `crypto.randomInt`. Random draws and rando
 - Group drag sends a single `move` intent carrying an ordered `handles[]` plus a target zone and index, so the reducer, log and undo treat it as one action. While dragging, the client computes the insertion index and animates the gap locally.
 - Desktop: hover gives the preview, click toggles selection, Shift+click selects a range, and drag works the same way.
 - Recent destinations (the last 3) are kept per player in client storage.
+
+- Fan hit-testing inverts each card's rotation (cards rotate around their bottom centre) and checks cards from the topmost down. Arc layouts keep a side padding of 0.3 × card width so the rotated end cards stay on screen.
 
 **Alternatives considered:** a gesture library such as Hammer.js or use-gesture. It is unnecessary for this narrow set of gestures and adds coupling to how it handles axis locking. Per-card DOM hit-testing breaks down with heavily overlapped fans.
 
@@ -114,6 +118,15 @@ Seats are an ordered list on the table. A fixed table has `seatLimit` 1–12. An
 - [The public gallery may receive unwanted or infringing artwork] → Decks are opt-in public. Add a "report deck" action that hides a deck pending review by a server admin (a CLI command in v1).
 - [Deck versions accumulate storage] → Versions are small JSON rows and images are deduplicated. Prune versions that are neither current nor referenced by `table_decks` once they are older than 30 days.
 - [Single-process design limits scale] → Acceptable for friend groups. Table state is isolated per table, so sharding by table ID later would be straightforward.
+
+## Verification Notes
+
+How the checks in tasks.md were actually carried out, where they differ from the original wording:
+- **PWA installability (6.2):** Lighthouse has removed its PWA category, so the test uses Chrome's own installability check (`Page.getInstallabilityErrors` via CDP) and asserts that it reports no errors.
+- **Reconnect checks (6.1, 6.2):** automated instead of done manually in devtools. Chromium's offline emulation does not close open WebSockets, so the tests cut the sockets with Playwright `routeWebSocket` while also going offline.
+- **60fps (9.8):** automated. Requested-animation-frame timing was measured while scrubbing a 30-card hand with the CPU throttled 4× in headless Chromium: p50 and p95 were both 16.7 ms. This has not yet been confirmed on a physical phone.
+- **Deal animation review (9.11):** done by reviewing frame screenshots captured during a 4-player deal at phone size, instead of a video recording.
+- **Performance (10.3):** with 12 seats, 500 cards and 300 concurrent actions, the server's action-to-broadcast time was p95 ≈ 24 ms, and other clients saw changes at p95 ≈ 215 ms on localhost.
 
 ## Migration Plan
 
