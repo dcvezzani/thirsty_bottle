@@ -15,7 +15,7 @@ Mobile-first web app (installable as a PWA) + a single Node.js server.
 
 ## Requirements
 
-- Node.js 22+
+- Node.js 22+ (see `.nvmrc`; with nvm or fnm run `nvm use`)
 - npm 10+
 
 ## Setup
