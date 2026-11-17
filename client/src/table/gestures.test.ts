@@ -131,3 +131,23 @@ describe('paint selection', () => {
     expect(applyPaint(s, 'preview', 'z')).toEqual(s);
   });
 });
+
+describe('rotated fan hit-testing', () => {
+  it('matches the rotated card under the point', async () => {
+    const { fanLayout: fl, cardPos, hitIndexXY } = await import('./layout');
+    const l = fl(12, 375, 64, { arc: true });
+    for (let i = 0; i < 12; i++) {
+      // a point near the bottom centre of card i's visible strip, rotated with the card
+      const p = cardPos(l, i);
+      const right = i < 11 ? cardPos(l, i + 1).x : p.x + 64;
+      const cx = (p.x + Math.min(right, p.x + 64)) / 2;
+      const y = 19 + p.y + l.cardH * 0.9;
+      const a = (p.rot * Math.PI) / 180;
+      const px = p.x + 32;
+      const py = 19 + p.y + l.cardH;
+      const x2 = px + (cx - px) * Math.cos(a) - (y - py) * Math.sin(a);
+      const y2 = py + (cx - px) * Math.sin(a) + (y - py) * Math.cos(a);
+      expect(hitIndexXY(l, x2, y2, 19.2)).toBe(i);
+    }
+  });
+});

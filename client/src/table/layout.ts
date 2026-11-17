@@ -59,3 +59,25 @@ export function magnify(l: FanLayout, i: number, focus: number | null): { dx: nu
   const push = Math.max(l.cardW * 0.25, l.cardW * 0.8 - l.spacing) * Math.exp(-(Math.abs(d) - 1) * 0.7);
   return { dx: Math.sign(d) * push, dy: 0, scale: 1, z: 0 };
 }
+
+/**
+ * Hit-test that accounts for fan rotation (cards rotate around their bottom centre).
+ * Checks cards from the topmost down; falls back to the strip test when no card contains the point.
+ * `top` is the y offset of unrotated cards inside the container.
+ */
+export function hitIndexXY(l: FanLayout, x: number, y: number, top = 0, gapAt: number | null = null): number | null {
+  if (l.n === 0) return null;
+  if (!l.arc) return hitIndex(l, x);
+  for (let i = l.n - 1; i >= 0; i--) {
+    const p = cardPos(l, i, gapAt);
+    const px = p.x + l.cardW / 2;
+    const py = top + p.y + l.cardH;
+    const a = (-p.rot * Math.PI) / 180;
+    const dx = x - px;
+    const dy = y - py;
+    const rx = dx * Math.cos(a) - dy * Math.sin(a) + px;
+    const ry = dx * Math.sin(a) + dy * Math.cos(a) + py;
+    if (rx >= p.x && rx <= p.x + l.cardW && ry >= top + p.y && ry <= top + p.y + l.cardH) return i;
+  }
+  return hitIndex(l, x);
+}

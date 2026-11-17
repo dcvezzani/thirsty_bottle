@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TableDeckView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
 import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
-import { cardPos, fanLayout, hitIndex, insertionIndex, magnify } from './layout';
+import { cardPos, fanLayout, hitIndexXY, insertionIndex, magnify } from './layout';
 import { useUI } from './ui';
 import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
 
@@ -52,8 +52,9 @@ export function CardRow({
   // hide dragged cards from their origin; open an insertion gap where they would land
   const shown = useMemo(() => (drag ? cards.filter((c) => !dragSet.has(c.h)) : cards), [cards, drag, dragSet]);
   const gapAt = drag && drag.over?.kind === 'zone' && drag.over.zone === zone.id && drag.over.index !== undefined ? drag.over.index - cards.slice(0, drag.over.index).filter((c) => dragSet.has(c.h)).length : null;
-  const L = useMemo(() => fanLayout(shown.length, width, cardW, { arc, gapAt }), [shown.length, width, cardW, arc, gapAt]);
-  const Lfull = useMemo(() => fanLayout(cards.length, width, cardW, { arc }), [cards.length, width, cardW, arc]);
+  const maxSpacing = arc ? undefined : cardW * 1.06;
+  const L = useMemo(() => fanLayout(shown.length, width, cardW, { arc, gapAt, maxSpacing }), [shown.length, width, cardW, arc, gapAt, maxSpacing]);
+  const Lfull = useMemo(() => fanLayout(cards.length, width, cardW, { arc, maxSpacing }), [cards.length, width, cardW, arc, maxSpacing]);
   const focus = preview && preview.zone === zone.id ? shown.findIndex((c) => c.h === preview.h) : -1;
   const selSet = new Set(selZone === zone.id ? selected : []);
 
@@ -62,8 +63,11 @@ export function CardRow({
     if (!el) return;
     const measure = () => {
       setWidth(el.clientWidth);
-      const cw = parseFloat(getComputedStyle(el).getPropertyValue('--card-w')) || 64;
-      setCardW(cw * zoom);
+      const cs = getComputedStyle(el);
+      const raw = cs.getPropertyValue('--card-w').trim();
+      // --card-w is either a plain px value (e.g. in sheets) or calc(var(--base-card-w) * zoom) on the table
+      const cw = /^[\d.]+px$/.test(raw) ? parseFloat(raw) : (parseFloat(cs.getPropertyValue('--base-card-w')) || 64) * zoom;
+      setCardW(cw);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -89,7 +93,8 @@ export function CardRow({
   const paint = useRef<'preview' | 'select' | 'deselect'>('preview');
   const lastScrub = useRef<string | null>(null);
   const gesture = useMemo(() => {
-    const hit = (x: number) => hitIndex(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? width, cardW, { arc }), x);
+    const hit = (x: number, y: number) =>
+      hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? width, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06 }), x, y, arc ? cardW * 0.3 : 0);
     const h = (i: number) => live.current.cards[i]?.h;
     const setPreview = (i: number) => {
       const hh = h(i);
@@ -107,7 +112,7 @@ export function CardRow({
     return {
       origin: (o: { x: number; y: number }) => (origin = o),
       g: new ZoneGesture({
-        hit: (x) => hit(x),
+        hit: (x, y) => hit(x, y),
         onTap: (i) => {
           if (i === null || !live.current.interactive) return;
           useUI.getState().toggle(live.current.zone.id, h(i)!);
@@ -162,7 +167,7 @@ export function CardRow({
     if (e.pointerType === 'mouse' && e.shiftKey) {
       // desktop range select
       const s = local(e);
-      const i = hitIndex(Lfull, s.x);
+      const i = hitIndexXY(Lfull, s.x, s.y, arc ? cardW * 0.3 : 0);
       if (i === null) return;
       const st = useUI.getState();
       const sel = st.selZone === zone.id ? st.selected : [];
@@ -182,7 +187,8 @@ export function CardRow({
     if (gesture.g.state === 'idle') {
       // desktop hover preview
       if (e.pointerType === 'mouse' && e.buttons === 0 && !drag) {
-        const i = hitIndex(Lfull, local(e).x);
+        const pt = local(e);
+        const i = hitIndexXY(Lfull, pt.x, pt.y, arc ? cardW * 0.3 : 0);
         const hh = i === null ? null : cards[i]?.h;
         const cur = useUI.getState().preview;
         if (hh && (cur?.h !== hh || cur.zone !== zone.id)) useUI.setState({ preview: { h: hh, zone: zone.id } });
@@ -200,7 +206,7 @@ export function CardRow({
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     const r = ref.current!.getBoundingClientRect();
-    const i = hitIndex(Lfull, e.clientX - r.left);
+    const i = hitIndexXY(Lfull, e.clientX - r.left, e.clientY - r.top, arc ? cardW * 0.3 : 0);
     if (i !== null) onInfo(cards[i].h);
   };
 

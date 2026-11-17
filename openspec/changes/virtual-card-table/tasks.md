@@ -66,9 +66,9 @@
 
 ## 9. Table UI
 
-- [ ] 9.1 Build the board renderer: zones (pile/spread/free) with transform-positioned cards, pan and zoom, seat markers with connection and active-turn indicators, and copy-number badges on visible faces of duplicated definitions (none for single copies or hidden cards). Verify with component tests and a Playwright screenshot at 375px and 1280px.
-- [ ] 9.2 Build the fanned hand: adaptive overlap, a raised selection, hover enlarge on desktop and drag-to-reorder. Verify with a Playwright test where 20 cards on 375px all stay tappable.
-- [ ] 9.3 Implement the zone gesture recognizer (axis lock, scrub, drag, 450 ms still-hold, tap) with layout-math hit-testing. Verify with unit tests feeding simulated pointer sequences for each gesture and the scrub-then-pull-out transition.
+- [x] 9.1 Build the board renderer: zones (pile/spread/free) with transform-positioned cards, pan and zoom, seat markers with connection and active-turn indicators, and copy-number badges on visible faces of duplicated definitions (none for single copies or hidden cards). Verify with component tests and a Playwright screenshot at 375px and 1280px.
+- [x] 9.2 Build the fanned hand: adaptive overlap, a raised selection, hover enlarge on desktop and drag-to-reorder. Verify with a Playwright test where 20 cards on 375px all stay tappable.
+- [x] 9.3 Implement the zone gesture recognizer (axis lock, scrub, drag, 450 ms still-hold, tap) with layout-math hit-testing. Verify with unit tests feeding simulated pointer sequences for each gesture and the scrub-then-pull-out transition.
 - [ ] 9.4 Add scrub-to-preview with magnification and haptic ticks for hands, spreads and fanned-out piles (backs only for hidden cards). Verify with a Playwright touch-emulation test that the preview shows each card in turn and that releasing changes nothing.
 - [ ] 9.5 Add paint selection (select or deselect mode decided at scrub start, preview-only with no selection), the selection count, Select all/Clear, Shift+click range select on desktop, and auto-clear after a move. Verify with an end-to-end test that tap plus scrub selects 5 cards, and that scrubbing from a selected card deselects.
 - [ ] 9.6 Add group drag (ordered stack with a count badge, drop-zone highlights, insertion gap, drop-on-seat passes), sent as a single multi-handle move intent. Verify with an end-to-end test that 5 cards are passed in one drag, the log shows one entry, and one undo restores all 5.
