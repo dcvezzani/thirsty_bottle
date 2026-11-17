@@ -74,6 +74,16 @@ npm run lint
 
 Admin: `DATA_DIR=... node server/dist/admin.js reports | unhide <deckId> | hide <deckId>` (reported decks are hidden from the gallery until reviewed).
 
+## Styling rules
+
+- **Surfaces own their text color.** Anything that draws its own background (sheets, drawers, fields, buttons) sets its own text color (`var(--ink)`) instead of inheriting it. The table felt sets white text, so inherited colors there come out white on white. Buttons styled for the felt set white explicitly.
+- Use `--control-line` for borders of fields and outlined buttons (at least 3:1 against panels), and `--line` only for decorative dividers.
+- After any style change, run the contrast check (light and dark mode, phone and desktop):
+
+```bash
+npm run build && npx playwright test e2e/contrast.spec.ts
+```
+
 ## Layout
 
 - `shared/`: protocol types, zod schemas, and the pure table reducer used by the server (and by the client for prediction)

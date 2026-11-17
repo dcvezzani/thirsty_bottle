@@ -151,3 +151,13 @@ describe('rotated fan hit-testing', () => {
     }
   });
 });
+
+describe('actor label ink', () => {
+  it('picks dark text on light player colours and white on dark ones', async () => {
+    const { inkOn } = await import('./anim');
+    expect(inkOn('#b8860b')).toBe('#111');
+    expect(inkOn('#f4c542')).toBe('#111');
+    expect(inkOn('#1f6fd1')).toBe('#fff');
+    expect(inkOn('#455a64')).toBe('#fff');
+  });
+});

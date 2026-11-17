@@ -26,6 +26,12 @@ Any element that paints a background is responsible for its own text color: cont
 ### D3. Screens and states covered
 Light and dark color schemes at iPhone 13 and 1280×800: the lobby (all tabs), the create-table sheet, the deck editor with the card form open, and the table with the zone sheet, the Draw sheet, the counters (empty and typed), the Info drawer, the seat sheet and the card info sheet. Elements whose background is an image (card art) are excluded, because their contrast depends on user artwork.
 
+### D4. Control boundaries
+The first run of the check found field and outlined-button borders at about 1.5:1 (they used the decorative `--line` color) and filled red buttons at 2.7:1 against the dark panel. A separate `--control-line` token is used for control borders (light `#8a8577`, dark `#8b8b80`) so list dividers keep the subtle `--line`. In dark mode the accent becomes `#e0263f`, which is 3:1 or more against the panel while white labels stay at 4.5:1 or more.
+
+### D5. Player colours are data, not text colours
+Players pick any colour, so colour-on-panel text cannot guarantee contrast. Names render in `--ink` with the colour shown as a dot, and labels drawn on a player-colour background pick black or white text by luminance (`inkOn`).
+
 ## Risks / Trade-offs
 
 - [Gradient felt backgrounds make the "effective background" approximate] → Use the felt's darkest base color as the fallback background. White text on that fallback has a ratio above 9:1, so the approximation is not a source of false passes for light text.

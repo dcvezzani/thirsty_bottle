@@ -79,9 +79,9 @@ export function Chat({ channel, log, title }: Props) {
         {items.map((it) =>
           it.msg ? (
             <div key={it.key} className="chat-msg" data-testid="chat-msg">
-              <span className="who" style={{ color: it.msg.color }}>
-                {it.msg.name}
-              </span>
+              {/* names use the panel ink (player colours are arbitrary); the colour shows as a dot */}
+              <span className="dot" style={{ background: it.msg.color, marginRight: 4 }} aria-hidden />
+              <span className="who">{it.msg.name}</span>
               {it.msg.text}
               {it.msg.playerId && it.msg.playerId !== me?.id && (
                 <button className="ghost small" style={{ minHeight: 24, padding: '0 4px', marginLeft: 4, opacity: 0.6 }} aria-label={`Mute ${it.msg.name}`} onClick={() => toggleMute(it.msg!.playerId!)}>

@@ -20,12 +20,21 @@ function seatName(view: TableView, actor: string | null) {
   return view.seats.find((s) => s.playerId === actor)?.name ?? '';
 }
 
+/** Black or white, whichever reads better on the given player colour. */
+export function inkOn(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const l = 0.2126 * f((n >> 16) & 255) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+  return l > 0.179 ? '#111' : '#fff';
+}
+
 function actorLabel(view: TableView, actor: string | null, at: DOMRect) {
   if (!actor || actor === view.me.playerId) return;
   const el = document.createElement('div');
   el.className = 'actor-float';
   el.textContent = seatName(view, actor);
   el.style.setProperty('--seat-color', seatColor(view, actor));
+  el.style.color = inkOn(seatColor(view, actor));
   el.style.left = `${at.left + at.width / 2}px`;
   el.style.top = `${at.top}px`;
   document.body.appendChild(el);

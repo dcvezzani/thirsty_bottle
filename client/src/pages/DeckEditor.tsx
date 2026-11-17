@@ -650,7 +650,7 @@ export function ImagePicker({ value, onChange, disabled, label = 'image' }: { va
   };
   return (
     <div className="row" style={{ alignItems: 'flex-start' }}>
-      <div className="card" style={{ ['--card-w' as any]: '84px', background: '#eee' }}>
+      <div className="card" style={{ ['--card-w' as any]: '84px', background: 'var(--panel-2)' }}>
         {preview ? (
           <img className="card-img" style={{ objectFit: 'contain' }} src={preview.url} alt={`${label} preview`} />
         ) : value ? (

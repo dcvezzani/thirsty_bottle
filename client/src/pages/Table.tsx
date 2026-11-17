@@ -13,7 +13,7 @@ import { SeatBar } from '../table/Seats';
 import { useUI, findCard, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
-import { useFlip } from '../table/anim';
+import { useFlip, inkOn } from '../table/anim';
 
 export function TablePage() {
   const { id } = useParams();
@@ -369,7 +369,7 @@ function OthersDrags({ view }: { view: TableView }) {
         return (
           <div key={d.playerId} className="other-drag" style={{ left: `${d.x * 100}%`, top: `${d.y * 100}%`, ['--seat-color' as any]: d.color }} data-testid="other-drag">
             {c ? <CardFace card={c} decks={view.decks} /> : <div className="card back"><div className="gen-back" /></div>}
-            <span className="actor-tag">{name}</span>
+            <span className="actor-tag" style={{ color: inkOn(d.color) }}>{name}</span>
           </div>
         );
       })}

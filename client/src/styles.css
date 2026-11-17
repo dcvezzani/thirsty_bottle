@@ -6,6 +6,8 @@
   --ink: #1d1d1b;
   --ink-2: #5b5a55;
   --line: #d9d3c3;
+  /* borders of fields and outlined buttons: at least 3:1 against panels (ui-readability) */
+  --control-line: #8a8577;
   --accent: #c8102e;
   --accent-ink: #fff;
   --good: #1f7a4d;
@@ -27,6 +29,8 @@
     --ink: #f1efe8;
     --ink-2: #b2afa4;
     --line: #45463e;
+    --control-line: #8b8b80;
+    --accent: #e0263f;
     color-scheme: dark;
   }
 }
@@ -48,7 +52,7 @@ button {
   min-width: var(--tap);
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   background: var(--panel);
   cursor: pointer;
 }
@@ -58,7 +62,7 @@ button.small { min-height: 32px; padding: 0 10px; font-size: 14px; }
 button:disabled { opacity: 0.5; cursor: default; }
 input, select, textarea {
   min-height: var(--tap);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 10px;
   padding: 0 12px;
   background: var(--panel);
