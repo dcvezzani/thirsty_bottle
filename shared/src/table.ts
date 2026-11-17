@@ -91,6 +91,7 @@ export interface TakeRequest {
 
 export interface Vacated {
   seatId: string;
+  playerId: string;
   playerName: string;
 }
 

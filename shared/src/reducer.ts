@@ -1018,7 +1018,9 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         if (!seat) fail('NO_SEAT', 'That seat no longer exists');
         if (seat!.playerId) fail('SEAT_TAKEN', 'That seat is taken');
       } else {
-        seat = s.seats.find((x) => !x.playerId);
+        // Prefer the seat this player left (their hand is still there), then any empty seat.
+        const mine = s.vacated.find((v) => v.playerId === p.playerId);
+        seat = (mine && s.seats.find((x) => x.id === mine.seatId && !x.playerId)) || s.seats.find((x) => !x.playerId);
       }
       if (!seat) {
         const limit = Math.min(s.settings.seatLimit ?? MAX_SEATS, MAX_SEATS);
@@ -1032,6 +1034,10 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       s.spectators = s.spectators.filter((x) => x.playerId !== p.playerId);
       s.seatedOrder = s.seatedOrder.filter((x) => x !== p.playerId).concat(p.playerId);
       log(s, now, p.playerId, `${p.name} joined seat ${s.seats.indexOf(seat) + 1}`, 'system');
+      if (!seatOfPlayer(s, s.hostId)) {
+        s.hostId = p.playerId;
+        log(s, now, null, `${p.name} is now the host`, 'system');
+      }
       break;
     }
     case 'spectate': {
@@ -1067,7 +1073,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const hz = s.zones[handZoneId(seat.id)];
       const verb = action.reason === 'kicked' ? 'was removed from the table' : 'left';
       log(s, now, pid, `${name} ${verb}`, 'system');
-      if (hz.cards.length) s.vacated.push({ seatId: seat.id, playerName: name });
+      if (hz.cards.length) s.vacated.push({ seatId: seat.id, playerId: pid, playerName: name });
       else if (s.settings.seatLimit === null) removeSeat(s, seat.id);
       if (wasActive && s.mode === 'turn') {
         s.turn.active = nextSeat(s, seat.id, ctx.connected);

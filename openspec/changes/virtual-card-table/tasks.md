@@ -20,12 +20,12 @@
 
 ## 3. Server core and visibility
 
-- [ ] 3.1 Set up the Fastify server, static client serving, the `ws` endpoint, zod message validation, the 64 KB limit and per-connection rate limiting. Verify with tests showing that malformed or oversized messages get error responses and the connection stays open.
-- [ ] 3.2 Implement player-token identity (issue, resume), display name, color, duplicate-name suffixes, and one active socket per token (the newer connection wins and the older one receives `session.replaced`). Verify with tests that reconnecting with the same token restores the identity and that a second socket replaces the first.
-- [ ] 3.3 Implement per-viewer projection with opaque handles that are regenerated on hidden moves and shuffles, plus the per-viewer handle map. Verify with tests showing that projected events for player B never contain player A's hand card definitions, that a shuffled hidden card's handle never reappears, and that no hidden card's projection includes `copyNo`.
-- [ ] 3.4 Implement the table session: intent → authorize → reduce → version++ → project → broadcast, with acks and snapshot-on-gap. Verify with integration tests using two WebSocket clients for the simultaneous-last-card scenario.
-- [ ] 3.5 Implement SQLite migrations, snapshot plus action-log persistence, and replay on startup. Verify with a test that restarts the server mid-game and checks identical zones, order and hands.
-- [ ] 3.6 Implement presence, the 2-minute reconnect grace period, the disconnected-seat indicator after 5 seconds, host auto-transfer and turn auto-pass on grace expiry. Verify with integration tests using fake timers.
+- [x] 3.1 Set up the Fastify server, static client serving, the `ws` endpoint, zod message validation, the 64 KB limit and per-connection rate limiting. Verify with tests showing that malformed or oversized messages get error responses and the connection stays open.
+- [x] 3.2 Implement player-token identity (issue, resume), display name, color, duplicate-name suffixes, and one active socket per token (the newer connection wins and the older one receives `session.replaced`). Verify with tests that reconnecting with the same token restores the identity and that a second socket replaces the first.
+- [x] 3.3 Implement per-viewer projection with opaque handles that are regenerated on hidden moves and shuffles, plus the per-viewer handle map. Verify with tests showing that projected events for player B never contain player A's hand card definitions, that a shuffled hidden card's handle never reappears, and that no hidden card's projection includes `copyNo`.
+- [x] 3.4 Implement the table session: intent → authorize → reduce → version++ → project → broadcast, with acks and snapshot-on-gap. Verify with integration tests using two WebSocket clients for the simultaneous-last-card scenario.
+- [x] 3.5 Implement SQLite migrations, snapshot plus action-log persistence, and replay on startup. Verify with a test that restarts the server mid-game and checks identical zones, order and hands.
+- [x] 3.6 Implement presence, the 2-minute reconnect grace period, the disconnected-seat indicator after 5 seconds, host auto-transfer and turn auto-pass on grace expiry. Verify with integration tests using fake timers.
 
 ## 4. Deck library backend
 
