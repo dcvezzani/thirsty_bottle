@@ -49,8 +49,8 @@
 
 ## 6. Client foundation
 
-- [ ] 6.1 Build the app shell: routing (`/`, `/decks`, `/t/:id`), the WebSocket client with automatic reconnect and backoff, Zustand stores, version-gap detection and the snapshot request. Verify with unit tests of the connection store and a manual reconnect check (toggling offline in devtools).
-- [ ] 6.2 Build the onboarding screen (name and color), per-tab identity (`sessionStorage` token, `localStorage` identity list, "continue as…" picker, `BroadcastChannel` duplicate-tab detection, "open in another window" notice, `?newPlayer`), and PWA manifest/service worker. Verify with end-to-end tests: two tabs in one browser context play as different players at one table; a reload keeps each tab's identity; and both tabs reconnect to their own seats after the network is toggled offline and back. Also verify with a Lighthouse PWA installability check.
+- [x] 6.1 Build the app shell: routing (`/`, `/decks`, `/t/:id`), the WebSocket client with automatic reconnect and backoff, Zustand stores, version-gap detection and the snapshot request. Verify with unit tests of the connection store and a manual reconnect check (toggling offline in devtools).
+- [x] 6.2 Build the onboarding screen (name and color), per-tab identity (`sessionStorage` token, `localStorage` identity list, "continue as…" picker, `BroadcastChannel` duplicate-tab detection, "open in another window" notice, `?newPlayer`), and PWA manifest/service worker. Verify with end-to-end tests: two tabs in one browser context play as different players at one table; a reload keeps each tab's identity; and both tabs reconnect to their own seats after the network is toggled offline and back. Also verify with a Lighthouse PWA installability check.
 
 ## 7. Lobby UI
 

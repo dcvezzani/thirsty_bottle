@@ -1,2 +1,8 @@
 import { createRoot } from 'react-dom/client';
-createRoot(document.getElementById('root')!).render(<h1>Card Table</h1>);
+import { App } from './App';
+import './styles.css';
+import { registerSW } from 'virtual:pwa-register';
+
+registerSW({ immediate: true });
+
+createRoot(document.getElementById('root')!).render(<App />);
