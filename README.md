@@ -40,13 +40,26 @@ Serves the app, REST API and WebSocket endpoint on one port (default `3000`): op
 
 Back up `DATA_DIR` to keep decks, tables and chat history.
 
+## Play over your network
+
+`npm start` prints a `Network:` address (for example `http://192.168.1.23:3000/`). Friends on the same Wi-Fi open that address, and you may need to allow incoming connections on the port in your firewall. For friends elsewhere, use a tunnel such as `cloudflared tunnel --url http://localhost:3000`, `ngrok http 3000` or `tailscale funnel 3000`. These also give you `https://`, which browsers require for installing the app and for the copy buttons.
+
+**Windows + WSL2:** WSL2 runs behind its own virtual network, so other devices can't reach it by default. On Windows 11, enable mirrored networking: add the following to `%UserProfile%\.wslconfig`
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+then run `wsl --shutdown` and reopen your terminal. Also allow the port through Windows Defender Firewall (in an admin PowerShell: `New-NetFirewallRule -DisplayName "Card Table" -Direction Inbound -Protocol TCP -LocalPort 3000,5173 -Action Allow`). Use your Windows machine's Wi-Fi IP address (`ipconfig`). The address WSL prints is internal unless mirrored mode is on. On Windows 10, forward the port instead: `netsh interface portproxy add v4tov4 listenport=3000 listenaddress=0.0.0.0 connectport=3000 connectaddress=<WSL IP from "hostname -I">`.
+
 ## Develop
 
 ```bash
 npm run dev
 ```
 
-Runs the server with auto-restart on port 3000 and the Vite dev server (with hot reload) on port 5173. Open http://localhost:5173. API and WebSocket calls are proxied to the server.
+Runs the server with auto-restart on port 3000 and the Vite dev server (with hot reload) on port 5173. Open http://localhost:5173 (other devices can use the `Network:` address Vite prints). API and WebSocket calls are proxied to the server. For actually playing with friends, prefer `npm run build && npm start`: it's one port and much faster to load.
 
 Tip: every browser tab can be a different player. Open several tabs, or add `?newPlayer` to a URL to create another player, to test multiplayer by yourself.
 

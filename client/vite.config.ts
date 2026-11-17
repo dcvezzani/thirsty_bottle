@@ -32,5 +32,6 @@ export default defineConfig({
     }),
   ],
   resolve: { alias: { '@vct/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)) } },
-  server: { proxy: { '/api': 'http://localhost:3000', '/ws': { target: 'ws://localhost:3000', ws: true } } },
+  // host: true listens on all interfaces so phones on the same network can open the dev server
+  server: { host: true, proxy: { '/api': 'http://localhost:3000', '/ws': { target: 'ws://localhost:3000', ws: true } } },
 });
