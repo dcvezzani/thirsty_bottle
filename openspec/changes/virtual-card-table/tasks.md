@@ -29,17 +29,17 @@
 
 ## 4. Deck library backend
 
-- [ ] 4.1 Implement deck and card-def REST CRUD with ownership checks and count ≥ 1 validation, card duplicate/reorder/bulk-count, and copying cards from any viewable deck. Verify with API tests, including rejecting a count of 0 and copying cards from a public deck.
-- [ ] 4.2 Implement drafts and versioned save/discard (immutable `deck_versions`, one draft per deck). Verify with API tests showing that non-owners see only the saved version and that a draft survives a reload.
-- [ ] 4.3 Implement the archive/restore lifecycle and archived-only permanent delete with confirmation, plus image garbage collection. Verify with API tests: deleting an active deck is refused, restore keeps the version and visibility, and a clone survives deletion of its source.
-- [ ] 4.4 Implement visibility (private/link/public), share tokens and the `canView` access check (owner, built-in, link, public, loaded on my table; active only; private refuses as not found). Verify with API tests for each access path and for an archived deck's link being refused.
-- [ ] 4.5 Implement cloning (copy the current version, private and owned by the cloner, frozen "Cloned from" label, shared images, clone_count). Verify with API tests: a clone is independent of later source edits and deletion, and an archived source can't be cloned by others.
-- [ ] 4.6 Implement table deck snapshots (`table_decks`) on load, the "newer version available" flag and reload. Verify with an integration test that editing and then deleting the source deck leaves table play and card info intact.
-- [ ] 4.7 Implement the public gallery query (active and public only, FTS search, newest/most-cloned sort, paging) and the report-deck hide. Verify with API tests showing that archiving withdraws a deck from the gallery.
-- [ ] 4.8 Implement image upload: type/size checks, `sharp` normalization to 750×1050 WebP plus a 250×350 thumbnail, content-addressed storage and access-controlled serving. Verify with tests for an off-ratio image and rejection of a 30 MB TIFF.
-- [ ] 4.9 Implement JSON manifest and `.zip` import/export (export any viewable deck; import creates a new private deck owned by the importer) with per-card validation errors. Verify with a round-trip test and an invalid-count import test.
-- [ ] 4.10 Seed the read-only standard 52-card deck (plus optional jokers) with `suit`/`rank` metadata and generated faces. Verify that loading it creates 52 face-down instances in one pile.
-- [ ] 4.11 Document the deck manifest format and deck lifecycle (save, archive, delete, visibility, clone) in `docs/deck-format.md` with a sample manifest. Verify that the sample imports successfully in a test.
+- [x] 4.1 Implement deck and card-def REST CRUD with ownership checks and count ≥ 1 validation, card duplicate/reorder/bulk-count, and copying cards from any viewable deck. Verify with API tests, including rejecting a count of 0 and copying cards from a public deck.
+- [x] 4.2 Implement drafts and versioned save/discard (immutable `deck_versions`, one draft per deck). Verify with API tests showing that non-owners see only the saved version and that a draft survives a reload.
+- [x] 4.3 Implement the archive/restore lifecycle and archived-only permanent delete with confirmation, plus image garbage collection. Verify with API tests: deleting an active deck is refused, restore keeps the version and visibility, and a clone survives deletion of its source.
+- [x] 4.4 Implement visibility (private/link/public), share tokens and the `canView` access check (owner, built-in, link, public, loaded on my table; active only; private refuses as not found). Verify with API tests for each access path and for an archived deck's link being refused.
+- [x] 4.5 Implement cloning (copy the current version, private and owned by the cloner, frozen "Cloned from" label, shared images, clone_count). Verify with API tests: a clone is independent of later source edits and deletion, and an archived source can't be cloned by others.
+- [x] 4.6 Implement table deck snapshots (`table_decks`) on load, the "newer version available" flag and reload. Verify with an integration test that editing and then deleting the source deck leaves table play and card info intact.
+- [x] 4.7 Implement the public gallery query (active and public only, FTS search, newest/most-cloned sort, paging) and the report-deck hide. Verify with API tests showing that archiving withdraws a deck from the gallery.
+- [x] 4.8 Implement image upload: type/size checks, `sharp` normalization to 750×1050 WebP plus a 250×350 thumbnail, content-addressed storage and access-controlled serving. Verify with tests for an off-ratio image and rejection of a 30 MB TIFF.
+- [x] 4.9 Implement JSON manifest and `.zip` import/export (export any viewable deck; import creates a new private deck owned by the importer) with per-card validation errors. Verify with a round-trip test and an invalid-count import test.
+- [x] 4.10 Seed the read-only standard 52-card deck (plus optional jokers) with `suit`/`rank` metadata and generated faces. Verify that loading it creates 52 face-down instances in one pile.
+- [x] 4.11 Document the deck manifest format and deck lifecycle (save, archive, delete, visibility, clone) in `docs/deck-format.md` with a sample manifest. Verify that the sample imports successfully in a test.
 
 ## 5. Lobby and chat backend
 

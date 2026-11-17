@@ -8,7 +8,7 @@
     "dev": "tsx watch src/main.ts"
   },
   "dependencies": {
-    "@fastify/multipart": "^9.0.1",
+    "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^8.0.2",
     "@vct/shared": "0.1.0",
     "argon2": "^0.41.1",

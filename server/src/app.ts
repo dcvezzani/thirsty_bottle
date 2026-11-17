@@ -20,6 +20,9 @@ import { Tables, type TableSession } from './tables.js';
 import { Chat } from './chat.js';
 import { Hub } from './hub.js';
 import { Decks } from './decks.js';
+import { Images, MAX_UPLOAD_BYTES, UPLOAD_RULES } from './images.js';
+import { DeckIO } from './deckio.js';
+import multipart from '@fastify/multipart';
 import { HttpError } from './util.js';
 
 export interface AppOptions {
@@ -46,6 +49,8 @@ export class App {
   chat: Chat;
   hub: Hub;
   decks: Decks;
+  images: Images;
+  deckio: DeckIO;
   http: FastifyInstance;
   /** Player id → the table they are seated at or watching. */
   playerTables = new Map<string, string>();
@@ -67,6 +72,8 @@ export class App {
     this.hub = new Hub(this);
     this.tables = new Tables(this);
     this.decks = new Decks(this);
+    this.images = new Images(this);
+    this.deckio = new DeckIO(this);
     this.http = Fastify({ bodyLimit: 12 * 1024 * 1024 });
   }
 
@@ -76,8 +83,12 @@ export class App {
 
   async init() {
     this.chat.purge();
-    this.purgeTimer = setInterval(() => this.chat.purge(), 3600_000);
+    this.purgeTimer = setInterval(() => {
+      this.chat.purge();
+      this.images.gc();
+    }, 3600_000);
     this.purgeTimer.unref();
+    this.deckio.seedBuiltIns();
     this.tables.loadAll();
     await this.routes();
     this.http.server.on('upgrade', (req, socket, head) => {
@@ -123,18 +134,19 @@ export class App {
     s?.checkEmpty();
   }
 
-  async loadDeckOntoTable(_s: TableSession, _pid: string, _deckId: string, _shareToken?: string): Promise<void> {
-    throw new ActionError('NO_DECK', 'Decks are not available yet');
+  async loadDeckOntoTable(s: TableSession, pid: string, deckId: string, shareToken?: string): Promise<void> {
+    await this.decks.loadOntoTable(s, pid, deckId, shareToken);
   }
 
-  async reloadDeckOnTable(_s: TableSession, _tableDeckId: string): Promise<void> {
-    throw new ActionError('NO_DECK', 'Decks are not available yet');
+  async reloadDeckOnTable(s: TableSession, tableDeckId: string): Promise<void> {
+    await this.decks.reloadOnTable(s, tableDeckId);
   }
 
   /** Resolves the bearer token on a request. */
   auth(req: FastifyRequest, required = true): Player | null {
     const h = req.headers.authorization;
-    const token = h?.startsWith('Bearer ') ? h.slice(7) : undefined;
+    const cookie = /(?:^|;\s*)vct=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
+    const token = h?.startsWith('Bearer ') ? h.slice(7) : cookie ? decodeURIComponent(cookie) : undefined;
     const p = this.players.byToken(token);
     if (!p && required) throw new HttpError(401, 'UNAUTHORIZED', 'Sign in first');
     return p;
@@ -173,7 +185,41 @@ export class App {
       return { table: s.summary() };
     });
 
-    await this.decksRoutes();
+    // Cookie used only so <img> requests can be authorized (images are access-controlled).
+    app.post('/api/session', async (req, reply) => {
+      const h = req.headers.authorization;
+      const token = h?.startsWith('Bearer ') ? h.slice(7) : '';
+      if (!this.players.byToken(token)) throw new HttpError(401, 'UNAUTHORIZED', 'Sign in first');
+      reply.header('set-cookie', `vct=${encodeURIComponent(token)}; Path=/api/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+      return { ok: true };
+    });
+
+    await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+    app.post('/api/images', async (req) => {
+      const me = this.auth(req)!;
+      const file = await req.file();
+      if (!file) throw new HttpError(400, 'NO_FILE', `Attach an image: ${UPLOAD_RULES}`);
+      let buf: Buffer;
+      try {
+        buf = await file.toBuffer();
+      } catch {
+        throw new HttpError(413, 'TOO_LARGE', `Upload rejected: use ${UPLOAD_RULES}`);
+      }
+      if (file.file.truncated) throw new HttpError(413, 'TOO_LARGE', `Upload rejected: use ${UPLOAD_RULES}`);
+      return this.images.ingest(buf, me.id);
+    });
+    app.get('/api/images/:file', async (req, reply) => {
+      const m = /^([a-f0-9]{64})(\.thumb)?\.webp$/.exec((req.params as any).file);
+      if (!m) throw new HttpError(404, 'NOT_FOUND', 'Not found');
+      const me = this.auth(req, false);
+      if (!this.images.exists(m[1]) || !this.images.canFetch(m[1], me?.id ?? null, (req.query as any).share))
+        throw new HttpError(404, 'NOT_FOUND', 'Not found');
+      reply.header('cache-control', 'private, max-age=31536000, immutable');
+      return reply.type('image/webp').send(fs.createReadStream(this.images.file(m[1], !!m[2])));
+    });
+
+    await this.decks.routes(app);
+    await this.deckio.routes();
 
     const clientDir = this.opts.clientDir!;
     if (fs.existsSync(clientDir)) {
@@ -184,10 +230,6 @@ export class App {
         return reply.type('text/html').send(index);
       });
     }
-  }
-
-  protected async decksRoutes() {
-    /* registered by the deck library */
   }
 
   tableChannel(id: string) {
