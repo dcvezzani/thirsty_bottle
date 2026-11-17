@@ -171,12 +171,14 @@ export class TableSession {
   /** Apply an action (validated & resolved) and broadcast. Throws ActionError on refusal. */
   apply(action: AnyAction, actor: string | null): ReduceResult {
     if (this.closed) throw new ActionError('CLOSED', 'This table is closed');
+    const t0 = performance.now();
     const { ctx, rng } = this.ctx();
     const res = this.engine.dispatch(action, actor, ctx);
     this.version += 1;
     this.persist(action, actor, { now: ctx.now, draws: rng!.draws, connected: [...ctx.connected] });
     this.broadcast(res);
     this.app.lobbyChanged();
+    this.app.metrics.record(performance.now() - t0);
     return res;
   }
 

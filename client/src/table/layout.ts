@@ -17,10 +17,12 @@ export interface FanLayout {
 export function fanLayout(n: number, width: number, cardW: number, opts: { arc?: boolean; maxSpacing?: number; gapAt?: number | null } = {}): FanLayout {
   const cardH = cardW * 1.4;
   const max = opts.maxSpacing ?? cardW * 0.62;
-  const usable = Math.max(0, width - cardW - 8);
+  // rotated end cards of an arc swing outwards: keep them on screen
+  const pad = opts.arc ? cardW * 0.3 : 4;
+  const usable = Math.max(0, width - cardW - 2 * pad);
   const spacing = n > 1 ? Math.min(max, usable / (n - 1 + (opts.gapAt != null ? 1 : 0))) : 0;
   const total = n > 0 ? cardW + spacing * (n - 1 + (opts.gapAt != null ? 1 : 0)) : 0;
-  const left = Math.max(4, (width - total) / 2);
+  const left = Math.max(pad, (width - total) / 2);
   return { n, cardW, cardH, spacing, left, width, arc: !!opts.arc };
 }
 

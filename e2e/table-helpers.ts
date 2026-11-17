@@ -39,9 +39,21 @@ export function line(a: Pt, b: Pt, n = 8): Pt[] {
 }
 
 /** For each card in a row, a point where that card is visibly on top (what a finger would tap). */
+/** Waits until card movement animations (FLIP / transitions) have finished, ignoring labels and toasts. */
 export async function settle(page: Page) {
-  await page.waitForFunction(() => document.getAnimations().filter((a) => a.playState === 'running').length === 0);
-  await page.waitForTimeout(180); // CSS transitions on transform
+  await page.waitForFunction(
+    () =>
+      document
+        .getAnimations()
+        .filter((a) => a.playState === 'running')
+        .filter((a) => {
+          const t = (a.effect as KeyframeEffect | null)?.target as Element | null;
+          return !!t && !!t.closest('[data-h]') && !t.closest('.actor-float');
+        }).length === 0,
+    undefined,
+    { timeout: 5000 },
+  );
+  await page.waitForTimeout(160); // CSS transitions on transform
 }
 
 export async function stripCenters(page: Page, testId: string): Promise<Pt[]> {
@@ -50,17 +62,23 @@ export async function stripCenters(page: Page, testId: string): Promise<Pt[]> {
     const cards = [...row.querySelectorAll<HTMLElement>('[data-h]')];
     return cards.map((c) => {
       const r = c.getBoundingClientRect();
-      const hits: Pt[] = [];
-      for (let fy = 0.85; fy >= 0.35; fy -= 0.1)
-        for (let fx = 0.05; fx <= 0.95; fx += 0.05) {
-          const x = r.left + r.width * fx;
-          const y = r.top + r.height * fy;
-          const top = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-h]');
-          if (top === c) hits.push({ x, y });
+      // scan rows; tap the middle of the widest visible horizontal run of this card
+      let best: { x: number; y: number; w: number } = { x: -1, y: -1, w: 0 };
+      for (let fy = 0.85; fy >= 0.35; fy -= 0.05) {
+        const y = r.top + r.height * fy;
+        if (y < 2 || y > window.innerHeight - 2) continue;
+        let runStart: number | null = null;
+        for (let x = Math.max(2, r.left); x <= Math.min(window.innerWidth - 2, r.right) + 1; x += 1) {
+          const on = x <= Math.min(window.innerWidth - 2, r.right) && document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-h]') === c;
+          if (on && runStart === null) runStart = x;
+          if (!on && runStart !== null) {
+            const w = x - 1 - runStart;
+            if (w > best.w) best = { x: runStart + w / 2, y, w };
+            runStart = null;
+          }
         }
-      if (!hits.length) return { x: -1, y: -1 };
-      // middle of the visible region
-      return hits[Math.floor(hits.length / 2)];
+      }
+      return { x: best.x, y: best.y };
     });
   });
 }

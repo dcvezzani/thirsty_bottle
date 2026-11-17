@@ -56,6 +56,14 @@ export class App {
   /** Player id → the table they are seated at or watching. */
   playerTables = new Map<string, string>();
   closing = false;
+  /** Server action-to-broadcast timings (ms), most recent 5000. */
+  metrics = {
+    actionMs: [] as number[],
+    record(ms: number) {
+      this.actionMs.push(ms);
+      if (this.actionMs.length > 5000) this.actionMs.shift();
+    },
+  };
   private secret!: Buffer;
   private purgeTimer: NodeJS.Timeout | null = null;
 

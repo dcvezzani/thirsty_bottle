@@ -4,6 +4,15 @@ A rules-free virtual card table for playing any card game with friends over the 
 
 Mobile-first web app (installable as a PWA) + a single Node.js server.
 
+## What you can do
+
+- **Lobby**: see who's online and which tables are open; create a table with just a name (seat count, password, deck and visibility are optional); join, watch, or open a private table by invite link. Lobby chat works from anywhere, including inside a game.
+- **Table**: piles, spreads and free areas; private hands. Shuffle, cut, deal, draw from the top/bottom/at random, flip, move, pass, show cards to one player or everyone, peek, gather, reset. Counters and shared notes for scores. No game rules are enforced.
+- **Handling cards**: slide your finger along a hand or spread to preview cards (scrubbing). Tap a card, then scrub to paint-select more. Pull a selection up to drag the whole stack anywhere, including onto a player to pass it. Hold still on a card for its details. "Send again" repeats your last destination. Desktop: hover, click, Shift+click, right-click.
+- **Turn modes**: switch any time between real-time and turn-based (only the active player changes shared zones).
+- **Decks**: build decks with front/back artwork (normalized to 2.5:3.5), copy counts, free-form metadata and descriptive abilities. Save/draft, archive, delete (archived only), share by link or publish to the gallery, clone anyone's deck, import/export (.zip / .json; see [docs/deck-format.md](docs/deck-format.md)). Two built-in standard decks.
+- **Fair play**: the server shuffles with a secure RNG and never sends a client the identity of a card it can't see (other hands, face-down cards, copy numbers). Seats and hands survive network drops (2-minute grace) and server restarts.
+
 ## Requirements
 
 - Node.js 22+
@@ -45,9 +54,12 @@ Tip: every browser tab can be a different player. Open several tabs, or add `?ne
 
 ```bash
 npm test          # unit + integration tests (Vitest)
-npm run test:e2e  # end-to-end tests (Playwright, builds must be current: run `npm run build` first)
+npm run test:e2e  # end-to-end tests (Playwright; run `npm run build` first; uses Chromium)
 npm run lint
 ```
+
+
+Admin: `DATA_DIR=... node server/dist/admin.js reports | unhide <deckId> | hide <deckId>` (reported decks are hidden from the gallery until reviewed).
 
 ## Layout
 
