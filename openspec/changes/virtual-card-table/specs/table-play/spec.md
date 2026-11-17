@@ -138,13 +138,6 @@ Spectators SHALL see shared zones, counters and the log, but SHALL NOT see priva
 - **WHEN** a spectator watches a table
 - **THEN** they see face-up shared cards and hand counts, and every card action control is hidden
 
-### Requirement: Mobile hand and board layout
-On narrow screens the client SHALL show the player's own hand as a fanned arc along the bottom edge, with spacing that adapts to the card count. Shared zones SHALL be laid out above it, scrollable and zoomable. Cards SHALL be selectable by tap, multi-selectable, and movable by drag or a tap-target "Move to…" menu.
-
-#### Scenario: Large hand on phone
-- **WHEN** a player holds 20 cards on a 375-pixel-wide screen
-- **THEN** all 20 cards stay reachable in the fanned hand, with overlap increased and the selected card raised
-
 ### Requirement: Action feedback
 The client SHALL animate card movement, flips, shuffles and deals. It SHALL indicate the actor (for example, a highlight in the player's color or a short floating label) so participants can follow what happened.
 

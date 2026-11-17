@@ -68,11 +68,23 @@ On first visit the server issues a random 256-bit device token, which the client
 ### D9. Mobile UI architecture
 - Routes: `/` lobby (tabs: Tables · Players · Chat), `/decks` library and editor, `/t/:tableId` table.
 - Table screen: a zoomable/pannable board (shared zones) in the upper area, your fanned hand along the bottom edge, and a slide-up drawer with tabs **Room · Lobby · Log · Info**. Lobby chat is reachable from that drawer, which satisfies the chat spec.
-- Interaction: tap selects, long-press opens card info, drag moves cards, and a contextual action sheet lists every action for the selection (Flip, Show to…, Pass to…, Move to…, Peek). Every gesture has a non-gesture fallback.
+- Interaction (see D11): tap toggles selection, a sideways slide scrubs (preview, or paint-select once something is selected), a stationary hold opens card info, pulling out drags the card or selection, and a contextual action sheet lists every action for the selection (Flip, Show to…, Pass to…, Move to…, Peek). Every gesture has a non-gesture fallback.
 - Cards render as absolutely positioned elements moved with `transform` (GPU compositing), and images load from thumbnails first.
 
 ### D10. Randomness
 Shuffles use Fisher–Yates driven by `crypto.randomInt`. Random draws and random cut depths use the same source. Nothing random happens on the client.
+
+### D11. Gesture recognition and scrubbing
+- One Pointer Events state machine per zone (hand, spread, fanned-out pile), not listeners on each card. States: `idle → pressed → {scrub | drag | longPress | tap}`. After about 8px of movement it locks to an axis: sideways means scrub; up or out of the zone means drag. A still hold of 450 ms (movement under 8px) opens card info. Release under 250 ms with no movement is a tap. Uses `touch-action: none` on zones and pointer capture.
+- Hit-testing is computed from the fan layout's math (card index from the pointer's x position, accounting for arc rotation and overlap), so it stays O(1) per pointer event and is unaffected by DOM overlap.
+- Magnification: the hovered card is translated up and scaled about 1.6×, and its neighbors are pushed apart with a falloff. Everything is done with `transform` in a single `requestAnimationFrame` write. The enlarged preview floats above the finger so the finger doesn't cover it.
+- Paint mode is decided at scrub start (if any cards in the zone are selected: select when the scrub starts on an unselected card, deselect when it starts on a selected one; if none are selected: preview only). Selection is client-local state until an action is sent.
+- Haptics: `navigator.vibrate(5)` on each card change, where supported.
+- Group drag sends a single `move` intent carrying an ordered `handles[]` plus a target zone and index, so the reducer, log and undo treat it as one action. While dragging, the client computes the insertion index and animates the gap locally.
+- Desktop: hover gives the preview, click toggles selection, Shift+click selects a range, and drag works the same way.
+- Recent destinations (the last 3) are kept per player in client storage.
+
+**Alternatives considered:** a gesture library such as Hammer.js or use-gesture. It is unnecessary for this narrow set of gestures and adds coupling to how it handles axis locking. Per-card DOM hit-testing breaks down with heavily overlapped fans.
 
 ## Risks / Trade-offs
 
@@ -81,6 +93,7 @@ Shuffles use Fisher–Yates driven by `crypto.randomInt`. Random draws and rando
 - [A device-token identity is lost if browser storage is cleared] → Accepted for v1. Offer a "copy recovery code" in settings that is the token itself.
 - [Optimistic prediction diverges in real-time contention] → Prediction is limited to deterministic operations, and the rebase-and-animate approach keeps divergence brief and visible rather than silent.
 - [Uploaded images could be abusive or very large] → There is a size limit, decoding happens in `sharp` (which rejects malformed files), images are only served to users who can access the deck or table, and there is no public gallery.
+- [Gesture conflicts with browser scroll or zoom on mobile] → Use `touch-action: none` only on card zones, and pan the board with two fingers or on empty board space. Tune thresholds in an on-device test pass.
 - [Single-process design limits scale] → Acceptable for friend groups. Table state is isolated per table, so sharding by table ID later would be straightforward.
 
 ## Migration Plan

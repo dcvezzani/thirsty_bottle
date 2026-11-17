@@ -10,7 +10,7 @@ Lets any player inspect a card's full details (artwork, name, description, metad
 Any participant SHALL be able to open a details view for any card instance whose face they are currently allowed to see. The view shows the front artwork at full size, name, description, all metadata properties and all ability entries.
 
 #### Scenario: Inspect a face-up card
-- **WHEN** a player long-presses (touch) or right-clicks (pointer) a face-up card on the table
+- **WHEN** a player presses and holds a face-up card on the table without moving (touch), or right-clicks it (pointer)
 - **THEN** a details view opens showing the card's artwork, name, description, metadata and abilities
 
 ### Requirement: Hidden cards reveal no identity
@@ -32,8 +32,12 @@ Participants SHALL be able to browse the full list of card definitions for every
 - **THEN** they see each definition with its artwork, metadata and instance count, and no current locations are shown
 
 ### Requirement: Zoom from hand
-A player SHALL be able to enlarge a card in their own hand to full-screen artwork with one gesture, without leaving the table.
+A player SHALL be able to see an enlarged view of any card in their own hand without leaving the table, by hovering (pointer) or scrubbing (touch, as defined in card-handling).
 
 #### Scenario: Hover enlarge
-- **WHEN** a player hovers (pointer) or presses and holds (touch) a card in their hand
-- **THEN** the card is shown enlarged above the hand until released
+- **WHEN** a player hovers the pointer over a card in their hand
+- **THEN** the card is shown enlarged above the hand until the pointer leaves
+
+#### Scenario: Scrub enlarge
+- **WHEN** a player presses on their hand and slides onto a card
+- **THEN** the card is shown enlarged above the finger until the finger moves on or lifts
