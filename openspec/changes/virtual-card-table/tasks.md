@@ -2,9 +2,9 @@
 
 ## 1. Project setup
 
-- [ ] 1.1 Create the npm-workspaces monorepo (`shared/`, `server/`, `client/`) with TypeScript project references, ESLint, Prettier and Vitest. Verify that `npm install && npm run build && npm test` succeeds on the empty packages.
-- [ ] 1.2 Add Playwright end-to-end scaffolding that launches the server and opens two browser contexts against it. Verify that a placeholder test passes.
-- [ ] 1.3 Add a README covering setup, `npm run dev`, `npm start` and `DATA_DIR`. Verify that the documented commands run as written.
+- [x] 1.1 Create the npm-workspaces monorepo (`shared/`, `server/`, `client/`) with TypeScript project references, ESLint, Prettier and Vitest. Verify that `npm install && npm run build && npm test` succeeds on the empty packages.
+- [x] 1.2 Add Playwright end-to-end scaffolding that launches the server and opens two browser contexts against it. Verify that a placeholder test passes.
+- [x] 1.3 Add a README covering setup, `npm run dev`, `npm start` and `DATA_DIR`. Verify that the documented commands run as written.
 
 ## 2. Shared protocol and table reducer
 

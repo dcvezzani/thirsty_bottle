@@ -1,0 +1,5 @@
+dist
+data
+openspec
+.agents
+package-lock.json
