@@ -5,6 +5,7 @@ import { CardRow } from './CardRow';
 import { ZoneGesture } from './gestures';
 import { useUI } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
+import { isBoardPanning, onCancelCardGestures } from './pan';
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
 export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: TableDeckView[]; onInfo: (h: string) => void; canAct: boolean }) {
@@ -37,7 +38,12 @@ export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: T
   }, [onInfo]);
   useEffect(() => {
     const t = setInterval(() => g.g.tick(performance.now()), 50);
-    return () => clearInterval(t);
+    // a second finger on the board means "scroll": drop whatever this finger started (table-scrolling)
+    const off = onCancelCardGestures(() => g.g.cancel());
+    return () => {
+      clearInterval(t);
+      off();
+    };
   }, [g]);
   const local = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
@@ -53,7 +59,7 @@ export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: T
       data-zone-id={zone.id}
       data-testid={`pile-${zone.name}`}
       onPointerDown={(e) => {
-        if (e.button === 2) return;
+        if (e.button === 2 || isBoardPanning()) return;
         ref.current!.setPointerCapture(e.pointerId);
         g.g.down(local(e));
       }}
@@ -135,7 +141,12 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
   }, [onInfo]);
   useEffect(() => {
     const t = setInterval(() => g.g.tick(performance.now()), 50);
-    return () => clearInterval(t);
+    // a second finger on the board means "scroll": drop whatever this finger started (table-scrolling)
+    const off = onCancelCardGestures(() => g.g.cancel());
+    return () => {
+      clearInterval(t);
+      off();
+    };
   }, [g]);
   const local = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
@@ -150,7 +161,7 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
       data-drop-zone={zone.id}
       data-zone-id={zone.id}
       onPointerDown={(e) => {
-        if (e.button === 2) return;
+        if (e.button === 2 || isBoardPanning()) return;
         ref.current!.setPointerCapture(e.pointerId);
         g.g.down(local(e));
       }}

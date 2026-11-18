@@ -44,6 +44,9 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.goto('/');
       await createTable(page, `Contrast ${scheme} ${size.name}`, { deck: 'builtin-standard-52' });
       await expectReadable(page, 'table');
+      await page.evaluate(() => (window as any).__vctShowUpdate());
+      await expect(page.getByRole('status').filter({ hasText: 'A new version is available' })).toBeVisible();
+      await expectReadable(page, 'update notice');
       await page.getByTestId('pile-Standard 52').click();
       await expectReadable(page, 'zone sheet');
       await page.getByRole('button', { name: 'Draw…' }).click();

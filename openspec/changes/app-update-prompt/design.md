@@ -30,7 +30,7 @@
 
 When idle, it calls `apply()`. The deck library list (`/decks`) is excluded for simplicity; the notice covers it. Watching the DOM for dialogs was chosen over adding a store flag to every dialog, which would touch many components and would miss future dialogs.
 
-**D3. Notice UI.** A fixed bar at the bottom of the viewport, above the safe-area inset: "A new version is available" plus a **Reload** primary button. It uses `role="status"` and `aria-live="polite"`. On the table page the hand area occupies the bottom, so the bar renders at the top under the header instead (`.update-bar.top`), the same place as `ConnectionBanner`. It has no dismiss button; it is small and the update is worth taking. Colors use the existing `--panel`/`--ink`/`--accent` tokens, which the contrast e2e already covers.
+**D3. Notice UI.** A bar at the top of every page, in normal layout flow directly under the connection banner, so it pushes content down instead of covering it. It holds "A new version is available" and a **Reload** primary button with a full-height tap target, and uses `role="status"` and `aria-live="polite"`. It has no dismiss button; it is small and the update is worth taking. Colors use the existing `--panel`/`--ink`/`--control-line` tokens and are checked by the contrast e2e. (A bottom bar was considered but rejected: the table's hand area occupies the bottom.)
 
 **D4. Checking for updates.** In `onRegisteredSW(url, reg)`:
 - call `reg.update()` every 30 minutes,

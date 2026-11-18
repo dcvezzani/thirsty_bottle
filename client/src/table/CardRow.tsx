@@ -5,6 +5,7 @@ import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
 import { cardPos, fanLayout, hitIndexXY, insertionIndex, magnify } from './layout';
 import { useUI } from './ui';
 import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
+import { isBoardPanning, onCancelCardGestures } from './pan';
 
 function vibrate(ms: number) {
   try {
@@ -153,7 +154,12 @@ export function CardRow({
 
   useEffect(() => {
     const t = setInterval(() => gesture.g.tick(performance.now()), 50);
-    return () => clearInterval(t);
+    // a second finger on the board means "scroll": drop whatever this finger started (table-scrolling)
+    const off = onCancelCardGestures(() => gesture.g.cancel());
+    return () => {
+      clearInterval(t);
+      off();
+    };
   }, [gesture]);
 
   const local = (e: React.PointerEvent) => {
@@ -163,7 +169,7 @@ export function CardRow({
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button === 2) return;
+    if (e.button === 2 || isBoardPanning()) return;
     if (e.pointerType === 'mouse' && e.shiftKey) {
       // desktop range select
       const s = local(e);

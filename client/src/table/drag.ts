@@ -3,6 +3,7 @@ import { getSocket } from '../store/app';
 import { useTable } from '../store/table';
 import { predictMove } from '../store/predict';
 import { useUI, type DropTarget } from './ui';
+import { EdgeScroller, bandSpeed } from './edgeScroll';
 
 /** Drop-target resolvers registered by rendered zones: client point → insertion index / free position. */
 export const dropRegistry = new Map<string, (x: number, y: number) => { index?: number; pos?: { x: number; y: number } }>();
@@ -45,9 +46,46 @@ export function targetAt(x: number, y: number): DropTarget {
   return null;
 }
 
+// --- scrolling while dragging (table-scrolling) ---
+const edge = new EdgeScroller();
+let edgeFrame = 0;
+let edgeLast = 0;
+function edgeTick(now: number) {
+  edgeFrame = 0;
+  const d = useUI.getState().drag;
+  if (!d || !boardEl) return edge.reset();
+  const r = boardEl.getBoundingClientRect();
+  const v = edge.speed(d.y, now, r.top, r.bottom);
+  const dt = Math.min(50, now - (edgeLast || now));
+  edgeLast = now;
+  if (v !== 0) {
+    const before = boardEl.scrollTop;
+    boardEl.scrollTop += (v * dt) / 1000;
+    // the zone under the cards changed: re-evaluate the drop target
+    if (boardEl.scrollTop !== before) useUI.setState({ drag: { ...d, over: targetAt(d.x, d.y) } });
+  }
+  if (bandActive(d.y, r)) edgeFrame = requestAnimationFrame(edgeTick);
+  else edge.reset();
+}
+function bandActive(y: number, r: DOMRect) {
+  return bandSpeed(y, r.top, r.bottom) !== 0;
+}
+function edgeWatch(y: number) {
+  if (!boardEl || edgeFrame) return;
+  if (!bandActive(y, boardEl.getBoundingClientRect())) return;
+  edgeLast = 0;
+  edgeFrame = requestAnimationFrame(edgeTick);
+}
+function edgeStop() {
+  cancelAnimationFrame(edgeFrame);
+  edgeFrame = 0;
+  edge.reset();
+}
+
 export function startDrag(handles: string[], fromZone: string, x: number, y: number) {
   useUI.setState({ drag: { handles, fromZone, x, y, over: null }, preview: null });
   broadcast(x, y);
+  edgeWatch(y);
 }
 
 export function moveDrag(x: number, y: number) {
@@ -55,9 +93,11 @@ export function moveDrag(x: number, y: number) {
   if (!d) return;
   useUI.setState({ drag: { ...d, x, y, over: targetAt(x, y) } });
   broadcast(x, y);
+  edgeWatch(y);
 }
 
 export function cancelDrag() {
+  edgeStop();
   const d = useUI.getState().drag;
   if (d) broadcast(d.x, d.y, true);
   useUI.setState({ drag: null });
@@ -91,6 +131,7 @@ export async function moveCards(handles: string[], from: string, to: string, opt
 }
 
 export async function endDrag(x: number, y: number) {
+  edgeStop();
   const d = useUI.getState().drag;
   if (!d) return;
   const over = targetAt(x, y);

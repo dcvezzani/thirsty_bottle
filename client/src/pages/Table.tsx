@@ -12,6 +12,7 @@ import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
 import { useUI, findCard, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
+import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
 import { useFlip, inkOn } from '../table/anim';
 
@@ -79,6 +80,7 @@ function TableScreen({ view }: { view: TableView }) {
   const onInfo = useCallback((h: string) => setSheet({ kind: 'info', h }), [setSheet]);
   useFlip(view);
 
+  useBoardPan(boardRef);
   useLayoutEffect(() => {
     setBoardElement(boardRef.current);
     return () => setBoardElement(null);

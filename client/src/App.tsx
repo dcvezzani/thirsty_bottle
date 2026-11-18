@@ -4,6 +4,7 @@ import { checkDuplicateTab, getTabToken, listIdentities, setTabToken } from './l
 import { connect, getSocket, switchIdentity, useApp } from './store/app';
 import { IdentityPicker, Onboarding } from './pages/Onboarding';
 import { ConnectionBanner, Toasts } from './components/ui';
+import { UpdateBar, UpdateGate } from './components/UpdateBar';
 import { Lobby } from './pages/Lobby';
 import { DecksPage } from './pages/Decks';
 import { DeckPage, ShareLinkPage } from './pages/DeckEditor';
@@ -52,6 +53,8 @@ export function App() {
   return (
     <BrowserRouter>
       <ConnectionBanner />
+      <UpdateBar />
+      <UpdateGate />
       {status === 'replaced' && (
         <div className="overlay" style={{ alignItems: 'center' }}>
           <div className="sheet" role="alertdialog" aria-label="Open in another window">
