@@ -11,17 +11,17 @@
 
 ## 3. CI
 
-- [ ] 3.1 Add `.github/workflows/ci.yml` (lint, build, unit and integration tests, Playwright e2e, a Docker image build without push, and `flyctl config validate`; upload `test-results/` on failure). Verify with a green run on a pushed branch, and fix any CI-only test failures in the tests themselves, never by skipping.
+- [x] 3.1 Add `.github/workflows/ci.yml` (lint, build, unit and integration tests, Playwright e2e, a Docker image build without push, and `flyctl config validate`; upload `test-results/` on failure). Verify with a green run on a pushed branch, and fix any CI-only test failures in the tests themselves, never by skipping.
 
 ## 4. Fly configuration and deploy workflow
 
-- [ ] 4.1 Add `fly.toml` per design D3. Verify that `flyctl config validate` passes in CI.
-- [ ] 4.2 Add `.github/workflows/deploy.yml` (automatic after green CI on `main`, manual with `ref`, production concurrency group, remote build with `GIT_SHA`, health smoke check, job summary). Verify that the workflow file passes `actionlint` (run via `npx` or the action) in CI.
-- [ ] 4.3 After the user's one-time setup, confirm the repository secret `FLY_API_TOKEN` and variables `FLY_APP` and `FLY_REGION` exist (names only), then trigger the first deploy from this Claude session with `actions_run_trigger`. Verify that the run succeeds and `https://<app>.fly.dev/api/health` reports the deployed SHA.
+- [x] 4.1 Add `fly.toml` per design D3. Verify that `flyctl config validate` passes in CI.
+- [x] 4.2 Add `.github/workflows/deploy.yml` (automatic after green CI on `main`, manual with `ref`, production concurrency group, remote build with `GIT_SHA`, health smoke check, job summary). Verify that the workflow file passes `actionlint` (run via `npx` or the action) in CI.
+- [x] 4.3 After the user's one-time setup, confirm the repository secret `FLY_API_TOKEN` and variables `FLY_APP` and `FLY_REGION` exist (names only), then trigger the first deploy from this Claude session with `actions_run_trigger`. Verify that the run succeeds and `https://<app>.fly.dev/api/health` reports the deployed SHA.
 
 ## 5. Documentation
 
-- [ ] 5.1 Write `docs/deploy.md` covering:
+- [x] 5.1 Write `docs/deploy.md` covering:
   - one-time setup, with the checklist and links
   - how deploys happen
   - deploying and rolling back from a Claude session (tool calls and what to report)
