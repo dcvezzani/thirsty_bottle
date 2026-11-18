@@ -25,7 +25,7 @@ test('action sheet: pass and show with correct faces; recent destinations and Se
   await alex.getByRole('button', { name: 'Actions…' }).click();
   await alex.getByRole('button', { name: 'Pass to Sam' }).click();
   await expect(sam.getByTestId('row-hand').locator('[data-h]')).toHaveCount(1);
-  expect(await names(sam, 'row-hand')).toEqual([mine[0]]);
+  await expect.poll(() => names(sam, 'row-hand')).toEqual([mine[0]]);
   await expect(kim.getByTestId('seat-Sam')).toContainText('1');
   await expect(kim.getByTestId('seat-Sam').locator('[data-h]')).toHaveCount(0);
 
