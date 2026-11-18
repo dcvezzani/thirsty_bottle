@@ -13,4 +13,4 @@
 ## 3. End-to-end verification
 
 - [x] 3.1 Extend the "SW update" e2e test: at a table a simulated deploy shows the notice with no navigation, and Reload returns to the same table and hand on the new worker; in the lobby with the New table dialog open nothing reloads until the dialog closes; leaving a table with an update waiting reloads the lobby. Verify with `npx playwright test e2e/backfill.spec.ts --trace off`.
-- [ ] 3.2 Run lint, all unit tests and the full e2e suite, push to `main`, and confirm after the deploy that an already-open production lobby picks up the new version without closing the tab.
+- [x] 3.2 Run lint, all unit tests and the full e2e suite, push to `main`, and confirm after the deploy that an already-open production lobby picks up the new version without closing the tab.
