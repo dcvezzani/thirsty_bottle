@@ -31,7 +31,7 @@ jobs:
     env:
       FLY_APP: ${{ vars.FLY_APP }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
       - name: Resolve commit
@@ -54,7 +54,7 @@ jobs:
       - name: Smoke check
         run: |
           url="https://$FLY_APP.fly.dev"
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             body=$(curl -fs "$url/api/health" || true)
             echo "$body" | grep -q '"version":"${{ steps.sha.outputs.sha }}"' && { echo "Healthy: $body"; exit 0; }
             sleep 2

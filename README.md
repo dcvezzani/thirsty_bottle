@@ -40,6 +40,10 @@ Serves the app, REST API and WebSocket endpoint on one port (default `3000`): op
 
 Back up `DATA_DIR` to keep decks, tables and chat history.
 
+## Deploy
+
+Production runs on Fly.io at https://thirsty-bottle.fly.dev. Every push to `main` that passes CI deploys automatically, and the **Deploy** workflow (in GitHub Actions, or triggered from a Claude session) deploys or rolls back any commit. See [docs/deploy.md](docs/deploy.md) for setup, rollback, backups and costs.
+
 ## Play over your network
 
 `npm start` prints a `Network:` address (for example `http://192.168.1.23:3000/`). Friends on the same Wi-Fi open that address, and you may need to allow incoming connections on the port in your firewall. For friends elsewhere, use a tunnel such as `cloudflared tunnel --url http://localhost:3000`, `ngrok http 3000` or `tailscale funnel 3000`. These also give you `https://`, which browsers require for installing the app and for the copy buttons.

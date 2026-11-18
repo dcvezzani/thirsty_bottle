@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -33,7 +33,7 @@ jobs:
         run: npm run test:e2e
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: test-results/
@@ -44,14 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build image
         run: docker build --build-arg GIT_SHA=${{ github.sha }} -t cardtable:ci .
       - name: Smoke test image
         run: |
           mkdir -p "$RUNNER_TEMP/data"
           docker run -d --name ct -p 8080:8080 -v "$RUNNER_TEMP/data:/data" cardtable:ci
-          for i in $(seq 1 30); do curl -fs localhost:8080/api/health && break; sleep 1; done
+          for _ in $(seq 1 30); do curl -fs localhost:8080/api/health && break; sleep 1; done
           curl -fs localhost:8080/api/health | grep -q '"version":"${{ github.sha }}"'
           curl -fs localhost:8080/ | grep -q '<div id="root">'
           docker stop -t 20 ct
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: actionlint
         run: |
           curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz | tar xz actionlint
