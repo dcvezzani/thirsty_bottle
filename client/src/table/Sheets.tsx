@@ -10,6 +10,7 @@ import { MetaList } from '../pages/DeckEditor';
 import { findCard, orderedSelection, useUI, zoneLabel } from './ui';
 import { moveCards } from './drag';
 import { CardRow } from './CardRow';
+import { CountField } from '../components/CountField';
 
 const send = (a: any, predict?: any) => useTable.getState().send(a, predict);
 
@@ -169,8 +170,8 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
 
 export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: string; onClose: () => void }) {
   const zone = view.zones.find((z) => z.id === zoneId);
-  const [peekN, setPeekN] = useState(1);
-  const [cutDepth, setCutDepth] = useState('');
+  const [peekN, setPeekN] = useState<number | null>(1);
+  const [cutDepth, setCutDepth] = useState<number | null>(null);
   const [rename, setRename] = useState('');
   if (!zone) return null;
   const host = view.me.isHost;
@@ -202,22 +203,24 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
       )}
       {!spectator && n > 1 && (
         <>
-          <div className="row" style={{ marginTop: 10 }}>
-            <label className="grow" style={{ margin: 0 }}>
-              Peek at top
-            </label>
-            <input aria-label="Peek count" type="number" min={1} max={n} value={peekN} style={{ width: 80 }} onChange={(e) => setPeekN(Number(e.target.value))} />
-            <button onClick={() => act({ type: 'peek', zone: zone.id, count: Math.max(1, Math.min(n, peekN)) })}>Peek</button>
+          <label htmlFor="peekn" style={{ marginTop: 10 }}>
+            Peek at top
+          </label>
+          <div className="row count-row">
+            <CountField id="peekn" label="Peek count" value={peekN} min={1} max={n} onChange={setPeekN} />
+            <button disabled={peekN === null} onClick={() => peekN !== null && act({ type: 'peek', zone: zone.id, count: peekN })}>
+              Peek
+            </button>
           </div>
-          <div className="row" style={{ marginTop: 6 }}>
-            <label className="grow" style={{ margin: 0 }}>
-              Cut at depth
-            </label>
-            <input aria-label="Cut depth" type="number" min={1} max={n - 1} value={cutDepth} placeholder={`1–${n - 1}`} style={{ width: 80 }} onChange={(e) => setCutDepth(e.target.value)} />
-            <button disabled={!cutDepth} onClick={() => act({ type: 'cut', zone: zone.id, depth: Number(cutDepth), mode: 'complete' })}>
+          <label htmlFor="cutn" style={{ marginTop: 8 }}>
+            Cut at
+          </label>
+          <div className="row count-row">
+            <CountField id="cutn" label="Cut depth" value={cutDepth} min={1} max={n - 1} onChange={setCutDepth} />
+            <button disabled={cutDepth === null} onClick={() => cutDepth !== null && act({ type: 'cut', zone: zone.id, depth: cutDepth, mode: 'complete' })}>
               Cut
             </button>
-            <button disabled={!cutDepth} onClick={() => act({ type: 'cut', zone: zone.id, depth: Number(cutDepth), mode: 'split' })}>
+            <button disabled={cutDepth === null} onClick={() => cutDepth !== null && act({ type: 'cut', zone: zone.id, depth: cutDepth, mode: 'split' })}>
               Split
             </button>
           </div>
@@ -288,14 +291,14 @@ function RemoveZone({ zone, others, onDone }: { zone: ZoneView; others: ZoneView
 
 export function DrawSheet({ view, zoneId, onClose }: { view: TableView; zoneId: string; onClose: () => void }) {
   const zone = view.zones.find((z) => z.id === zoneId);
-  const [count, setCount] = useState(1);
+  const [count, setCount] = useState<number | null>(1);
   const [from, setFrom] = useState<'top' | 'bottom' | 'random'>('top');
   const [to, setTo] = useState(`hand:${view.me.seatId}`);
   if (!zone) return null;
   return (
     <Sheet title={`Draw from ${zone.name}`} onClose={onClose}>
       <label htmlFor="dcount">How many</label>
-      <input id="dcount" type="number" min={1} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} />
+      <CountField id="dcount" label="How many" value={count} min={1} max={zone.cards.length} onChange={setCount} />
       <label>From</label>
       <div className="row">
         {(['top', 'bottom', 'random'] as const).map((f) => (
@@ -317,12 +320,14 @@ export function DrawSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
       <button
         className="primary"
         style={{ width: '100%', marginTop: 12 }}
+        disabled={count === null}
         onClick={() => {
+          if (count === null) return;
           send({ type: 'draw', zone: zone.id, count, from, to });
           onClose();
         }}
       >
-        Draw {count}
+        Draw {count ?? ''}
       </button>
     </Sheet>
   );
@@ -331,7 +336,7 @@ export function DrawSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
 export function DealSheet({ view, zoneId, onClose }: { view: TableView; zoneId: string; onClose: () => void }) {
   const zone = view.zones.find((z) => z.id === zoneId);
   const occupied = view.seats.filter((s) => s.playerId);
-  const [count, setCount] = useState(Math.max(1, Math.floor((zone?.cards.length ?? 0) / Math.max(1, occupied.length))));
+  const [count, setCount] = useState<number | null>(Math.max(1, Math.floor((zone?.cards.length ?? 0) / Math.max(1, occupied.length))));
   const [seats, setSeats] = useState<string[]>(occupied.map((s) => s.id));
   const [start, setStart] = useState(occupied[0]?.id ?? '');
   const [face, setFace] = useState<'down' | 'up'>('down');
@@ -339,7 +344,14 @@ export function DealSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
   return (
     <Sheet title={`Deal from ${zone.name}`} onClose={onClose}>
       <label htmlFor="dealn">Cards to each seat</label>
-      <input id="dealn" type="number" min={1} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} />
+      <CountField
+        id="dealn"
+        label="Cards to each seat"
+        value={count}
+        min={1}
+        max={Math.max(1, Math.floor(zone.cards.length / Math.max(1, seats.length)))}
+        onChange={setCount}
+      />
       <label>Seats</label>
       {view.seats.map((s) => (
         <label key={s.id} className="row" style={{ margin: '4px 0', color: 'var(--ink)' }}>
@@ -369,13 +381,14 @@ export function DealSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
       <button
         className="primary"
         style={{ width: '100%', marginTop: 12 }}
-        disabled={!seats.length}
+        disabled={!seats.length || count === null}
         onClick={() => {
+          if (count === null) return;
           send({ type: 'deal', zone: zone.id, count, seats, startSeat: seats.includes(start) ? start : undefined, face });
           onClose();
         }}
       >
-        Deal {count} to {seats.length} seat{seats.length === 1 ? '' : 's'}
+        Deal {count ?? ''} to {seats.length} seat{seats.length === 1 ? '' : 's'}
       </button>
     </Sheet>
   );
