@@ -34,7 +34,7 @@
 ## 6. End-to-end verification in production
 
 - [x] 6.1 On the public URL, two browsers onboard, create a table with the built-in deck, deal and pass cards. Then trigger a redeploy from a Claude session and confirm both players reconnect to the same table with the same hands, and that uploaded artwork still loads. Verify by recording the result in the change's notes.
-- [ ] 6.2 Confirm idle behavior: after all players leave, the machine stops (`fly status` or the dashboard via the user), and the next visit starts it and shows existing decks. Verify through the user's screenshot or `fly status` output.
+- [x] 6.2 Confirm idle behavior: after all players leave, the machine stops (`fly status` or the dashboard via the user), and the next visit starts it and shows existing decks. Verify through the user's screenshot or `fly status` output.
 
 ## Workflow follow-up
 

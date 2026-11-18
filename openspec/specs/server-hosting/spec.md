@@ -32,3 +32,10 @@ On SIGINT or SIGTERM the server SHALL save a snapshot of every open table, close
 #### Scenario: Stop and restart
 - **WHEN** the server receives SIGTERM during a game and is started again with the same data directory
 - **THEN** the table is restored with the same state
+
+### Requirement: Behind an HTTPS reverse proxy
+When deployed behind a platform reverse proxy that terminates TLS, the server SHALL honor the proxy's forwarded protocol and client address headers. Absolute URLs it generates (such as image links in deck exports) SHALL then use `https`, and the client SHALL connect its WebSocket with `wss`.
+
+#### Scenario: Export behind the proxy
+- **WHEN** a player exports a deck as JSON through the production HTTPS address
+- **THEN** the image URLs in the manifest start with `https://`

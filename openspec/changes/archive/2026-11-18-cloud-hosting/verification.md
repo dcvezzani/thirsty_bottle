@@ -29,6 +29,19 @@ The script then closed the table and deleted its test deck.
 
 Leftovers from the script's first, aborted attempt: an unused private deck (`d__pnXKRWNLMnk`, owned by a throwaway test player) and a table that closes automatically after 30 minutes with nobody connected. Neither is visible to other players.
 
-## Idle stop (task 6.2)
+## Idle stop (task 6.2), 2026-11-18
 
-Pending: needs `fly status --app thirsty-bottle` showing the machine `stopped` after about 10 minutes with nobody connected. The next visit should start it and show existing decks.
+`fly status --app thirsty-bottle` (run by the owner) after a quiet period:
+
+```
+ PROCESS │ ID             │ VERSION │ REGION │ STATE   │ ROLE │ CHECKS             │ LAST UPDATED
+ app     │ d8de177f656d48 │ 13      │ dfw    │ stopped │      │ 1 total, 1 warning │ 2026-11-18T18:38:18Z
+```
+
+The machine had stopped on its own with nobody connected. The health check shows a warning because nothing answers it while the machine is stopped; that is expected.
+
+The next visit woke it up:
+
+- First request to `/api/health`: HTTP 200 in 4.6 s (cold start). The second request took 0.4 s.
+- A new player reached the lobby, and the New table dialog listed the built-in decks (Standard 52, and Standard 52 + Jokers).
+- Saved data on the volume survived restarts, as shown by the live game across a redeploy above (task 6.1).
