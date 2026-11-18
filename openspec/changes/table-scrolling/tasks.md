@@ -16,4 +16,4 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run lint, all unit tests and the full e2e suite (including `e2e/contrast.spec.ts`). Push to `main` and confirm the deploy.
+- [x] 4.1 Run lint, all unit tests and the full e2e suite (including `e2e/contrast.spec.ts`). Push to `main` and confirm the deploy.
