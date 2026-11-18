@@ -87,7 +87,9 @@ export class App {
     this.decks = new Decks(this);
     this.images = new Images(this);
     this.deckio = new DeckIO(this);
-    this.http = Fastify({ bodyLimit: 12 * 1024 * 1024 });
+    // trustProxy: in production the server sits behind the platform's TLS proxy (server-hosting spec),
+    // so req.protocol / req.host / req.ip must come from the X-Forwarded-* headers.
+    this.http = Fastify({ bodyLimit: 12 * 1024 * 1024, trustProxy: true });
   }
 
   log(msg: string) {
@@ -193,7 +195,8 @@ export class App {
       return reply.status(500).send({ code: 'SERVER', error: 'Something went wrong' });
     });
 
-    app.get('/api/health', async () => ({ ok: true }));
+    // version = the deployed commit (GIT_SHA is baked into the container image); deploy smoke checks compare it
+    app.get('/api/health', async () => ({ ok: true, version: process.env.GIT_SHA || 'dev' }));
 
     app.post('/api/players', async (req) => {
       const body = z.object({ name: DisplayNameSchema, color: PlayerColorSchema }).parse(req.body);

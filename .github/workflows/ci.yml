@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Lint, build, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Unit and integration tests
+        run: npm test
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --build-arg GIT_SHA=${{ github.sha }} -t cardtable:ci .
+      - name: Smoke test image
+        run: |
+          mkdir -p "$RUNNER_TEMP/data"
+          docker run -d --name ct -p 8080:8080 -v "$RUNNER_TEMP/data:/data" cardtable:ci
+          for i in $(seq 1 30); do curl -fs localhost:8080/api/health && break; sleep 1; done
+          curl -fs localhost:8080/api/health | grep -q '"version":"${{ github.sha }}"'
+          curl -fs localhost:8080/ | grep -q '<div id="root">'
+          docker stop -t 20 ct
+          test "$(docker inspect -f '{{.State.ExitCode}}' ct)" = "0"
+
+  config:
+    name: Workflow and Fly config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz | tar xz actionlint
+          ./actionlint -color
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Validate fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then echo "No FLY_API_TOKEN (fork): skipping"; exit 0; fi
+          flyctl config validate --config fly.toml

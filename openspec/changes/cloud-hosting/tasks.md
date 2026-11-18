@@ -2,12 +2,12 @@
 
 ## 1. App changes for hosting
 
-- [ ] 1.1 Enable `trustProxy` in `server/src/app.ts` and add a server test that a JSON deck export requested with `X-Forwarded-Proto: https` has `https://` image URLs. Verify that the test passes.
-- [ ] 1.2 Return `version` (from `GIT_SHA`, default `dev`) from `/api/health`, and add a test with `GIT_SHA` set. Verify that the test passes.
+- [x] 1.1 Enable `trustProxy` in `server/src/app.ts` and add a server test that a JSON deck export requested with `X-Forwarded-Proto: https` has `https://` image URLs. Verify that the test passes.
+- [x] 1.2 Return `version` (from `GIT_SHA`, default `dev`) from `/api/health`, and add a test with `GIT_SHA` set. Verify that the test passes.
 
 ## 2. Container
 
-- [ ] 2.1 Add `Dockerfile` (multi-stage, `node:22-bookworm-slim`, non-root, `PORT=8080`, `DATA_DIR=/data`, `GIT_SHA` build argument) and `.dockerignore`. Verify with `docker build` and by running the container with a mounted temp dir, where `/api/health` returns the build SHA and a deck can be created and survives a container restart. If Docker is unavailable in the session, verify through the CI image build in 3.1.
+- [x] 2.1 Add `Dockerfile` (multi-stage, `node:22-bookworm-slim`, non-root, `PORT=8080`, `DATA_DIR=/data`, `GIT_SHA` build argument) and `.dockerignore`. Verify with `docker build` and by running the container with a mounted temp dir, where `/api/health` returns the build SHA and a deck can be created and survives a container restart. If Docker is unavailable in the session, verify through the CI image build in 3.1.
 
 ## 3. CI
 

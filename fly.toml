@@ -1,0 +1,41 @@
+# Fly.io config for Card Table (cloud-hosting change, design D3).
+# One small machine + one volume. It stops when no players are connected and starts on the next request.
+app = "thirsty-bottle"
+primary_region = "dfw"
+kill_signal = "SIGINT"   # the server saves table snapshots on SIGINT/SIGTERM
+kill_timeout = "20s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  DATA_DIR = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  [http_service.concurrency]
+    # WebSockets count as connections, so the machine keeps running while anyone is playing
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+    method = "GET"
+    path = "/api/health"
+
+[[mounts]]
+  source = "cardtable_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"   # sharp needs headroom for 10 MB uploads

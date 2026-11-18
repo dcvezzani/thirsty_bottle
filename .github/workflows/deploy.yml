@@ -1,0 +1,72 @@
+name: Deploy
+
+# Automatic: after CI succeeds for a push to main.
+# Manual (GitHub UI, `gh workflow run`, or a Claude session via the GitHub tools): deploy or roll back any ref.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit SHA to deploy (rollback = an older commit)
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_APP: ${{ vars.FLY_APP }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+      - name: Resolve commit
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Check configuration
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          test -n "$FLY_APP" || { echo "::error::Repository variable FLY_APP is not set"; exit 1; }
+          test -n "$FLY_API_TOKEN" || { echo "::error::Repository secret FLY_API_TOKEN is not set"; exit 1; }
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: >-
+          flyctl deploy --remote-only --ha=false
+          --app "$FLY_APP"
+          --build-arg GIT_SHA=${{ steps.sha.outputs.sha }}
+      - name: Smoke check
+        run: |
+          url="https://$FLY_APP.fly.dev"
+          for i in $(seq 1 30); do
+            body=$(curl -fs "$url/api/health" || true)
+            echo "$body" | grep -q '"version":"${{ steps.sha.outputs.sha }}"' && { echo "Healthy: $body"; exit 0; }
+            sleep 2
+          done
+          echo "::error::$url/api/health did not report ${{ steps.sha.outputs.sha }} (last: $body)"
+          exit 1
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy ${{ job.status }}"
+            echo "- Commit: \`${{ steps.sha.outputs.sha }}\`"
+            echo "- URL: https://$FLY_APP.fly.dev"
+            echo "- Trigger: ${{ github.event_name }}"
+          } >> "$GITHUB_STEP_SUMMARY"

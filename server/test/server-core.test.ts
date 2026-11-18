@@ -9,7 +9,7 @@ afterEach(async () => srv.stop());
 
 describe('server, validation and rate limits (3.1)', () => {
   it('serves health and rejects malformed messages without closing the connection', async () => {
-    expect((await api(srv, 'GET', '/api/health')).data).toEqual({ ok: true });
+    expect((await api(srv, 'GET', '/api/health')).data).toEqual({ ok: true, version: process.env.GIT_SHA || 'dev' });
     const a = await Client.connect(srv, 'Alex');
     a.send('not json');
     expect((await a.next((m) => m.t === 'error')) as any).toMatchObject({ code: 'BAD_JSON' });

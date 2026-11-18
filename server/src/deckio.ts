@@ -255,7 +255,7 @@ export class DeckIO {
       const me = this.app.auth(req, false);
       const q = req.query as any;
       const format = q.format === 'json' ? 'json' : 'zip';
-      const base = `${req.protocol}://${req.headers.host}`;
+      const base = `${req.protocol}://${req.host}`;
       const r = await this.export((req.params as any).id, me?.id ?? null, q.share, format, base);
       reply.header('content-disposition', `attachment; filename="${r.filename}"`);
       if ('zip' in r) return reply.type('application/zip').send(r.zip);
