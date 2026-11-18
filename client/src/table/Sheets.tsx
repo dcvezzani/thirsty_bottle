@@ -230,8 +230,8 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
         <>
           <h4 style={{ margin: '14px 0 4px' }}>Host</h4>
           <div className="row">
-            <input aria-label="Rename zone" placeholder={zone.name} value={rename} onChange={(e) => setRename(e.target.value)} />
-            <button disabled={!rename.trim()} onClick={() => act({ type: 'zoneUpdate', zone: zone.id, name: rename.trim() })}>
+            <input className="grow" aria-label="Rename zone" placeholder={zone.name} value={rename} onChange={(e) => setRename(e.target.value)} />
+            <button style={{ flex: 'none' }} disabled={!rename.trim()} onClick={() => act({ type: 'zoneUpdate', zone: zone.id, name: rename.trim() })}>
               Rename
             </button>
           </div>
