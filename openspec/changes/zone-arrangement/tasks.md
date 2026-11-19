@@ -39,4 +39,4 @@
 ## 5. Verification
 
 - [x] 5.1 Build a Solitaire-style table in e2e (stock, waste, 4 foundations, 7 columns with "Start a new row" on P1) at 375px. All 13 zones fit without sideways scrolling, and the first screen shows at least the top two rows. Add arrange mode, a column scrub and the slim bars to `e2e/contrast.spec.ts`.
-- [ ] 5.2 Run lint, all unit tests and the full e2e suite, push to `main`, and confirm the deploy.
+- [x] 5.2 Run lint, all unit tests and the full e2e suite, push to `main`, and confirm the deploy.
