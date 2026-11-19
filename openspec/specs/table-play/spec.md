@@ -13,7 +13,7 @@ The table SHALL NOT validate moves against any game's rules. Any permitted parti
 - **THEN** the move succeeds and every participant sees the action recorded in the table log
 
 ### Requirement: Zones
-The table SHALL organize card instances into zones. A zone is shared or owned by one player and has a layout: pile (stacked), spread (fanned row), column (cards cascading downward) or free (positioned anywhere). Each seat SHALL have a private hand zone. Hosts SHALL be able to add, rename, recolor, arrange and remove zones. Shared zones SHALL appear in one order that is the same for every participant. Each shared zone SHALL have a width (fit, half or full) and MAY start a new row. Each device SHALL wrap the order into rows that fit its screen.
+The table SHALL organize card instances into zones. A zone is shared or owned by one player and has a layout: pile (stacked), spread (fanned row), column (cards cascading downward) or free (positioned anywhere). Each seat SHALL have a private hand zone. Hosts SHALL be able to add, rename, recolor, arrange and remove zones.
 
 #### Scenario: Create a discard pile
 - **WHEN** the host adds a shared zone named "Discard" with layout pile
@@ -22,6 +22,9 @@ The table SHALL organize card instances into zones. A zone is shared or owned by
 #### Scenario: Remove non-empty zone
 - **WHEN** the host removes a zone that still contains cards
 - **THEN** the system asks where to move its cards, and removes the zone only after they are moved
+
+### Requirement: Zone order and rows
+Shared zones SHALL appear in one order that is the same for every participant. Each shared zone SHALL have a width (fit, half or full) and MAY start a new row. Each device SHALL wrap the order into rows that fit its screen.
 
 #### Scenario: Same order on different screens
 - **WHEN** a table has zones Stock, Waste, F1 to F4 and P1 to P7, viewed on a desktop and on a 375-pixel phone
