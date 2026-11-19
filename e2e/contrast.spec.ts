@@ -67,6 +67,32 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Table actions' }).click();
       await expectReadable(page, 'table zone sheet');
       await page.keyboard.press('Escape');
+      // zone-arrangement: slim empty bars, a column being scrubbed, and arrange mode
+      await page.getByRole('button', { name: 'Table settings' }).click();
+      for (const [n, layout] of [['Empty bar', 'spread'], ['Col', 'column']]) {
+        await page.getByLabel('New zone name').fill(n);
+        await page.getByLabel('New zone layout').selectOption(layout);
+        await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+      }
+      await page.keyboard.press('Escape');
+      await expectReadable(page, 'slim empty zone');
+      await page.getByTestId('pile-Standard 52').click();
+      await page.getByRole('button', { name: 'Draw…' }).click();
+      await page.locator('#dcount').fill('4');
+      await page.locator('#dto').selectOption({ label: 'Col' });
+      await page.getByRole('button', { name: 'Draw 4' }).click();
+      await expect(page.getByTestId('row-Col').locator('[data-h]')).toHaveCount(4);
+      await page.getByRole('button', { name: 'Col actions' }).click();
+      await page.getByRole('button', { name: 'Flip all' }).click();
+      await page.keyboard.press('Escape');
+      await page.getByTestId('row-Col').locator('[data-h]').nth(1).hover({ position: { x: 10, y: 6 } });
+      await expectReadable(page, 'column opened');
+      await page.mouse.move(1, 1);
+      await page.getByRole('button', { name: 'Table settings' }).click();
+      await page.getByRole('button', { name: 'Arrange zones' }).click();
+      await expect(page.getByRole('region', { name: 'Arranging zones' })).toBeVisible();
+      await expectReadable(page, 'arrange mode');
+      await page.getByRole('button', { name: 'Done' }).click();
       await page.getByTestId('row-hand').click({ button: 'right', position: { x: 60, y: 60 } });
       await expectReadable(page, 'card info sheet');
       await ctx.close();

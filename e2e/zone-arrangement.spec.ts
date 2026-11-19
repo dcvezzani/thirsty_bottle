@@ -332,3 +332,46 @@ test('arrange mode from Settings; Escape and Done exit (4.2)', async ({ browser 
   await expect(page.getByRole('region', { name: 'Arranging zones' })).toHaveCount(0);
   await ctx.close();
 });
+
+test('a Solitaire-style table fits a 375px phone: 13 zones, two rows on the first screen, no sideways scroll (5.1)', async ({ browser }) => {
+  const { ctx, page } = await newPlayer(browser, 'Alex', PHONE);
+  await createTable(page, uniq('Solitaire'), { deck: 'builtin-standard-52' });
+  // the deck pile is the stock; remove the default Discard and Table
+  for (const n of ['Discard', 'Table']) {
+    await page.getByRole('button', { name: `${n} actions` }).click();
+    await page.getByRole('button', { name: 'Remove zone' }).click();
+    await expect(page.locator(`section.zone[aria-label="${n}"]`)).toHaveCount(0);
+  }
+  await addZones(page, [
+    ['Waste', 'pile'],
+    ['F1', 'pile'],
+    ['F2', 'pile'],
+    ['F3', 'pile'],
+    ['F4', 'pile'],
+    ...(['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map((n) => [n, 'column']) as [string, 'column'][]),
+  ]);
+  await page.getByRole('button', { name: 'P1 actions' }).click();
+  await page.getByLabel('Start a new row').click();
+  await expect(page.getByLabel('Start a new row')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await fillZone(page, 'P7', 7);
+  await fillZone(page, 'P3', 3);
+  const names = ['Standard 52', 'Waste', 'F1', 'F2', 'F3', 'F4', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
+  expect(await zoneOrder(page)).toEqual(names);
+  const rect = (n: string) => page.locator(`section.zone[aria-label="${n}"]`).evaluate((e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: r.bottom, left: r.left, right: r.right }; });
+  const pileTops = await Promise.all(names.slice(0, 6).map(async (n) => (await rect(n)).top));
+  const colTops = await Promise.all(names.slice(6).map(async (n) => (await rect(n)).top));
+  expect(new Set(pileTops).size).toBe(1); // stock, waste and foundations share a row
+  expect(new Set(colTops).size).toBe(1); // all seven columns side by side
+  expect(colTops[0]).toBeGreaterThan(pileTops[0]);
+  expect(await noSideways(page)).toBe(true);
+  const board = (await page.locator('.board').boundingBox())!;
+  for (const n of names) {
+    const r = await rect(n);
+    expect(r.right).toBeLessThanOrEqual(board.x + board.width);
+    expect(r.left).toBeGreaterThanOrEqual(board.x);
+  }
+  // the first screen shows the top of both rows
+  expect(colTops[0] + 40).toBeLessThan(board.y + board.height);
+  await ctx.close();
+});

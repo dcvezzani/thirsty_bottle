@@ -154,8 +154,9 @@ test('holding a dragged card at the bottom edge scrolls to an off-screen zone; d
   const lift = Array.from({ length: 8 }, (_, i) => ({ x: start.x + ((hold.x - start.x) * i) / 7, y: start.y + ((hold.y - start.y) * i) / 7 }));
   const cdp = await touchPath(page, lift, { release: false });
   const p6 = page.getByTestId('row-P6');
+  const p6Zone = page.locator('section.zone[aria-label="P6"]'); // stays mounted while P6 opens under the card
   const visibleInBoard = async () => {
-    const r = (await p6.boundingBox())!;
+    const r = (await p6Zone.boundingBox())!;
     return r.y + r.height / 2 < board.y + board.height - 60;
   };
   for (let i = 0; i < 80 && !(await visibleInBoard()); i++) {
@@ -167,7 +168,7 @@ test('holding a dragged card at the bottom edge scrolls to an off-screen zone; d
   // move onto P6 and drop; re-aim each step (the board may still be scrolling, and P6 opens when hovered)
   let at = hold;
   for (let i = 1; i <= 8; i++) {
-    const r = (await p6.boundingBox())!;
+    const r = (await p6Zone.boundingBox())!;
     const target = { x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 30) };
     const k = Math.min(1, i / 4);
     at = { x: at.x + (target.x - at.x) * k, y: at.y + (target.y - at.y) * k };
