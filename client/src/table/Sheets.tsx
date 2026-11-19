@@ -4,11 +4,11 @@ import { Sheet } from '../components/ui';
 import { CardFace, findDef } from '../components/Card';
 import { useTable } from '../store/table';
 import { getSocket, useApp } from '../store/app';
-import { predictFlip } from '../store/predict';
 import { api, imageUrl } from '../lib/api';
 import { MetaList } from '../pages/DeckEditor';
 import { findCard, orderedSelection, useUI, zoneLabel } from './ui';
 import { moveCards } from './drag';
+import { flipCards, flipSelection } from './flip';
 import { CardRow } from './CardRow';
 import { CountField } from '../components/CountField';
 
@@ -54,6 +54,9 @@ export function SelectionBar({ view }: { view: TableView }) {
         <input type="checkbox" style={{ width: 18, minHeight: 18 }} checked={faceDown} onChange={(e) => useUI.setState({ faceDown: e.target.checked })} />
         Face down
       </label>
+      <button className="small" onClick={() => flipSelection()}>
+        Flip
+      </button>
       <button className="small" onClick={() => useUI.getState().setSheet({ kind: 'cards' })}>
         Actions…
       </button>
@@ -139,7 +142,7 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
         ) : (
           <>
             <button onClick={() => setMode('move')}>Move to…</button>
-            <button onClick={() => (send({ type: 'flip', cards: handles }, (v: TableView) => predictFlip(v, handles)), useUI.getState().clear(), done())}>Flip</button>
+            <button onClick={() => (useUI.getState().clear(), flipCards(handles), done())}>Flip</button>
             {players.length > 0 && zone.kind === 'hand' && (
               <>
                 {players.map((p) => (

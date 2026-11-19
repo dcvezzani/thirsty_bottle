@@ -6,6 +6,7 @@ import { columnHit, columnLayout, columnMagnify } from './column';
 import { useUI } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
+import { quickFlip } from './flip';
 
 /**
  * A column zone (zone-arrangement): cards cascade downward and compress. Gestures mirror a row with
@@ -76,6 +77,12 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
           onTap: (i) => {
             if (i === null || !live.current.interactive) return;
             useUI.getState().toggle(live.current.zone.id, h(i)!);
+          },
+          onDoubleTap: (i) => {
+            const hh = h(i);
+            if (!hh || !live.current.interactive) return;
+            useUI.getState().toggle(live.current.zone.id, hh); // undo the first tap's toggle
+            void quickFlip(live.current.zone.id, hh);
           },
           onLongPress: (i) => live.current.onInfo(h(i)!),
           onScrubStart: (i) => {

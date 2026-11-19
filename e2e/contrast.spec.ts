@@ -53,6 +53,12 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectReadable(page, 'draw sheet');
       await page.keyboard.press('Escape');
       await draw(page, 'Standard 52', 3);
+      // selection bar (Select all, Clear, Flip, Actions…)
+      await page.getByTestId('row-hand').locator('[data-h]').first().click({ position: { x: 8, y: 30 } });
+      await expect(page.locator('.selection-bar')).toBeVisible();
+      await expect(page.locator('.selection-bar').getByRole('button', { name: 'Flip', exact: true })).toBeVisible();
+      await expectReadable(page, 'selection bar');
+      await page.locator('.selection-bar').getByRole('button', { name: 'Clear' }).click();
       await page.getByRole('button', { name: '+ Counter' }).click();
       await expectReadable(page, 'counters empty');
       await page.getByLabel('New counter').fill('Matt');

@@ -205,3 +205,60 @@ describe('column gestures: y axis (zone-arrangement 3.2)', () => {
     expect(ev).toContain('dragStart:3');
   });
 });
+
+describe('double tap (quick-flip 1.1)', () => {
+  function recD() {
+    const ev: string[] = [];
+    const g = new ZoneGesture({
+      hit: (x) => hit(x),
+      onTap: (i) => ev.push(`tap:${i}`),
+      onDoubleTap: (i) => ev.push(`double:${i}`),
+      onLongPress: (i) => ev.push(`long:${i}`),
+      onScrubStart: (i) => ev.push(`scrubStart:${i}`),
+      onScrubEnd: () => ev.push('scrubEnd'),
+    });
+    return { g, ev };
+  }
+  const tapAt = (g: ZoneGesture, x: number, t: number) => {
+    g.down({ x, y: 10, t });
+    g.up({ x, y: 10, t: t + 60 });
+  };
+  it('two quick taps on the same card: one tap, then a double tap (no second tap)', () => {
+    const { g, ev } = recD();
+    tapAt(g, xOf(3), 0);
+    tapAt(g, xOf(3) + 3, 200);
+    expect(ev).toEqual(['tap:3', 'double:3']);
+  });
+  it('slow, distant or different-card taps stay single taps', () => {
+    const slow = recD();
+    tapAt(slow.g, xOf(3), 0);
+    tapAt(slow.g, xOf(3), 500);
+    expect(slow.ev).toEqual(['tap:3', 'tap:3']);
+    const other = recD();
+    tapAt(other.g, xOf(3), 0);
+    tapAt(other.g, xOf(6), 150);
+    expect(other.ev).toEqual(['tap:3', 'tap:6']);
+  });
+  it('a third tap starts fresh', () => {
+    const { g, ev } = recD();
+    tapAt(g, xOf(2), 0);
+    tapAt(g, xOf(2), 150);
+    tapAt(g, xOf(2), 300);
+    expect(ev).toEqual(['tap:2', 'double:2', 'tap:2']);
+  });
+  it('a scrub or a long press in between resets it', () => {
+    const { g, ev } = recD();
+    tapAt(g, xOf(2), 0);
+    g.down({ x: xOf(2), y: 10, t: 80 });
+    g.move({ x: xOf(5), y: 10, t: 120 });
+    g.up({ x: xOf(5), y: 10, t: 160 });
+    tapAt(g, xOf(2), 200);
+    expect(ev).toEqual(['tap:2', 'scrubStart:2', 'scrubEnd', 'tap:2']);
+  });
+  it('without an onDoubleTap handler, taps stay taps', () => {
+    const { g, ev } = rec();
+    tapAt(g, xOf(1), 0);
+    tapAt(g, xOf(1), 100);
+    expect(ev).toEqual(['tap:1', 'tap:1']);
+  });
+});

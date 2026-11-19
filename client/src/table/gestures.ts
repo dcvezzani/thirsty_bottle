@@ -17,6 +17,8 @@ export interface GestureCallbacks {
   /** Card index under a container-relative point, or null. */
   hit(x: number, y: number): number | null;
   onTap?(index: number | null): void;
+  /** Two quick taps on the same card (quick-flip). Fired instead of the second onTap. */
+  onDoubleTap?(index: number): void;
   onLongPress?(index: number): void;
   onScrubStart?(index: number): void;
   onScrub?(index: number): void;
@@ -35,13 +37,16 @@ export interface GestureConfig {
   pullOut: number;
   /** For zones without sideways scrubbing (piles, free layout): any movement is a drag. */
   scrub: boolean;
+  /** Max time from the first tap's release to the second tap's release, and max distance between them. */
+  doubleTapMs: number;
+  doubleTapPx: number;
   /** Scrub axis: 'x' for hands and spreads, 'y' for columns (where sideways movement picks up). */
   axis: 'x' | 'y';
   /** Column width, for the 'y' axis: leaving the column sideways by pullOut turns a scrub into a drag. */
   crossSize?: () => number;
 }
 
-export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true, axis: 'x' };
+export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true, axis: 'x', doubleTapMs: 300, doubleTapPx: 12 };
 
 export type GestureState = 'idle' | 'pressed' | 'scrub' | 'drag' | 'longPress';
 
@@ -50,6 +55,8 @@ export class ZoneGesture {
   private start: Sample | null = null;
   private startIndex: number | null = null;
   private scrubIndex: number | null = null;
+  /** The previous tap, for double-tap detection; forgotten by anything that is not a tap. */
+  private lastTap: { index: number; x: number; y: number; t: number } | null = null;
   private cfg: GestureConfig;
 
   constructor(
@@ -71,6 +78,7 @@ export class ZoneGesture {
     if (this.state !== 'pressed' || !this.start) return;
     if (t - this.start.t >= this.cfg.longPressMs && this.startIndex !== null) {
       this.state = 'longPress';
+      this.lastTap = null;
       this.cb.onLongPress?.(this.startIndex);
     }
   }
@@ -149,14 +157,39 @@ export class ZoneGesture {
     this.start = null;
     if (!start) return;
     if (st === 'pressed') {
-      if (s.t - start.t >= this.cfg.longPressMs && this.startIndex !== null) this.cb.onLongPress?.(this.startIndex);
-      else this.cb.onTap?.(this.startIndex);
-    } else if (st === 'scrub') this.cb.onScrubEnd?.();
-    else if (st === 'drag') this.cb.onDragEnd?.(s);
+      if (s.t - start.t >= this.cfg.longPressMs && this.startIndex !== null) {
+        this.lastTap = null;
+        this.cb.onLongPress?.(this.startIndex);
+      } else this.tap(start, s.t);
+    } else {
+      this.lastTap = null;
+      if (st === 'scrub') this.cb.onScrubEnd?.();
+      else if (st === 'drag') this.cb.onDragEnd?.(s);
+    }
+  }
+
+  private tap(at: Sample, t: number) {
+    const i = this.startIndex;
+    const prev = this.lastTap;
+    if (
+      i !== null &&
+      prev &&
+      prev.index === i &&
+      t - prev.t <= this.cfg.doubleTapMs &&
+      Math.hypot(at.x - prev.x, at.y - prev.y) <= this.cfg.doubleTapPx &&
+      this.cb.onDoubleTap
+    ) {
+      this.lastTap = null;
+      this.cb.onDoubleTap(i);
+      return;
+    }
+    this.lastTap = i === null ? null : { index: i, x: at.x, y: at.y, t };
+    this.cb.onTap?.(i);
   }
 
   cancel() {
     const st = this.state;
+    this.lastTap = null;
     this.state = 'idle';
     this.start = null;
     if (st === 'scrub') this.cb.onScrubEnd?.();

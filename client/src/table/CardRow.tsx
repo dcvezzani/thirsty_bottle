@@ -6,6 +6,7 @@ import { cardPos, fanLayout, hitIndexXY, insertionIndex, magnify } from './layou
 import { useUI } from './ui';
 import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
+import { quickFlip } from './flip';
 
 function vibrate(ms: number) {
   try {
@@ -117,6 +118,12 @@ export function CardRow({
         onTap: (i) => {
           if (i === null || !live.current.interactive) return;
           useUI.getState().toggle(live.current.zone.id, h(i)!);
+        },
+        onDoubleTap: (i) => {
+          const hh = h(i);
+          if (!hh || !live.current.interactive) return;
+          useUI.getState().toggle(live.current.zone.id, hh); // undo the first tap's toggle
+          void quickFlip(live.current.zone.id, hh);
         },
         onLongPress: (i) => {
           vibrate(15);

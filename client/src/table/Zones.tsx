@@ -9,6 +9,7 @@ import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import type { FlowItem } from './flow';
 import { useArrangeLongPress } from './Arrange';
+import { quickFlip } from './flip';
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
 export function Pile({
@@ -30,12 +31,29 @@ export function Pile({
   live.current = { zone, canAct };
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
+    // quick-flip: a single tap opens the sheet after a short pause, so a second tap can flip the top card
+    let tapTimer: ReturnType<typeof setTimeout> | null = null;
+    const openSheet = () => useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id });
     return {
       origin: (o: { x: number; y: number }) => (origin = o),
+      cancelTap: () => tapTimer && clearTimeout(tapTimer),
       g: new ZoneGesture(
         {
           hit: () => (live.current.zone.cards.length ? 0 : null),
-          onTap: () => useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id }),
+          onTap: (i) => {
+            if (tapTimer) clearTimeout(tapTimer);
+            if (i === null || !live.current.canAct) return openSheet();
+            tapTimer = setTimeout(() => {
+              tapTimer = null;
+              openSheet();
+            }, 250);
+          },
+          onDoubleTap: () => {
+            if (tapTimer) clearTimeout(tapTimer);
+            tapTimer = null;
+            const c = live.current.zone.cards[0];
+            if (c && live.current.canAct) void quickFlip(live.current.zone.id, c.h);
+          },
           onLongPress: () => live.current.zone.cards[0] && onInfo(live.current.zone.cards[0].h),
           onDragStart: (_i, s) => {
             const c = live.current.zone.cards[0];
@@ -57,6 +75,7 @@ export function Pile({
     return () => {
       clearInterval(t);
       off();
+      g.cancelTap();
     };
   }, [g]);
   const local = (e: React.PointerEvent) => {
@@ -159,6 +178,12 @@ export function FreeZone({
             i === null
               ? useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id })
               : useUI.getState().toggle(live.current.zone.id, live.current.zone.cards[i].h),
+          onDoubleTap: (i) => {
+            const h = live.current.zone.cards[i]?.h;
+            if (!h || !live.current.canAct) return;
+            useUI.getState().toggle(live.current.zone.id, h); // undo the first tap's toggle
+            void quickFlip(live.current.zone.id, h);
+          },
           onLongPress: (i) => onInfo(live.current.zone.cards[i].h),
           onDragStart: (i, s) => {
             if (!live.current.canAct) return;
