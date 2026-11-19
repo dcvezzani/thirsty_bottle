@@ -18,11 +18,15 @@ The client SHALL classify a press by its first movement. In a hand or a spread, 
 ## ADDED Requirements
 
 ### Requirement: Column height control
-A column SHALL keep its height bounded. Face-down cards SHALL show as thin slivers and face-up cards SHALL show at least their rank corner. The last card SHALL be shown in full. As the column grows, the overlap SHALL tighten so the column stays within about 2.5 card heights.
+A column SHALL keep its height bounded. Face-down cards SHALL show as thin slivers and face-up cards SHALL show at least their rank corner. The last card SHALL be shown in full. As the column grows, the overlap SHALL tighten to keep the column within about 2.5 card heights, but never so far that a face-up card's rank corner is hidden. A very long column SHALL grow taller rather than hide ranks.
 
-#### Scenario: Long column stays compact
-- **WHEN** a column holds 6 face-down cards and 12 face-up cards
+#### Scenario: Column stays compact
+- **WHEN** a column holds 6 face-down cards and 6 face-up cards
 - **THEN** it is no taller than about 2.5 card heights, every face-up card's rank corner is visible, and the last card is shown in full
+
+#### Scenario: Very long column keeps ranks visible
+- **WHEN** a column holds 6 face-down cards and 13 face-up cards
+- **THEN** every face-up card's rank corner is still visible, and the column is only as tall as that requires
 
 ### Requirement: Scrubbing a column
 Pressing and sliding along a column SHALL temporarily open up the cards near the finger so they can be read. Cards further away stay compressed. On release the column SHALL return to its compressed form, with nothing changed. Paint selection SHALL work during a column scrub as it does in rows. With a mouse, hovering over a column SHALL open up the cards under the pointer in the same way.

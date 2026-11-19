@@ -35,9 +35,13 @@ export interface GestureConfig {
   pullOut: number;
   /** For zones without sideways scrubbing (piles, free layout): any movement is a drag. */
   scrub: boolean;
+  /** Scrub axis: 'x' for hands and spreads, 'y' for columns (where sideways movement picks up). */
+  axis: 'x' | 'y';
+  /** Column width, for the 'y' axis: leaving the column sideways by pullOut turns a scrub into a drag. */
+  crossSize?: () => number;
 }
 
-export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true };
+export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true, axis: 'x' };
 
 export type GestureState = 'idle' | 'pressed' | 'scrub' | 'drag' | 'longPress';
 
@@ -80,8 +84,9 @@ export class ZoneGesture {
         this.tick(s.t);
         if (this.state !== 'pressed') return;
         if (Math.hypot(dx, dy) < this.cfg.slop) return;
-        if (this.cfg.scrub && Math.abs(dx) >= Math.abs(dy)) {
-          const i = this.cb.hit(s.x, this.start.y) ?? this.startIndex;
+        const along = this.cfg.axis === 'y' ? Math.abs(dy) > Math.abs(dx) : Math.abs(dx) >= Math.abs(dy);
+        if (this.cfg.scrub && along) {
+          const i = this.scrubHit(s) ?? this.startIndex;
           if (i === null) return;
           this.state = 'scrub';
           this.scrubIndex = this.startIndex ?? i;
@@ -101,15 +106,15 @@ export class ZoneGesture {
         return;
       }
       case 'scrub': {
-        // pulling up out of the zone converts the scrub into a drag of the scrubbed card
-        if (s.y < -this.cfg.pullOut && this.scrubIndex !== null) {
+        // pulling out of the zone (up for rows, sideways for columns) converts the scrub into a drag
+        if (this.pulledOut(s) && this.scrubIndex !== null) {
           this.cb.onScrubEnd?.();
           this.state = 'drag';
           this.cb.onDragStart?.(this.scrubIndex, s);
           this.cb.onDragMove?.(s);
           return;
         }
-        const i = this.cb.hit(s.x, this.start.y);
+        const i = this.scrubHit(s);
         if (i !== null && i !== this.scrubIndex) {
           this.scrubIndex = i;
           this.cb.onScrub?.(i);
@@ -122,6 +127,19 @@ export class ZoneGesture {
       default:
         return;
     }
+  }
+
+  /** The card under the finger along the scrub axis (the cross position stays where the press began). */
+  private scrubHit(s: Sample) {
+    return this.cfg.axis === 'y' ? this.cb.hit(this.start!.x, s.y) : this.cb.hit(s.x, this.start!.y);
+  }
+
+  private pulledOut(s: Sample) {
+    if (this.cfg.axis === 'y') {
+      const w = this.cfg.crossSize?.() ?? Infinity;
+      return s.x < -this.cfg.pullOut || s.x > w + this.cfg.pullOut;
+    }
+    return s.y < -this.cfg.pullOut;
   }
 
   up(s: Sample) {

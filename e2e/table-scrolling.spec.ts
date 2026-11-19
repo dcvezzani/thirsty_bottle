@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { newPlayer, createTable, PHONE } from './helpers';
-import { touchPath, type Pt } from './table-helpers';
+import { settle, touchPath, type Pt } from './table-helpers';
 
 // table-scrolling: card-handling "One-finger scrolling outside cards", "Two-finger scrolling", "Scrolling while dragging"
 
@@ -22,6 +22,7 @@ async function fill(page: Page, zone: string, n: number) {
   await page.locator('#dto').selectOption({ label: zone });
   await page.getByRole('button', { name: `Draw ${n}` }).click();
   await expect(page.getByTestId(`row-${zone}`).locator('[data-h]')).toHaveCount(n);
+  await settle(page);
 }
 
 async function scrollingTable(page: Page, name: string) {
@@ -137,7 +138,8 @@ async function handCard(page: Page) {
   await page.getByRole('button', { name: 'Draw 1', exact: true }).click();
   const card = page.getByTestId('row-hand').locator('[data-h]').first();
   await expect(card).toHaveCount(1);
-  await page.waitForTimeout(400); // deal animation settles
+  await settle(page); // deal animation settles
+  await page.waitForTimeout(150);
   const b = (await card.boundingBox())!;
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 }

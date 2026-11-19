@@ -19,8 +19,8 @@
 
 ## 3. Column layout
 
-- [ ] 3.1 Implement `columnLayout` (sliver and corner steps, last card full, cap 2.5 × cardH with floors) and `columnMagnify`. Verify with unit tests: 6 face-down and 12 face-up cards stay within the cap with every face-up step ≥ 0.16 × cardH; the fisheye opens the focused card and its neighbours and the total compressed height is unchanged.
-- [ ] 3.2 Add `ColumnZone` and the `'column'` option in the add-zone and zone-sheet layout selects; add `axis: 'y'` to `ZoneGesture` (vertical scrub, sideways pick-up, run pick-up unless the card is selected) and y-based drop insertion. Verify with gesture unit tests for the y axis, and e2e tests on a phone:
+- [x] 3.1 Implement `columnLayout` (sliver and corner steps, last card full, cap 2.5 × cardH with floors) and `columnMagnify`. Verify with unit tests: 6 face-down and 6 face-up cards stay within the cap; 6 face-down and 13 face-up keep every face-up step at least the rank-line floor (the column grows instead); the fisheye opens the focused card and its neighbours and the total compressed height is unchanged.
+- [x] 3.2 Add `ColumnZone` and the `'column'` option in the add-zone and zone-sheet layout selects; add `axis: 'y'` to `ZoneGesture` (vertical scrub, sideways pick-up, run pick-up unless the card is selected) and y-based drop insertion. Verify with gesture unit tests for the y axis, and e2e tests on a phone:
   - a vertical scrub changes nothing on release;
   - sideways pick-up of the 3rd of 5 moves 3 cards in order to another column;
   - a selected single card moves alone;

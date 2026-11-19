@@ -161,3 +161,47 @@ describe('actor label ink', () => {
     expect(inkOn('#455a64')).toBe('#fff');
   });
 });
+
+describe('column gestures: y axis (zone-arrangement 3.2)', () => {
+  // 5 cards, 20px apart vertically, column 60px wide
+  const yOf = (i: number) => i * 20 + 5;
+  const hitY = (_x: number, y: number) => (y < 0 || y > 4 * 20 + 84 ? null : Math.min(4, Math.floor(y / 20)));
+  function recY() {
+    const ev: string[] = [];
+    const g = new ZoneGesture(
+      {
+        hit: hitY,
+        onTap: (i) => ev.push(`tap:${i}`),
+        onScrubStart: (i) => ev.push(`scrubStart:${i}`),
+        onScrub: (i) => ev.push(`scrub:${i}`),
+        onScrubEnd: () => ev.push('scrubEnd'),
+        onDragStart: (i) => ev.push(`dragStart:${i}`),
+        onDragMove: () => ev.push('dragMove'),
+        onDragEnd: () => ev.push('dragEnd'),
+      },
+      { axis: 'y', crossSize: () => 60 },
+    );
+    return { g, ev };
+  }
+  it('sliding down the column scrubs card by card and picks nothing up', () => {
+    const { g, ev } = recY();
+    g.down({ x: 30, y: yOf(0), t: 0 });
+    for (const y of [yOf(1), yOf(2), yOf(3)]) g.move({ x: 32, y, t: 50 });
+    g.up({ x: 32, y: yOf(3), t: 200 });
+    expect(ev).toEqual(['scrubStart:0', 'scrub:1', 'scrub:2', 'scrub:3', 'scrubEnd']);
+  });
+  it('sideways movement picks up the pressed card', () => {
+    const { g, ev } = recY();
+    g.down({ x: 30, y: yOf(2), t: 0 });
+    g.move({ x: 60, y: yOf(2) + 2, t: 40 });
+    expect(ev[0]).toBe('dragStart:2');
+  });
+  it('a scrub that leaves the column sideways becomes a drag of the scrubbed card', () => {
+    const { g, ev } = recY();
+    g.down({ x: 30, y: yOf(0), t: 0 });
+    g.move({ x: 30, y: yOf(3), t: 50 });
+    g.move({ x: 60 + 30, y: yOf(3), t: 90 });
+    expect(ev).toContain('scrubEnd');
+    expect(ev).toContain('dragStart:3');
+  });
+});

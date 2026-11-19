@@ -293,3 +293,10 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .zone.slim.w-fit .zone-label { max-width: 100%; }
 .slim-drop { position: relative; flex: 1; align-self: stretch; }
 .zone.slim .row-empty { justify-content: flex-start; padding-left: 8px; }
+/* zone-arrangement: column zones (cards cascade downward; opened cards draw over what is below) */
+.column-cards { position: relative; width: var(--card-w); min-height: calc(var(--card-w) * 1.4); touch-action: pan-y; }
+.column-cards .card.in-column { position: absolute; left: 0; top: 0; transition: transform 120ms ease-out; touch-action: none; }
+.column-cards.opened { z-index: 20; }
+.zone-column { overflow: visible; }
+/* keep the top of a column's first card clear of the label button (touch adjustment snaps to nearby buttons) */
+.zone-column .zone-label { margin-bottom: 6px; }

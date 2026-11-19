@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { CardView, TableDeckView, TableView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
 import { CardRow } from './CardRow';
+import { ColumnZone } from './ColumnZone';
 import { ZoneGesture } from './gestures';
 import { useUI } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
@@ -269,6 +270,7 @@ export function ZoneBox({
           {zone.layout === 'spread' && (
             <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} />
           )}
+          {zone.layout === 'column' && <ColumnZone zone={zone} decks={view.decks} interactive={canAct} onInfo={onInfo} />}
           {zone.layout === 'free' && (
             <FreeZone zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />
           )}

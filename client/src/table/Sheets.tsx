@@ -239,6 +239,7 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
             <select aria-label="Layout" value={zone.layout} style={{ width: 'auto' }} onChange={(e) => act({ type: 'zoneUpdate', zone: zone.id, layout: e.target.value })}>
               <option value="pile">Pile</option>
               <option value="spread">Spread</option>
+              <option value="column">Column</option>
               <option value="free">Free</option>
             </select>
             <input aria-label="Zone color" type="color" value={zone.color} style={{ width: 60, padding: 2 }} onChange={(e) => send({ type: 'zoneUpdate', zone: zone.id, color: e.target.value })} />
@@ -623,7 +624,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
   const [name, setName] = useState(st.name);
   const [pw, setPw] = useState('');
   const [zoneName, setZoneName] = useState('');
-  const [zoneLayout, setZoneLayout] = useState<'pile' | 'spread' | 'free'>('spread');
+  const [zoneLayout, setZoneLayout] = useState<'pile' | 'spread' | 'column' | 'free'>('spread');
   const toast = useApp((s) => s.toast);
   const invite = `${location.origin}/t/${view.id}`;
   const host = view.me.isHost;
@@ -693,6 +694,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
             <select aria-label="New zone layout" value={zoneLayout} style={{ width: 'auto' }} onChange={(e) => setZoneLayout(e.target.value as any)}>
               <option value="pile">Pile</option>
               <option value="spread">Spread</option>
+              <option value="column">Column</option>
               <option value="free">Free</option>
             </select>
             <button disabled={!zoneName.trim()} onClick={() => (send({ type: 'zoneAdd', name: zoneName.trim(), layout: zoneLayout, x: 0.1, y: 0.9 }), setZoneName(''))}>

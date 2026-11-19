@@ -53,9 +53,10 @@
 - The board renders rows as flex rows, and each zone receives its `cardW`, which the zone components already take as a parameter.
 - Unit-tested with fixtures: the Solitaire layout at 375px and 1280px, a half/half row, row breaks, and a full zone in mid-row.
 
-**D4. Column layout and compression.** A pure `columnLayout(cards: {faceUp}[], cardH, cap = 2.5 * cardH)` returns each card's y offset.
-- Base steps: face-down 6px, face-up 0.22 × cardH (enough for the rank corner), last card full height.
-- If the total exceeds the cap, steps are scaled down, but no lower than 3px face-down and 0.16 × cardH face-up. Beyond that floor the column may exceed the cap. That is rare (more than about 20 face-up cards) and still scrolls with the board.
+**D4. Column layout and compression.** A pure `columnLayout(faces: boolean[], cardH, cap = 2.5 * cardH)` returns each card's y offset and the total height.
+- Base steps: face-down 0.07 × cardH, face-up 0.22 × cardH (rank and suit), last card full height.
+- If the total exceeds the cap, steps are scaled down, but no lower than 0.035 × cardH face-down and `4px + 0.125 × cardH` face-up. The face-up floor is the rank line: the corner sits 4px from the top in a font of 0.17 × card width.
+- Beyond the floors the column grows past the cap rather than hiding ranks. For example, 6 face-down plus 13 face-up cards come to about 3 card heights, and the column still scrolls with the board.
 - New component `ColumnZone`: absolutely positioned cards in a one-card-wide box whose height is the computed total.
 
 **D5. Column gestures.** `ZoneGesture` gets `axis: 'x' | 'y'`.
@@ -65,7 +66,7 @@
 - The scrub preview bubble used by rows is shown for columns too, which matters for small shrunk cards.
 - Mouse hover drives the same fisheye.
 - **Pick-up:** `onDragStart(i)` takes `cards[i..end]`, unless `cards[i]` is selected, in which case it takes the selection, following group-drag rules.
-- **Drop into a column:** the insertion index comes from y via `columnLayout` hit-testing, so dropping at the bottom appends.
+- **Drop into a column:** cards always go on the end (the bottom of the cascade), wherever they are released over the column. This matches how a cascade is built and the spec's "Move a run" scenario. Reordering inside a column goes through the existing Move to… or by moving cards out and back.
 
 **D6. Slim empty zones.**
 - An empty spread, column or free zone that is not the current drop target renders a 44px bar: the label plus an inline "Empty".
