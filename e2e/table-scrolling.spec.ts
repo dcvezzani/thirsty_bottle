@@ -15,9 +15,21 @@ async function addZones(page: Page, names: string[]) {
   await page.keyboard.press('Escape');
 }
 
+async function fill(page: Page, zone: string, n: number) {
+  await page.getByTestId('pile-Standard 52').click();
+  await page.getByRole('button', { name: 'Draw…' }).click();
+  await page.locator('#dcount').fill(String(n));
+  await page.locator('#dto').selectOption({ label: zone });
+  await page.getByRole('button', { name: `Draw ${n}` }).click();
+  await expect(page.getByTestId(`row-${zone}`).locator('[data-h]')).toHaveCount(n);
+}
+
 async function scrollingTable(page: Page, name: string) {
   await createTable(page, name, { deck: 'builtin-standard-52' });
-  await addZones(page, ['P2', 'P3', 'P4', 'P5', 'P6']);
+  await addZones(page, ['P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']);
+  // empty zones are slim bars (zone-arrangement), so give most of them cards; P2 and P6 stay empty
+  for (const z of ['P3', 'P4', 'P5', 'P7', 'P8']) await fill(page, z, 3);
+  await page.locator('.board').evaluate((b) => (b.scrollTop = 0));
   const board = page.locator('.board');
   await expect.poll(() => board.evaluate((b) => b.scrollHeight - b.clientHeight)).toBeGreaterThan(300);
   return board;
@@ -150,12 +162,15 @@ test('holding a dragged card at the bottom edge scrolls to an off-screen zone; d
   }
   expect(await visibleInBoard()).toBe(true);
   expect(await scrollTop(page)).toBeGreaterThan(100);
-  // move onto P6 and drop
-  const r = (await p6.boundingBox())!;
-  const target = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-  for (let i = 1; i <= 5; i++) {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: hold.x + ((target.x - hold.x) * i) / 5, y: hold.y + ((target.y - hold.y) * i) / 5 }] });
-    await page.waitForTimeout(20);
+  // move onto P6 and drop; re-aim each step (the board may still be scrolling, and P6 opens when hovered)
+  let at = hold;
+  for (let i = 1; i <= 8; i++) {
+    const r = (await p6.boundingBox())!;
+    const target = { x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 30) };
+    const k = Math.min(1, i / 4);
+    at = { x: at.x + (target.x - at.x) * k, y: at.y + (target.y - at.y) * k };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at] });
+    await page.waitForTimeout(60);
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(p6.locator('[data-h]')).toHaveCount(1);

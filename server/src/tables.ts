@@ -2,6 +2,7 @@ import {
   ActionError,
   ActionSchema,
   createTableState,
+  migrateState,
   MAX_SEATS,
   TableEngine,
   type Action,
@@ -339,7 +340,7 @@ export class Tables {
   loadAll() {
     const rows = this.app.db.prepare('SELECT * FROM game_tables WHERE closed_at IS NULL').all() as any[];
     for (const row of rows) {
-      const session = new TableSession(this.app, JSON.parse(row.state), row.version, {
+      const session = new TableSession(this.app, migrateState(JSON.parse(row.state)), row.version, {
         passwordHash: row.password_hash,
         roomMuted: JSON.parse(row.room_muted),
         undo: row.undo ? JSON.parse(row.undo) : null,

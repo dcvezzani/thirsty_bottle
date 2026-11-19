@@ -206,8 +206,7 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .seat-count { font-size: 12px; }
 .seat-status { font-size: 11px; color: #ffd4d4; }
 .seat-shown { display: flex; gap: 2px; }
-.board { flex: 1; overflow: auto; padding: 6px 8px 12px; position: relative; touch-action: pan-x pan-y; }
-.pile-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.board { flex: 1; overflow: auto; padding: 6px 6px 12px; position: relative; touch-action: pan-x pan-y; }
 .zone { background: rgba(0,0,0,0.12); border: 1px dashed var(--felt-line); border-left: 4px solid var(--zone-color); border-radius: 10px; padding: 4px 6px 6px; margin-bottom: 8px; }
 .zone.drop-over { background: rgba(255,255,255,0.18); border-style: solid; }
 .zone-pile { display: inline-flex; flex-direction: column; align-items: center; margin-bottom: 0; }
@@ -282,3 +281,15 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .board .card-row, .board .pile { touch-action: pan-y; }
 .board .free-zone { touch-action: pan-x pan-y; }
 .board .card { touch-action: none; }
+
+/* zone-arrangement: the board flows zones into rows (widths come from flowRows) */
+.zone-row { display: flex; gap: 4px; align-items: flex-start; margin-bottom: 6px; }
+.zone-row > .zone { margin: 0; flex: none; min-width: 0; box-sizing: border-box; }
+.zone.w-fit { padding: 4px 2px; border-left-width: 3px; }
+.zone.w-fit .zone-label { display: block; width: 100%; min-height: 26px; padding: 0 2px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* card-handling "Slim empty zones": one tap-height bar (label + Empty) */
+.zone.slim { display: flex; align-items: center; height: 44px; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+.zone.slim .zone-label { flex: none; max-width: 60%; }
+.zone.slim.w-fit .zone-label { max-width: 100%; }
+.slim-drop { position: relative; flex: 1; align-self: stretch; }
+.zone.slim .row-empty { justify-content: flex-start; padding-left: 8px; }

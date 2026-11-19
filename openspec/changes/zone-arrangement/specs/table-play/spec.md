@@ -25,7 +25,7 @@ The table SHALL organize card instances into zones. A zone is shared or owned by
 
 #### Scenario: Existing tables keep their look
 - **WHEN** a table created before this change is opened
-- **THEN** its zones appear in the order they were shown before, sorted by their previous row and then column
+- **THEN** its zones appear in the order they were shown before: piles first, then the other zones by their previous row and then column
 
 ## ADDED Requirements
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { TableSummary, TableView } from '@vct/shared';
 import { useTable } from '../store/table';
@@ -15,6 +15,7 @@ import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
 import { useFlip, inkOn } from '../table/anim';
+import { flowRows } from '../table/flow';
 
 export function TablePage() {
   const { id } = useParams();
@@ -67,6 +68,27 @@ export function TablePage() {
   return <TableScreen view={view} />;
 }
 
+/** Board content width (inside its padding) and the table's base card width at the current zoom. */
+function useBoardSize(ref: RefObject<HTMLDivElement>, zoom: number) {
+  const [size, setSize] = useState<{ w: number; cardW: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const base = parseFloat(cs.getPropertyValue('--base-card-w')) || 64;
+      const next = { w: Math.floor(w), cardW: Math.round(base * zoom * 10) / 10 };
+      setSize((cur) => (cur && cur.w === next.w && cur.cardW === next.cardW ? cur : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, zoom]);
+  return size;
+}
+
 function TableScreen({ view }: { view: TableView }) {
   const nav = useNavigate();
   const sheet = useUI((s) => s.sheet);
@@ -98,9 +120,11 @@ function TableScreen({ view }: { view: TableView }) {
   useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [] }), []);
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
-  const shared = view.zones.filter((z) => z.kind === 'shared').sort((a, b) => a.y - b.y || a.x - b.x);
-  const piles = shared.filter((z) => z.layout === 'pile');
-  const others = shared.filter((z) => z.layout !== 'pile');
+  // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
+  const shared = view.zones.filter((z) => z.kind === 'shared');
+  const boardSize = useBoardSize(boardRef, zoom);
+  const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW) : [];
+  const zoneById = new Map(shared.map((z) => [z.id, z]));
   const active = view.seats.find((s) => s.id === view.turn.active);
   const myTurn = view.mode === 'turn' && view.turn.active === view.me.seatId;
   const canSwitch = view.me.isHost || (view.settings.playersMaySwitchMode && !view.me.spectator);
@@ -150,13 +174,12 @@ function TableScreen({ view }: { view: TableView }) {
       <Prompts view={view} />
       <SeatBar view={view} />
       <div className="board" ref={boardRef}>
-        <div className="pile-row">
-          {piles.map((z) => (
-            <ZoneBox key={z.id} view={view} zone={z} onInfo={onInfo} />
-          ))}
-        </div>
-        {others.map((z) => (
-          <ZoneBox key={z.id} view={view} zone={z} onInfo={onInfo} />
+        {rows.map((row) => (
+          <div className="zone-row" key={row[0].id}>
+            {row.map((it) => (
+              <ZoneBox key={it.id} view={view} zone={zoneById.get(it.id)!} onInfo={onInfo} flow={it} />
+            ))}
+          </div>
         ))}
         {!shared.length && <div className="empty" style={{ color: '#fff' }}>No zones yet. {view.me.isHost ? 'Add zones and load a deck in ⚙.' : 'Waiting for the host.'}</div>}
         {view.decks.length === 0 && view.me.isHost && (

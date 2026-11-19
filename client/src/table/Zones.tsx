@@ -6,9 +6,20 @@ import { ZoneGesture } from './gestures';
 import { useUI } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
+import type { FlowItem } from './flow';
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
-export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: TableDeckView[]; onInfo: (h: string) => void; canAct: boolean }) {
+export function Pile({
+  zone,
+  decks,
+  onInfo,
+  canAct,
+}: {
+  zone: ZoneView;
+  decks: TableDeckView[];
+  onInfo: (h: string) => void;
+  canAct: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useUI((s) => s.drag);
   const visible = drag ? zone.cards.filter((c) => !drag.handles.includes(c.h)) : zone.cards;
@@ -26,7 +37,8 @@ export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: T
           onLongPress: () => live.current.zone.cards[0] && onInfo(live.current.zone.cards[0].h),
           onDragStart: (_i, s) => {
             const c = live.current.zone.cards[0];
-            if (c && live.current.canAct) startDrag([c.h], live.current.zone.id, s.x + origin.x, s.y + origin.y);
+            if (c && live.current.canAct)
+              startDrag([c.h], live.current.zone.id, s.x + origin.x, s.y + origin.y);
           },
           onDragMove: (s) => moveDrag(s.x + origin.x, s.y + origin.y),
           onDragEnd: (s) => endDrag(s.x + origin.x, s.y + origin.y),
@@ -72,7 +84,11 @@ export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: T
       }}
     >
       {Array.from({ length: depth }, (_, i) => (
-        <div key={i} className="card pile-under" style={{ transform: `translate(${(depth - i) * 1.5}px, ${(depth - i) * 1.5}px)` }}>
+        <div
+          key={i}
+          className="card pile-under"
+          style={{ transform: `translate(${(depth - i) * 1.5}px, ${(depth - i) * 1.5}px)` }}
+        >
           <div className="gen-back" />
         </div>
       ))}
@@ -85,7 +101,17 @@ export function Pile({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: T
 }
 
 /** Free layout: cards placed anywhere. */
-export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; decks: TableDeckView[]; onInfo: (h: string) => void; canAct: boolean }) {
+export function FreeZone({
+  zone,
+  decks,
+  onInfo,
+  canAct,
+}: {
+  zone: ZoneView;
+  decks: TableDeckView[];
+  onInfo: (h: string) => void;
+  canAct: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
@@ -93,7 +119,12 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
   useEffect(() => {
     dropRegistry.set(zone.id, (x, y) => {
       const r = ref.current!.getBoundingClientRect();
-      return { pos: { x: Math.max(0, Math.min(1, (x - r.left) / r.width - 0.05)), y: Math.max(0, Math.min(1, (y - r.top) / r.height - 0.1)) } };
+      return {
+        pos: {
+          x: Math.max(0, Math.min(1, (x - r.left) / r.width - 0.05)),
+          y: Math.max(0, Math.min(1, (y - r.top) / r.height - 0.1)),
+        },
+      };
     });
     return () => {
       dropRegistry.delete(zone.id);
@@ -122,13 +153,17 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
       g: new ZoneGesture(
         {
           hit,
-          onTap: (i) => (i === null ? useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id }) : useUI.getState().toggle(live.current.zone.id, live.current.zone.cards[i].h)),
+          onTap: (i) =>
+            i === null
+              ? useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id })
+              : useUI.getState().toggle(live.current.zone.id, live.current.zone.cards[i].h),
           onLongPress: (i) => onInfo(live.current.zone.cards[i].h),
           onDragStart: (i, s) => {
             if (!live.current.canAct) return;
             const st = useUI.getState();
             const hh = live.current.zone.cards[i].h;
-            const handles = st.selZone === live.current.zone.id && st.selected.includes(hh) ? st.selected : [hh];
+            const handles =
+              st.selZone === live.current.zone.id && st.selected.includes(hh) ? st.selected : [hh];
             startDrag(handles, live.current.zone.id, s.x + origin.x, s.y + origin.y);
           },
           onDragMove: (s) => moveDrag(s.x + origin.x, s.y + origin.y),
@@ -177,7 +212,12 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
             card={c}
             decks={decks}
             className={sel.has(c.h) ? 'selected' : ''}
-            style={{ position: 'absolute', left: `${(c.x ?? 0.05 + (i % 8) * 0.1) * 100}%`, top: `${(c.y ?? 0.05) * 100}%`, zIndex: i + 1 }}
+            style={{
+              position: 'absolute',
+              left: `${(c.x ?? 0.05 + (i % 8) * 0.1) * 100}%`,
+              top: `${(c.y ?? 0.05) * 100}%`,
+              zIndex: i + 1,
+            }}
           />
         ))}
     </div>
@@ -185,19 +225,55 @@ export function FreeZone({ zone, decks, onInfo, canAct }: { zone: ZoneView; deck
 }
 
 /** A shared zone with its label (tap the label for zone actions). */
-export function ZoneBox({ view, zone, onInfo }: { view: TableView; zone: ZoneView; onInfo: (h: string) => void }) {
+export function ZoneBox({
+  view,
+  zone,
+  onInfo,
+  flow,
+}: {
+  view: TableView;
+  zone: ZoneView;
+  onInfo: (h: string) => void;
+  flow?: FlowItem;
+}) {
   const setSheet = useUI((s) => s.setSheet);
   const canAct = !view.me.spectator;
   const over = useUI((s) => s.drag?.over);
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
+  const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
   return (
-    <section className={`zone zone-${zone.layout} ${isOver ? 'drop-over' : ''}`} style={{ ['--zone-color' as any]: zone.color }} aria-label={zone.name}>
-      <button className="zone-label" onClick={() => setSheet({ kind: 'zone', zone: zone.id })} aria-label={`${zone.name} actions`}>
+    <section
+      className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''}`}
+      style={{
+        ['--zone-color' as any]: zone.color,
+        ...(flow ? { width: flow.w, ['--card-w' as any]: `${flow.cardW}px` } : {}),
+      }}
+      aria-label={zone.name}
+      data-drop-zone={zone.id}
+    >
+      <button
+        className="zone-label"
+        onClick={() => setSheet({ kind: 'zone', zone: zone.id })}
+        aria-label={`${zone.name} actions`}
+      >
         {zone.name} <span className="muted">· {zone.cards.length}</span>
       </button>
-      {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />}
-      {zone.layout === 'spread' && <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} />}
-      {zone.layout === 'free' && <FreeZone zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />}
+      {slim ? (
+        // card-handling "Slim empty zones": a tap-height bar that opens while cards are dragged over it
+        <div className="slim-drop" data-testid={`row-${zone.name}`}>
+          {flow?.width !== 'fit' && <span className="row-empty">Empty</span>}
+        </div>
+      ) : (
+        <>
+          {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />}
+          {zone.layout === 'spread' && (
+            <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} />
+          )}
+          {zone.layout === 'free' && (
+            <FreeZone zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />
+          )}
+        </>
+      )}
     </section>
   );
 }

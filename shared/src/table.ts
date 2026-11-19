@@ -5,7 +5,15 @@ export const MAX_SEATS = 12;
 export const UNDO_WINDOW_MS = 10_000;
 
 export type TableMode = 'realtime' | 'turn';
-export type ZoneLayout = 'pile' | 'spread' | 'free';
+export type ZoneLayout = 'pile' | 'spread' | 'column' | 'free';
+export type ZoneWidth = 'fit' | 'half' | 'full';
+const LAYOUTS = ['pile', 'spread', 'column', 'free'] as const;
+const WIDTHS = ['fit', 'half', 'full'] as const;
+
+/** Width a zone takes in the board's flow when the host has not chosen one (zone-arrangement). */
+export function defaultZoneWidth(layout: ZoneLayout): ZoneWidth {
+  return layout === 'pile' || layout === 'column' ? 'fit' : 'full';
+}
 export type ZoneKind = 'shared' | 'hand';
 
 /** A deck snapshot loaded onto a table. Never changes after load (until reload). */
@@ -47,6 +55,10 @@ export interface Zone {
   cards: string[];
   /** Positions of cards in free layout, 0..1 relative to the zone. */
   pos: Record<string, { x: number; y: number }>;
+  /** Width in the board's flow; missing = derived from the layout (defaultZoneWidth). */
+  width?: ZoneWidth;
+  /** Start a new row in the board's flow. */
+  newRow?: boolean;
 }
 
 export interface Seat {
@@ -129,6 +141,8 @@ export interface TableState {
   idSeq: number;
   /** Seat ids in the order players first sat, used for host auto-transfer. */
   seatedOrder: string[];
+  /** 1 once zoneOrder (not x/y) drives the board layout; see migrateState. */
+  zoneLayoutVersion?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,8 +214,10 @@ export const ActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('zoneAdd'),
     name: z.string().min(1).max(40),
-    layout: z.enum(['pile', 'spread', 'free']),
+    layout: z.enum(LAYOUTS),
     color: zoneColor.optional(),
+    width: z.enum(WIDTHS).optional(),
+    newRow: z.boolean().optional(),
     x: z.number().min(0).max(1).optional(),
     y: z.number().min(0).max(1).optional(),
   }),
@@ -209,12 +225,17 @@ export const ActionSchema = z.discriminatedUnion('type', [
     type: z.literal('zoneUpdate'),
     zone: id,
     name: z.string().min(1).max(40).optional(),
-    layout: z.enum(['pile', 'spread', 'free']).optional(),
+    layout: z.enum(LAYOUTS).optional(),
     color: zoneColor.optional(),
+    /** null returns to the layout's default width. */
+    width: z.enum(WIDTHS).nullable().optional(),
+    newRow: z.boolean().optional(),
     x: z.number().min(0).max(1).optional(),
     y: z.number().min(0).max(1).optional(),
   }),
   z.object({ type: z.literal('zoneRemove'), zone: id, moveTo: id.optional() }),
+  /** Place a shared zone at `index` among the shared zones (hand zones keep their slots). */
+  z.object({ type: z.literal('zoneMove'), zone: id, index: z.number().int().min(0) }),
   // --- counters & notes
   z.object({ type: z.literal('counterAdd'), label: z.string().min(1).max(40), value: z.number().int().default(0) }),
   z.object({ type: z.literal('counterChange'), counter: id, delta: z.number().int() }),

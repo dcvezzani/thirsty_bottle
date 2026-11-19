@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionSchema, type Counter, type LogEntry, type Participant, type TableMode, type TableSettings, type ZoneKind, type ZoneLayout } from './table.js';
+import { ActionSchema, type Counter, type LogEntry, type Participant, type TableMode, type TableSettings, type ZoneKind, type ZoneLayout, type ZoneWidth } from './table.js';
 import type { CardDef } from './cards.js';
 
 export const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -50,6 +50,8 @@ export interface ZoneView {
   color: string;
   x: number;
   y: number;
+  width: ZoneWidth;
+  newRow: boolean;
   cards: CardView[];
 }
 

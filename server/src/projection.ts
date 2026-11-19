@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import {
   canSee,
+  defaultZoneWidth,
   handZoneId,
   locate,
   type AnimView,
@@ -124,6 +125,8 @@ export class Viewer {
       color: z.color,
       x: z.x,
       y: z.y,
+      width: z.width ?? defaultZoneWidth(z.layout),
+      newRow: !!z.newRow,
       cards: z.cards.map((id) => this.cardView(s, s.cards[id], z)),
     };
   }

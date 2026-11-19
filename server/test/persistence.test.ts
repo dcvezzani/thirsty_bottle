@@ -45,3 +45,29 @@ describe('persistence and replay (3.5)', () => {
     await srv.stop();
   });
 });
+
+describe('zone-arrangement 1.2: old tables are migrated on load', () => {
+  it('a table stored without zoneLayoutVersion comes back in its old visual order', async () => {
+    let srv = await startServer({ rate: { perSecond: 1000, burst: 1000 } });
+    const a = await Client.connect(srv, 'Alex');
+    const tid = await tableWith(srv, a, []);
+    await a.act({ type: 'zoneAdd', name: 'Low', layout: 'spread', x: 0.1, y: 0.9 });
+    await a.act({ type: 'zoneAdd', name: 'High', layout: 'spread', x: 0.1, y: 0.2 });
+    // turn the live table into the pre-change format; shutdown snapshots it as-is
+    const st = srv.app.tables.get(tid)!.state;
+    delete st.zoneLayoutVersion;
+    const dir = srv.dataDir;
+    a.close();
+    await srv.stop(true);
+
+    srv = await startServer({}, dir);
+    const s = srv.app.tables.get(tid)!.state;
+    const names = s.zoneOrder.filter((id) => s.zones[id].kind === 'shared').map((id) => s.zones[id].name);
+    expect(names.indexOf('High')).toBeLessThan(names.indexOf('Low'));
+    expect(s.zoneLayoutVersion).toBe(1);
+    // piles first, as the old board showed them
+    const firstNonPile = names.findIndex((n) => s.zones[s.zoneOrder.find((id) => s.zones[id].name === n)!].layout !== 'pile');
+    expect(names.slice(firstNonPile).every((n) => s.zones[s.zoneOrder.find((id) => s.zones[id].name === n)!].layout !== 'pile')).toBe(true);
+    await srv.stop();
+  });
+});

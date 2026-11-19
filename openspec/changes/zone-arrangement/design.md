@@ -37,7 +37,7 @@
 - *Alternative rejected:* encoding the order in `y` (sort keys). `zoneOrder` already exists and is authoritative, so reordering it is simpler and needs no renumbering.
 
 **D2. One-time migration.**
-- A pure `migrateState(s)` in `shared` runs when the server loads a snapshot, before replaying actions. If `s.zoneLayoutVersion` is missing, it re-sorts the shared ids in `zoneOrder` by `(y, x)` using a stable sort. This reproduces today's visual order. Piles stay first within a `y` tie, as today's pile row did.
+- A pure `migrateState(s)` in `shared` runs when the server loads a snapshot, before replaying actions. If `s.zoneLayoutVersion` is missing, it re-sorts the shared ids in `zoneOrder` with a stable sort: piles first, then the others, each group by `(y, x)`. This reproduces today's visual order, where every pile sat in a row above the other zones.
 - It then sets `zoneLayoutVersion = 1`.
 - New tables start at version 1, and replayed actions are layout-neutral.
 

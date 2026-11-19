@@ -109,6 +109,7 @@ export function createTableState(o: CreateTableOptions): TableState {
     vacated: [],
     idSeq: 0,
     seatedOrder: [],
+    zoneLayoutVersion: 1,
   };
   if ((o.layout ?? 'standard') === 'standard') {
     addZone(s, { name: 'Discard', layout: 'pile', x: 0.7, y: 0.1 });
@@ -121,6 +122,25 @@ export function createTableState(o: CreateTableOptions): TableState {
   s.seats[0].color = o.host.color;
   s.seatedOrder.push(o.host.playerId);
   log(s, o.now, o.host.playerId, `${o.host.name} created the table`, 'system');
+  return s;
+}
+
+/**
+ * One-time upgrade of a stored table (zone-arrangement): the board used to show every pile in a
+ * row at the top, then the other zones, each group sorted by y, then x; zoneOrder now drives it.
+ * Re-sorting once that way keeps an existing table looking the same.
+ * Idempotent; returns the same object.
+ */
+export function migrateState(s: TableState): TableState {
+  if ((s.zoneLayoutVersion ?? 0) >= 1) return s;
+  const shared = s.zoneOrder
+    .filter((id) => s.zones[id]?.kind === 'shared')
+    .map((id, i) => ({ id, i, z: s.zones[id] }))
+    .sort((a, b) => Number(b.z.layout === 'pile') - Number(a.z.layout === 'pile') || a.z.y - b.z.y || a.z.x - b.z.x || a.i - b.i)
+    .map((e) => e.id);
+  let k = 0;
+  s.zoneOrder = s.zoneOrder.map((id) => (s.zones[id]?.kind === 'shared' ? shared[k++] : id));
+  s.zoneLayoutVersion = 1;
   return s;
 }
 
@@ -161,7 +181,9 @@ function removeSeat(s: TableState, seatId: string) {
 
 function addZone(
   s: TableState,
-  o: { name: string; layout: Zone['layout']; color?: string; x?: number; y?: number },
+  o: { name: string; layout: Zone['layout']; color?: string; x?: number; y?: number; width?: Zone['width']; newRow?: boolean },
+  /** Where to put it in the order: the end (default), after a zone, or with the leading piles. */
+  place: { after: string } | 'pileRow' | 'end' = 'end',
 ): Zone {
   const id = nextId(s, 'z');
   const z: Zone = {
@@ -176,8 +198,19 @@ function addZone(
     cards: [],
     pos: {},
   };
+  if (o.width) z.width = o.width;
+  if (o.newRow) z.newRow = true;
   s.zones[id] = z;
-  s.zoneOrder.push(id);
+  let at = s.zoneOrder.length;
+  if (place === 'pileRow') {
+    // after the run of piles at the start of the shared order (where the old board showed piles)
+    const firstOther = s.zoneOrder.findIndex((zid) => s.zones[zid]?.kind === 'shared' && s.zones[zid].layout !== 'pile');
+    if (firstOther >= 0) at = firstOther;
+  } else if (place !== 'end') {
+    const i = s.zoneOrder.indexOf(place.after);
+    if (i >= 0) at = i + 1;
+  }
+  s.zoneOrder.splice(at, 0, id);
   return z;
 }
 
@@ -368,6 +401,7 @@ const ADMIN = new Set([
   'zoneAdd',
   'zoneUpdate',
   'zoneRemove',
+  'zoneMove',
   'reverse',
   'skip',
   'setActive',
@@ -589,7 +623,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const top = z.cards.slice(0, depth);
       for (const id of z.cards) touched.add(id);
       if (action.mode === 'split') {
-        const nz = addZone(s, { name: `${z.name} (cut)`, layout: 'pile', x: Math.min(0.9, z.x + 0.15), y: z.y });
+        const nz = addZone(s, { name: `${z.name} (cut)`, layout: 'pile', x: Math.min(0.9, z.x + 0.15), y: z.y }, { after: z.id });
         z.cards = z.cards.slice(depth);
         nz.cards = top;
         for (const id of top) loc.set(id, nz.id);
@@ -805,6 +839,30 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (action.color) z.color = action.color;
       if (action.x !== undefined) z.x = action.x;
       if (action.y !== undefined) z.y = action.y;
+      if (action.width !== undefined || action.newRow !== undefined) {
+        if (z.kind === 'hand') fail('HAND_ZONE', 'Hands are not arranged on the board');
+        if (action.width === null) delete z.width;
+        else if (action.width) z.width = action.width;
+        if (action.newRow !== undefined) {
+          if (action.newRow) z.newRow = true;
+          else delete z.newRow;
+        }
+      }
+      break;
+    }
+    case 'zoneMove': {
+      const z = getZone(s, action.zone);
+      if (z.kind === 'hand') fail('HAND_ZONE', 'Hands are not arranged on the board');
+      const shared = s.zoneOrder.filter((id) => s.zones[id]?.kind === 'shared');
+      const from = shared.indexOf(z.id);
+      const to = Math.min(action.index, shared.length - 1);
+      if (from === to) break;
+      shared.splice(from, 1);
+      shared.splice(to, 0, z.id);
+      // write the shared zones back into their slots; hand zones keep theirs
+      let k = 0;
+      s.zoneOrder = s.zoneOrder.map((id) => (s.zones[id]?.kind === 'shared' ? shared[k++] : id));
+      log(s, now, actor, `${who} moved ${z.name}`, 'system');
       break;
     }
     case 'zoneRemove': {
@@ -967,7 +1025,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         z.pos = {};
       }
       for (const d of Object.values(s.decks)) {
-        if (!s.zones[d.homeZoneId]) d.homeZoneId = addZone(s, { name: d.name, layout: 'pile', x: 0.1, y: 0.1 }).id;
+        if (!s.zones[d.homeZoneId]) d.homeZoneId = addZone(s, { name: d.name, layout: 'pile', x: 0.1, y: 0.1 }, 'pileRow').id;
         const ids = Object.values(s.cards)
           .filter((c) => c.deckId === d.id)
           .sort((a, b) => cardOrder(d, a) - cardOrder(d, b))
@@ -986,7 +1044,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (action.zone && s.zones[action.zone]) home = s.zones[action.zone];
       else {
         const piles = Object.values(s.decks).length;
-        home = addZone(s, { name: action.deck.name, layout: 'pile', x: 0.1 + piles * 0.15, y: 0.1 });
+        home = addZone(s, { name: action.deck.name, layout: 'pile', x: 0.1 + piles * 0.15, y: 0.1 }, 'pileRow');
       }
       const deck: TableDeck = { ...action.deck, homeZoneId: home.id };
       s.decks[deck.id] = deck;
@@ -998,7 +1056,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
     case 'reloadDeck': {
       const old = s.decks[action.deckId] ?? fail('NO_DECK', 'That deck is not loaded');
       removeDeckInstances(s, old.id).forEach((id) => touched.add(id));
-      const home = s.zones[old.homeZoneId] ?? addZone(s, { name: action.deck.name, layout: 'pile' });
+      const home = s.zones[old.homeZoneId] ?? addZone(s, { name: action.deck.name, layout: 'pile' }, 'pileRow');
       const deck: TableDeck = { ...action.deck, id: old.id, homeZoneId: home.id };
       s.decks[deck.id] = deck;
       const ids = createInstances(s, deck);
