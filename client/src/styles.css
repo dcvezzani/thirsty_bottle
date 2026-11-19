@@ -300,3 +300,14 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .zone-column { overflow: visible; }
 /* keep the top of a column's first card clear of the label button (touch adjustment snaps to nearby buttons) */
 .zone-column .zone-label { margin-bottom: 6px; }
+/* table-play "Arranging zones" */
+.arrange-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel); color: var(--ink); border-bottom: 1px solid var(--control-line); flex: none; }
+.arrange-tile { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 6px; background: var(--panel); color: var(--ink); border: 1px solid var(--control-line); border-left: 4px solid var(--zone-color); border-radius: 10px; flex: none; min-width: 0; }
+.arrange-tile .tile-head { gap: 4px; min-width: 0; }
+.arrange-tile .grip { flex: none; width: 36px; min-height: 36px; padding: 0; font-size: 18px; touch-action: none; cursor: grab; }
+.arrange-tile .tile-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.arrange-tile select { min-height: 36px; padding: 0 6px; }
+.arrange-tile button.small { min-height: 36px; }
+.arrange-tile.placeholder { background: transparent; border: 2px dashed var(--felt-line); min-height: 120px; }
+.arrange-tile.dragging { position: fixed; z-index: 90; pointer-events: none; flex-direction: row; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+.zone-label { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }

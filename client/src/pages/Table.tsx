@@ -16,6 +16,7 @@ import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
 import { useFlip, inkOn } from '../table/anim';
 import { flowRows } from '../table/flow';
+import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 
 export function TablePage() {
   const { id } = useParams();
@@ -117,12 +118,13 @@ function TableScreen({ view }: { view: TableView }) {
     if (keep.length !== st.selected.length) st.select(st.selZone, keep);
   }, [view]);
 
-  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [] }), []);
+  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [], arranging: false }), []);
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
   // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
   const shared = view.zones.filter((z) => z.kind === 'shared');
   const boardSize = useBoardSize(boardRef, zoom);
+  const arranging = useUI((s) => s.arranging) && view.me.isHost;
   const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW) : [];
   const zoneById = new Map(shared.map((z) => [z.id, z]));
   const active = view.seats.find((s) => s.id === view.turn.active);
@@ -173,14 +175,19 @@ function TableScreen({ view }: { view: TableView }) {
       )}
       <Prompts view={view} />
       <SeatBar view={view} />
+      {arranging && <ArrangeBar />}
       <div className="board" ref={boardRef}>
-        {rows.map((row) => (
+        {arranging && boardSize ? (
+          <ArrangeBoard view={view} boardRef={boardRef} boardW={boardSize.w} />
+        ) : (
+          rows.map((row) => (
           <div className="zone-row" key={row[0].id}>
             {row.map((it) => (
               <ZoneBox key={it.id} view={view} zone={zoneById.get(it.id)!} onInfo={onInfo} flow={it} />
             ))}
           </div>
-        ))}
+          ))
+        )}
         {!shared.length && <div className="empty" style={{ color: '#fff' }}>No zones yet. {view.me.isHost ? 'Add zones and load a deck in ⚙.' : 'Waiting for the host.'}</div>}
         {view.decks.length === 0 && view.me.isHost && (
           <button className="primary" style={{ margin: 12 }} onClick={() => setSheet({ kind: 'decks' })}>

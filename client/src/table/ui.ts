@@ -35,6 +35,8 @@ interface UIState {
   faceDown: boolean;
   drawer: DrawerTab | null;
   zoom: number;
+  /** Host arrange mode (zone-arrangement): zones shown as draggable tiles, cards locked. */
+  arranging: boolean;
   recent: string[];
   select(zone: string, handles: string[]): void;
   toggle(zone: string, h: string): void;
@@ -54,6 +56,7 @@ export const useUI = create<UIState>((set, get) => ({
   faceDown: false,
   drawer: null,
   zoom: 1,
+  arranging: false,
   recent: (() => {
     try {
       return JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? '[]');

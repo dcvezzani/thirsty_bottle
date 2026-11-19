@@ -69,3 +69,30 @@ function sizeRow(row: FlowZone[], boardW: number, baseCardW: number, half: numbe
       : { id: z.id, w: Math.floor(fitOuter(z.layout, fitCardW)), cardW: Math.floor(fitCardW * 10) / 10, width: 'fit' as const },
   );
 }
+
+/** Arrange mode: tiles big enough for their controls, in the same order and with the same row rules. */
+export const TILE_FIT_W = 108;
+export function arrangeRows(zones: FlowZone[], boardW: number): FlowItem[][] {
+  const half = Math.floor((boardW - GAP) / 2);
+  const w = (z: FlowZone) => (z.width === 'full' ? boardW : z.width === 'half' ? half : Math.min(TILE_FIT_W, boardW));
+  const rows: FlowItem[][] = [];
+  let cur: FlowItem[] | null = null;
+  let used = 0;
+  for (const z of zones) {
+    const item: FlowItem = { id: z.id, w: w(z), cardW: 0, width: z.width };
+    if (z.width === 'full') {
+      rows.push([item]);
+      cur = null;
+      continue;
+    }
+    if (!cur || z.newRow || used + GAP + item.w > boardW) {
+      cur = [item];
+      rows.push(cur);
+      used = item.w;
+    } else {
+      cur.push(item);
+      used += GAP + item.w;
+    }
+  }
+  return rows;
+}

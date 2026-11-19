@@ -56,3 +56,16 @@ describe('flowRows (zone-arrangement 2.1)', () => {
     for (const r of rows) expect(rowW(r)).toBeLessThanOrEqual(363);
   });
 });
+
+describe('arrangeRows (zone-arrangement 4.2)', () => {
+  it('fit tiles get room for their controls; same row rules', async () => {
+    const { arrangeRows, TILE_FIT_W } = await import('./flow');
+    const rows = arrangeRows(solitaire(), 363);
+    expect(rows.flat().every((i) => i.w === TILE_FIT_W)).toBe(true);
+    expect(rows[0].map((i) => i.id)).toEqual(['stock', 'waste', 'F1']);
+    // P1 starts a new row
+    const p1Row = rows.find((r) => r.some((i) => i.id === 'P1'))!;
+    expect(p1Row[0].id).toBe('P1');
+    for (const r of rows) expect(rowW(r)).toBeLessThanOrEqual(363);
+  });
+});

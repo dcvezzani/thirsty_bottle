@@ -243,23 +243,42 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
               <option value="free">Free</option>
             </select>
             <input aria-label="Zone color" type="color" value={zone.color} style={{ width: 60, padding: 2 }} onChange={(e) => send({ type: 'zoneUpdate', zone: zone.id, color: e.target.value })} />
-            <button className="small" onClick={() => send({ type: 'zoneUpdate', zone: zone.id, y: Math.max(0, zone.y - 0.1) })}>
-              ↑
-            </button>
-            <button className="small" onClick={() => send({ type: 'zoneUpdate', zone: zone.id, y: Math.min(1, zone.y + 0.1) })}>
-              ↓
-            </button>
-            <button className="small" onClick={() => send({ type: 'zoneUpdate', zone: zone.id, x: Math.max(0, zone.x - 0.1) })}>
-              ←
-            </button>
-            <button className="small" onClick={() => send({ type: 'zoneUpdate', zone: zone.id, x: Math.min(1, zone.x + 0.1) })}>
-              →
-            </button>
           </div>
+          <ZonePlacement view={view} zone={zone} />
           <RemoveZone zone={zone} others={others} onDone={onClose} />
         </>
       )}
     </Sheet>
+  );
+}
+
+/** table-play "Arranging from the zone sheet": order, width and row break without dragging. */
+function ZonePlacement({ view, zone }: { view: TableView; zone: ZoneView }) {
+  const shared = view.zones.filter((z) => z.kind === 'shared');
+  const idx = shared.findIndex((z) => z.id === zone.id);
+  return (
+    <>
+      <h4 style={{ margin: '14px 0 4px' }}>Place</h4>
+      <div className="row">
+        <button className="grow" disabled={idx <= 0} onClick={() => send({ type: 'zoneMove', zone: zone.id, index: idx - 1 })}>
+          Move earlier
+        </button>
+        <button className="grow" disabled={idx >= shared.length - 1} onClick={() => send({ type: 'zoneMove', zone: zone.id, index: idx + 1 })}>
+          Move later
+        </button>
+      </div>
+      <div className="row" role="group" aria-label="Width" style={{ marginTop: 6 }}>
+        {(['fit', 'half', 'full'] as const).map((w) => (
+          <button key={w} className={zone.width === w ? 'primary grow' : 'grow'} aria-pressed={zone.width === w} onClick={() => send({ type: 'zoneUpdate', zone: zone.id, width: w })}>
+            {w === 'fit' ? 'Fit' : w === 'half' ? 'Half' : 'Full'}
+          </button>
+        ))}
+      </div>
+      <label className="row" style={{ color: 'var(--ink)' }}>
+        <input type="checkbox" style={{ width: 20 }} checked={zone.newRow} onChange={(e) => send({ type: 'zoneUpdate', zone: zone.id, newRow: e.target.checked })} />
+        Start a new row
+      </label>
+    </>
   );
 }
 
@@ -703,6 +722,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
           </div>
           <div className="actions">
             <button onClick={() => useUI.getState().setSheet({ kind: 'decks' })}>Decks…</button>
+            <button onClick={() => useUI.setState({ sheet: null, arranging: true })}>Arrange zones</button>
             <button onClick={() => confirm('Reset the table? All cards return to their decks face down.') && (send({ type: 'reset' }), onClose())}>Reset table</button>
             <button onClick={() => confirm('Close the table for everyone?') && getSocket()?.request({ t: 'table.close', tableId: view.id })}>Close table</button>
           </div>

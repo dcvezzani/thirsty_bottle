@@ -28,8 +28,8 @@
 
 ## 4. Arranging zones
 
-- [ ] 4.1 Zone sheet: replace the arrow buttons with Move earlier, Move later, a Fit/Half/Full choice and "Start a new row" (host only). Verify with e2e tests: Move earlier swaps P3 with the zone before it for a second player too, a width change reflows, and a non-host sees no arrange controls.
-- [ ] 4.2 Arrange mode: entry by long-pressing a label (host) or Settings "Arrange zones"; tiles with grip, width and new-row controls; drag with a gap indicator and `zoneMove` on drop; edge auto-scroll; Done, Escape and losing the host role exit it. Verify with e2e tests on a phone:
+- [x] 4.1 Zone sheet: replace the arrow buttons with Move earlier, Move later, a Fit/Half/Full choice and "Start a new row" (host only). Verify with e2e tests: Move earlier swaps P3 with the zone before it for a second player too, a width change reflows, and a non-host sees no arrange controls.
+- [x] 4.2 Arrange mode: entry by long-pressing a label (host) or Settings "Arrange zones"; tiles with grip, width and new-row controls; drag with a gap indicator and `zoneMove` on drop; edge auto-scroll; Done, Escape and losing the host role exit it. Verify with e2e tests on a phone:
   - drag Discard from last to after Stock, and a second player sees the new order;
   - a card can't be dragged while arranging;
   - holding a tile at the bottom edge scrolls;

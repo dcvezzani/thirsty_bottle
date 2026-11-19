@@ -15,6 +15,10 @@ export async function addZones(page: Page, zones: [string, 'pile' | 'spread' | '
   await page.keyboard.press('Escape');
 }
 
+// unique table names, so repeated runs against one server never join an older table
+let last = '';
+const uniq = (n: string) => (last = `${n} ${Date.now() % 100000}`);
+
 const zoneOrder = (page: Page) => page.locator('.board section.zone').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
 const noSideways = (page: Page) =>
   page.evaluate(() => {
@@ -24,14 +28,14 @@ const noSideways = (page: Page) =>
 
 test('zones appear in the server order on a phone and a desktop, without sideways scrolling (2.2)', async ({ browser }) => {
   const { ctx: c1, page: phone } = await newPlayer(browser, 'Alex', PHONE);
-  await createTable(phone, 'Flow order', { deck: 'builtin-standard-52' });
+  await createTable(phone, uniq('Flow order'), { deck: 'builtin-standard-52' });
   await addZones(phone, [
     ['A', 'pile'],
     ['B', 'spread'],
     ['C', 'pile'],
   ]);
   const { ctx: c2, page: desk } = await newPlayer(browser, 'Sam', { viewport: { width: 1280, height: 800 } });
-  await joinTable(desk, 'Flow order');
+  await joinTable(desk, last);
   const expected = ['Discard', 'Standard 52', 'Table', 'A', 'B', 'C'];
   await expect.poll(() => zoneOrder(phone)).toEqual(expected);
   await expect.poll(() => zoneOrder(desk)).toEqual(expected);
@@ -190,5 +194,141 @@ test('columns: mouse hover opens the cards under the pointer on desktop (3.2)', 
   await expect.poll(async () => (await c1.locator('[data-h]').nth(3).boundingBox())!.y).toBeGreaterThan(before + 20);
   await page.mouse.move(5, 5);
   await expect(c1).not.toHaveClass(/opened/);
+  await ctx.close();
+});
+
+test('zone sheet: Move earlier swaps zones for everyone; width reflows; non-hosts see no arrange controls (4.1)', async ({ browser }) => {
+  const { ctx: c1, page: alex } = await newPlayer(browser, 'Alex', PHONE);
+  await createTable(alex, uniq('Sheet arrange'), { deck: 'builtin-standard-52' });
+  await addZones(alex, [
+    ['P1', 'column'],
+    ['P2', 'column'],
+    ['P3', 'column'],
+  ]);
+  const { ctx: c2, page: sam } = await newPlayer(browser, 'Sam', PHONE);
+  await joinTable(sam, last);
+  const tail = async (p: Page) => (await zoneOrder(p)).slice(-3);
+  await expect.poll(() => tail(sam)).toEqual(['P1', 'P2', 'P3']);
+  await alex.getByRole('button', { name: 'P3 actions' }).click();
+  await alex.getByRole('button', { name: 'Move earlier' }).click();
+  await expect.poll(() => tail(alex)).toEqual(['P1', 'P3', 'P2']);
+  await expect.poll(() => tail(sam)).toEqual(['P1', 'P3', 'P2']);
+  // width: P3 Full takes the whole row; Fit puts it back beside the others
+  const width = (p: Page, n: string) => p.locator(`section.zone[aria-label="${n}"]`).evaluate((e) => e.getBoundingClientRect().width);
+  const boardW = await alex.locator('.board').evaluate((b) => b.clientWidth - 12);
+  await alex.getByRole('group', { name: 'Width' }).getByRole('button', { name: 'Full' }).click();
+  await expect.poll(() => width(sam, 'P3')).toBeGreaterThan(boardW - 2);
+  await alex.getByRole('group', { name: 'Width' }).getByRole('button', { name: 'Fit' }).click();
+  await expect.poll(() => width(sam, 'P3')).toBeLessThan(120);
+  // start a new row
+  const top = (p: Page, n: string) => p.locator(`section.zone[aria-label="${n}"]`).evaluate((e) => Math.round(e.getBoundingClientRect().top));
+  expect(await top(sam, 'P3')).toBe(await top(sam, 'P1'));
+  await alex.getByLabel('Start a new row').click();
+  await expect(alex.getByLabel('Start a new row')).toBeChecked();
+  await expect.poll(async () => (await top(sam, 'P3')) > (await top(sam, 'P1'))).toBe(true);
+  await alex.keyboard.press('Escape');
+  // a non-host's zone sheet has no arrange controls
+  await sam.getByRole('button', { name: 'P2 actions' }).click();
+  await expect(sam.getByRole('dialog')).toBeVisible();
+  await expect(sam.getByRole('button', { name: 'Move earlier' })).toHaveCount(0);
+  await expect(sam.getByRole('group', { name: 'Width' })).toHaveCount(0);
+  await Promise.all([c1.close(), c2.close()]);
+});
+
+async function touchHold(page: Page, p: { x: number; y: number }, ms: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [p] });
+  await page.waitForTimeout(ms);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+const centerOf = async (page: Page, sel: string) => {
+  const b = (await page.locator(sel).first().boundingBox())!;
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+};
+
+test('arrange mode: drag a tile for everyone, cards locked, edge scroll, host handover closes it, long press is host-only (4.2)', async ({ browser }) => {
+  const { ctx: c1, page: alex } = await newPlayer(browser, 'Alex', PHONE);
+  await createTable(alex, uniq('Arrange'), { deck: 'builtin-standard-52' });
+  await addZones(alex, [
+    ['S1', 'spread'],
+    ['S2', 'spread'],
+    ['S3', 'spread'],
+    ['S4', 'spread'],
+    ['S5', 'spread'],
+    ['Last', 'pile'],
+  ]);
+  const { ctx: c2, page: sam } = await newPlayer(browser, 'Sam', PHONE);
+  await joinTable(sam, last);
+  await expect.poll(async () => (await zoneOrder(sam)).at(-1)).toBe('Last');
+
+  // a non-host's long press on a label does not open arrange mode
+  await touchHold(sam, await centerOf(sam, 'button[aria-label="Table actions"]'), 700);
+  await expect(sam.getByRole('region', { name: 'Arranging zones' })).toHaveCount(0);
+  await sam.keyboard.press('Escape');
+
+  // the host enters by long-pressing a label; no zone sheet opens
+  await touchHold(alex, await centerOf(alex, 'button[aria-label="Table actions"]'), 700);
+  await expect(alex.getByRole('region', { name: 'Arranging zones' })).toBeVisible();
+  await expect(alex.getByRole('dialog')).toHaveCount(0);
+  // cards are locked: none are rendered on the board while arranging
+  await expect(alex.locator('.board [data-h]')).toHaveCount(0);
+  await expect(alex.locator('.arrange-tile')).toHaveCount(9);
+
+  // holding a dragged tile at the bottom edge scrolls the board
+  const board = alex.locator('.board');
+  await board.evaluate((b) => (b.scrollTop = 0));
+  const bb = (await board.boundingBox())!;
+  await board.evaluate((b) => (b.scrollTop = b.scrollHeight)); // bring "Last" into view
+  const lastGrip = await centerOf(alex, 'button[aria-label="Move Last"]');
+  const cdp = await alex.context().newCDPSession(alex);
+  const t = (type: string, p?: { x: number; y: number }) => cdp.send('Input.dispatchTouchEvent', { type: type as any, touchPoints: p ? [p] : [] });
+  await t('touchStart', lastGrip);
+  // to the top band and hold: the board scrolls up toward Discard
+  const topBand = { x: bb.x + bb.width / 2, y: bb.y + 12 };
+  for (let i = 1; i <= 6; i++) {
+    await alex.waitForTimeout(20);
+    await t('touchMove', { x: lastGrip.x + ((topBand.x - lastGrip.x) * i) / 6, y: lastGrip.y + ((topBand.y - lastGrip.y) * i) / 6 });
+  }
+  const scrolledFrom = await board.evaluate((b) => b.scrollTop);
+  for (let i = 0; i < 40 && (await board.evaluate((b) => b.scrollTop)) > 0; i++) {
+    await t('touchMove', { x: topBand.x + (i % 2), y: topBand.y });
+    await alex.waitForTimeout(50);
+  }
+  expect(await board.evaluate((b) => b.scrollTop)).toBeLessThan(scrolledFrom);
+  // drop it just before "Standard 52" (left half of its tile): Last lands right after Discard
+  const std = (await alex.locator('section[aria-label="Standard 52 tile"]').boundingBox())!;
+  const dropAt = { x: std.x + 8, y: std.y + std.height / 2 };
+  for (let i = 1; i <= 4; i++) {
+    await alex.waitForTimeout(30);
+    await t('touchMove', { x: topBand.x + ((dropAt.x - topBand.x) * i) / 4, y: topBand.y + ((dropAt.y - topBand.y) * i) / 4 });
+  }
+  await expect(alex.locator('.arrange-tile.placeholder')).toHaveCount(1);
+  await t('touchEnd');
+  await expect.poll(() => zoneOrder(sam)).toEqual(['Discard', 'Last', 'Standard 52', 'Table', 'S1', 'S2', 'S3', 'S4', 'S5']);
+
+  // width from the tile
+  await alex.getByLabel('S1 width').selectOption('half');
+  await expect.poll(() => sam.locator('section.zone[aria-label="S1"]').evaluate((e) => e.classList.contains('w-half'))).toBe(true);
+
+  // handing the host role to Sam closes arrange mode for Alex
+  await alex.getByTestId('seat-Sam').click();
+  await alex.getByRole('button', { name: 'Make host' }).click();
+  await expect(alex.getByRole('region', { name: 'Arranging zones' })).toHaveCount(0);
+  await expect(alex.locator('.board [data-h]').first()).toBeVisible();
+  await Promise.all([c1.close(), c2.close()]);
+});
+
+test('arrange mode from Settings; Escape and Done exit (4.2)', async ({ browser }) => {
+  const { ctx, page } = await newPlayer(browser, 'Alex', PHONE);
+  await createTable(page, 'Arrange settings', { deck: 'builtin-standard-52' });
+  await page.getByRole('button', { name: 'Table settings' }).click();
+  await page.getByRole('button', { name: 'Arrange zones' }).click();
+  await expect(page.getByRole('region', { name: 'Arranging zones' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Arranging zones' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Table settings' }).click();
+  await page.getByRole('button', { name: 'Arrange zones' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('region', { name: 'Arranging zones' })).toHaveCount(0);
   await ctx.close();
 });

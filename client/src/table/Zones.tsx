@@ -8,6 +8,7 @@ import { useUI } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import type { FlowItem } from './flow';
+import { useArrangeLongPress } from './Arrange';
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
 export function Pile({
@@ -242,6 +243,7 @@ export function ZoneBox({
   const over = useUI((s) => s.drag?.over);
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
   const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
+  const longPress = useArrangeLongPress(view.me.isHost);
   return (
     <section
       className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''}`}
@@ -254,8 +256,9 @@ export function ZoneBox({
     >
       <button
         className="zone-label"
-        onClick={() => setSheet({ kind: 'zone', zone: zone.id })}
+        onClick={() => !longPress.consumeFired() && setSheet({ kind: 'zone', zone: zone.id })}
         aria-label={`${zone.name} actions`}
+        {...longPress.handlers}
       >
         {zone.name} <span className="muted">· {zone.cards.length}</span>
       </button>
