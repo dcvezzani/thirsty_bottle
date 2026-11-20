@@ -13,7 +13,7 @@
 - A pile turned over reverses its order and toggles each card.
 
 **Non-Goals:**
-- Changing how spreads, columns or free zones flip.
+- Changing how "Flip all" behaves on spreads, columns or free zones.
 - Changing single-card flips, selection flips or the pile double tap.
 - Adding an optimistic prediction for `flipZone`. It would be nice, but the round trip is fast and today's behavior has none either.
 
@@ -30,7 +30,12 @@
 
 **D2. Explicit `face` keeps its meaning.** `{ face: 'up' | 'down' }` stays "make every card this face, in place" for every layout. It is a state assignment, not a turn-over, and keeping it unchanged avoids breaking scripted use or tests.
 
-**D3. Visibility.** Reversing a pile reveals nothing new. The order of face-down cards is not shown to anyone, and after the turn-over the cards that are face up are visible to everyone as usual. Peek marks (`peekedBy`) and copy numbers travel with each card, since only the array order changes.
+**D3. "All face up" and "All face down" buttons.** The zone sheet gets both buttons beside "Flip all" for every layout. They send `{ type: 'flipZone', zone, face: 'up' | 'down' }`, the explicit-face form kept in D2, and the sheet closes like the other zone actions.
+- If every card already has that face, the reducer still records the action. That costs nothing, and the log confirms what the player did.
+- The log reads "turned {zone} face up/down", as today.
+- *Alternative rejected:* a single "Square up" (all face down). Revealing a pile in its current order is just as useful, and two explicit buttons leave no doubt about the outcome.
+
+**D4. Visibility.** Reversing a pile reveals nothing new. The order of face-down cards is not shown to anyone, and after the turn-over the cards that are face up are visible to everyone as usual. Peek marks (`peekedBy`) and copy numbers travel with each card, since only the array order changes.
 
 ## Risks / Trade-offs
 
