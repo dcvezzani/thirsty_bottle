@@ -48,6 +48,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('status').filter({ hasText: 'A new version is available' })).toBeVisible();
       await expectReadable(page, 'update notice');
       await page.getByTestId('pile-Standard 52').click();
+      await expect(page.getByRole('dialog').getByRole('button', { name: 'All face down' })).toBeVisible(); // the pile's sheet opens after a short pause
       await expectReadable(page, 'zone sheet');
       await page.getByRole('button', { name: 'Draw…' }).click();
       await expectReadable(page, 'draw sheet');

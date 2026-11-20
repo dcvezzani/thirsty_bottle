@@ -588,6 +588,17 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const z = getZone(s, action.zone);
       if (isOthersHand(s, z, actor) && !s.settings.openHands) fail('OTHERS_HAND', 'That is another player\'s hand');
       if (!z.cards.length) break;
+      if (z.layout === 'pile' && !action.face) {
+        // table-play "Card face state": turning a pile over reverses it and turns every card
+        z.cards.reverse();
+        for (const id of z.cards) {
+          s.cards[id].faceUp = !s.cards[id].faceUp;
+          touched.add(id);
+        }
+        anims.push({ kind: 'flip', actor, cards: [...z.cards] });
+        log(s, now, actor, `${who} turned ${zoneLabel(s, z)} over`, 'action', undefined, true);
+        break;
+      }
       const target = action.face ? action.face === 'up' : !z.cards.every((c) => s.cards[c].faceUp);
       for (const id of z.cards) {
         s.cards[id].faceUp = target;

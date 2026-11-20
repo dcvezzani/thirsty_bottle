@@ -200,6 +200,8 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'deal', zone: zone.id })}>Deal…</button>}
           <button onClick={() => act({ type: 'gather', zones: 'all', to: zone.id })}>Gather all here</button>
           {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id })}>Flip all</button>}
+          {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'up' })}>All face up</button>}
+          {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'fanout', zone: zone.id })}>Fan out</button>}
           {n > 0 && zone.layout !== 'pile' && <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>}
         </div>
