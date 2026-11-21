@@ -285,7 +285,9 @@ export function ZoneBox({
         aria-label={`${zone.name} actions`}
         {...longPress.handlers}
       >
-        {zone.name} <span className="muted">· {zone.cards.length}</span>
+        {/* table-play "Zone card count": the name shortens, the count never does */}
+        <span className="zone-name">{zone.name}</span>
+        <span className="zone-count muted">· {zone.cards.length}</span>
       </button>
       {slim ? (
         // card-handling "Slim empty zones": a tap-height bar that opens while cards are dragged over it
