@@ -9,4 +9,4 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Run `e2e/contrast.spec.ts` (the table and its zone labels are covered) and the existing table e2e suites. Then run lint, all unit tests and the full e2e suite, push to `main`, and confirm the deploy.
+- [x] 2.1 Run `e2e/contrast.spec.ts` (the table and its zone labels are covered) and the existing table e2e suites. Then run lint, all unit tests and the full e2e suite, push to `main`, and confirm the deploy.
