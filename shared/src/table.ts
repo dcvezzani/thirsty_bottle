@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CardDefSchema, ImageIdSchema, type CardDef } from './cards.js';
+import type { Plan } from './setups.js';
 
 export const MAX_SEATS = 12;
 export const UNDO_WINDOW_MS = 10_000;
@@ -141,6 +142,8 @@ export interface TableState {
   idSeq: number;
   /** Seat ids in the order players first sat, used for host auto-transfer. */
   seatedOrder: string[];
+  /** The setup last applied to this table (table-setups: Play again). */
+  lastSetup?: { id: string; versionId: string; name: string };
   /** 1 once zoneOrder (not x/y) drives the board layout; see migrateState. */
   zoneLayoutVersion?: number;
 }
@@ -280,12 +283,20 @@ export type SystemAction =
   | { type: 'autoHost'; playerId: string }
   | { type: 'autoPass' }
   | { type: 'passwordChanged'; hasPassword: boolean }
-  | { type: 'renamePlayer'; playerId: string; name: string; color: string };
+  | { type: 'renamePlayer'; playerId: string; name: string; color: string }
+  /** table-setups: replace zones, cards and counters with an expanded setup (built by the server). */
+  | {
+      type: 'applySetup';
+      setup: { id: string; versionId: string; name: string };
+      decks: { slot: string; deck: z.infer<typeof TableDeckSchema> }[];
+      plan: Plan;
+    };
 
 export type AnyAction = Action | SystemAction;
 
 /** Card actions that the take-from-hand / turn gates and undo apply to. */
 export const UNDOABLE: ReadonlySet<string> = new Set([
+  'applySetup',
   'move',
   'flip',
   'flipZone',

@@ -2,7 +2,7 @@
 
 ## 1. Setup model and expansion
 
-- [ ] 1.1 Add the `SetupContent` schema and `expandSetup` (D1, D2). Verify with unit tests:
+- [x] 1.1 Add the `SetupContent` schema and `expandSetup` (D1, D2). Verify with unit tests:
   - Klondike for 1 player (zone deals, stock gets the rest);
   - a per-seat hand of 7 and per-seat counters for 3 players, with names substituted;
   - counts by player count;
@@ -12,7 +12,7 @@
 
 ## 2. Table action
 
-- [ ] 2.1 Add the `applySetup` reducer action (D3): clear and rebuild zones, decks, cards and counters; shuffle; assign; set `lastSetup`; log; host only; undoable. Verify with reducer unit tests: seats and players kept, chat and log kept, counts and faces as planned, two applies give different deals with the same counts, a fixed deal is exact, undo restores the previous table, and replaying the action gives the same state.
+- [x] 2.1 Add the `applySetup` reducer action (D3): clear and rebuild zones, decks, cards and counters; shuffle; assign; set `lastSetup`; log; host only; undoable. Verify with reducer unit tests: seats and players kept, chat and log kept, counts and faces as planned, two applies give different deals with the same counts, a fixed deal is exact, undo restores the previous table, and replaying the action gives the same state.
 
 ## 3. Storage, API and table messages
 

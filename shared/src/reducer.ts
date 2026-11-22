@@ -15,6 +15,7 @@ import {
   type Zone,
 } from './table.js';
 import { canSee, handZoneId, isPublic, locate, playerName, seatOfPlayer, zoneOwner } from './visibility.js';
+import type { PlanTarget } from './setups.js';
 
 export interface Rng {
   /** Uniform integer in [0, maxExclusive). */
@@ -402,6 +403,7 @@ const ADMIN = new Set([
   'zoneUpdate',
   'zoneRemove',
   'zoneMove',
+  'applySetup',
   'reverse',
   'skip',
   'setActive',
@@ -1047,6 +1049,78 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       s.requests = [];
       if (s.mode === 'turn') s.turn.active = seatOfPlayer(s, s.hostId)?.id ?? null;
       log(s, now, actor, `${who} reset the table`, 'system');
+      break;
+    }
+    case 'applySetup': {
+      // table-setups: zones, cards and counters are replaced; seats, players, chat, log and settings stay
+      const { plan, setup } = action;
+      const seated = s.seats.filter((x) => x.playerId);
+      const hostAt = Math.max(0, seated.findIndex((x) => x.playerId === s.hostId));
+      const dealOrder = seated.slice(hostAt).concat(seated.slice(0, hostAt));
+      for (const id of Object.keys(s.cards)) touched.add(id);
+      for (const z of Object.values(s.zones)) {
+        if (z.kind === 'shared') delete s.zones[z.id];
+        else {
+          z.cards = [];
+          z.pos = {};
+        }
+      }
+      s.zoneOrder = s.zoneOrder.filter((id) => s.zones[id]);
+      s.cards = {};
+      s.decks = {};
+      s.counters = [];
+      s.requests = [];
+      const zoneOf: Record<string, string> = {};
+      for (const pz of plan.zones) {
+        const z = addZone(s, { name: pz.name, layout: pz.layout, ...(pz.color ? { color: pz.color } : {}), ...(pz.width ? { width: pz.width } : {}), ...(pz.newRow ? { newRow: true } : {}) });
+        zoneOf[pz.key] = z.id;
+      }
+      const target = (t: PlanTarget): Zone => {
+        if ('zone' in t) return s.zones[zoneOf[t.zone]] ?? fail('BAD_SETUP', 'The setup refers to a missing zone');
+        const seat = dealOrder[t.hand] ?? fail('SEATS_CHANGED', 'The players changed; apply the setup again');
+        return s.zones[handZoneId(seat.id)];
+      };
+      const place = (id: string, t: PlanTarget, faceUp: boolean) => {
+        target(t).cards.push(id);
+        s.cards[id].faceUp = faceUp;
+      };
+      const pools: Record<string, string[]> = {};
+      const deckOf: Record<string, TableDeck> = {};
+      for (const { slot, deck } of action.decks) {
+        const home = s.zones[zoneOf[plan.homes[slot]]] ?? fail('BAD_SETUP', 'A deck has no home zone');
+        const td: TableDeck = { ...deck, homeZoneId: home.id };
+        s.decks[td.id] = td;
+        deckOf[slot] = td;
+        const ids = createInstances(s, td);
+        if (!plan.fixed) {
+          for (let i = ids.length - 1; i > 0; i--) {
+            const j = ctx.rng.int(i + 1);
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+          }
+        }
+        pools[slot] = ids;
+      }
+      if (plan.fixed) {
+        for (const f of plan.fixed) {
+          const td = deckOf[f.slot] ?? fail('BAD_SETUP', 'The fixed deal uses a missing deck');
+          const id = `${td.id}:${f.defId}:${f.copyNo}`;
+          const pool = pools[f.slot];
+          const i = pool.indexOf(id);
+          if (i < 0) fail('FIXED_DECK', 'The fixed deal needs cards this deck does not have');
+          pool.splice(i, 1);
+          place(id, f.to, f.faceUp);
+        }
+      } else {
+        for (const d of plan.deals) {
+          const pool = pools[d.slot] ?? fail('BAD_SETUP', 'A deal uses a missing deck');
+          for (const id of pool.splice(0, d.count)) place(id, d.to, d.faceUp);
+        }
+      }
+      for (const [slot, pool] of Object.entries(pools)) s.zones[deckOf[slot].homeZoneId].cards.push(...pool);
+      for (const c of plan.counters) s.counters.push({ id: nextId(s, 'c'), label: c.label, value: c.value });
+      s.lastSetup = { ...setup };
+      if (s.mode === 'turn') s.turn.active = seatOfPlayer(s, s.hostId)?.id ?? null;
+      log(s, now, actor, `${who} applied ${setup.name}`, 'system');
       break;
     }
     case 'loadDeck': {
