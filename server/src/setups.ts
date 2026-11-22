@@ -1,13 +1,28 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { ActionError, blankSetup, checkSetup, expandSetup, recordSetup, SetupContentSchema, totalInstances, type SetupContent, type SetupDetail, type SetupSummary, type TableDeck } from '@vct/shared';
+import {
+  ActionError,
+  blankSetup,
+  checkSetup,
+  expandSetup,
+  recordSetup,
+  SetupContentSchema,
+  totalInstances,
+  type SetupContent,
+  type SetupDetail,
+  type SetupSummary,
+  type SetupVisibility,
+  type TableDeck,
+} from '@vct/shared';
+import { builtInSetups } from './builtinSetups.js';
 import type { TableSession } from './tables.js';
 import type { App } from './app.js';
 import { HttpError, randomId } from './util.js';
 
-/** table-setups: a private library of table setups with the deck library's lifecycle (D5). */
+/** table-setups / setup-sharing: setups with the deck library's lifecycle and sharing. */
 export interface SetupRow {
   id: string;
+  /** '' for built-in setups. */
   owner_id: string;
   name: string;
   status: 'active' | 'archived';
@@ -16,7 +31,16 @@ export interface SetupRow {
   current_version_id: string;
   created_at: number;
   updated_at: number;
+  visibility: SetupVisibility;
+  share_token: string | null;
+  built_in: number;
+  hidden: number;
+  clone_count: number;
+  cloned_from_label: string | null;
 }
+
+/** How a viewer came to see a setup (setup-sharing D2). */
+export type SetupAccess = 'owner' | 'builtin' | 'public' | 'link' | 'table';
 
 const notFound = () => new HttpError(404, 'NO_SETUP', 'Setup not found');
 
@@ -52,11 +76,44 @@ export class Setups {
     return r ? JSON.parse(r.content) : null;
   }
 
-  /** Owner-only in this change (setup-sharing adds other access). */
+  /** Edits stay owner-only. */
   owned(id: string, playerId: string): SetupRow {
     const r = this.row(id);
-    if (!r || r.owner_id !== playerId) throw notFound();
+    if (!r || r.built_in || r.owner_id !== playerId) throw notFound();
     return r;
+  }
+
+  /** The single read-access check (setup-sharing D2), mirroring decks. */
+  canView(id: string, playerId: string | null, shareToken?: string): SetupAccess | null {
+    const r = this.row(id);
+    if (!r) return null;
+    if (playerId && !r.built_in && r.owner_id === playerId) return 'owner';
+    if (r.status !== 'active') return null;
+    if (r.built_in) return 'builtin';
+    if (r.visibility === 'public' && !r.hidden) return 'public';
+    if (r.visibility !== 'private' && shareToken && r.share_token === shareToken) return 'link';
+    if (playerId) {
+      const tid = this.app.playerTables.get(playerId);
+      const t = tid ? this.app.tables.get(tid) : undefined;
+      if (t?.state.lastSetup?.id === id) return 'table';
+    }
+    return null;
+  }
+
+  private viewable(id: string, playerId: string | null, shareToken?: string): SetupRow {
+    if (!this.canView(id, playerId, shareToken)) throw notFound();
+    return this.row(id)!;
+  }
+
+  private ownerName(r: SetupRow): string | null {
+    if (r.built_in) return 'Card Table';
+    return this.app.players.get(r.owner_id)?.name ?? null;
+  }
+
+  private indexFts(id: string) {
+    this.db.prepare('DELETE FROM setups_fts WHERE setup_id = ?').run(id);
+    const r = this.row(id);
+    if (r) this.db.prepare('INSERT INTO setups_fts (setup_id, name, owner_name) VALUES (?, ?, ?)').run(id, r.name, this.ownerName(r) ?? '');
   }
 
   private ownedActive(id: string, playerId: string): SetupRow {
@@ -65,30 +122,104 @@ export class Setups {
     return r;
   }
 
-  summary(r: SetupRow, content: SetupContent): SetupSummary {
+  summary(r: SetupRow, content: SetupContent, viewer: string | null): SetupSummary {
+    const mine = !!viewer && !r.built_in && r.owner_id === viewer;
     return {
       id: r.id,
       name: r.name,
       status: r.status,
+      ownerId: r.built_in ? null : r.owner_id,
+      ownerName: this.ownerName(r),
+      mine,
+      builtIn: !!r.built_in,
+      visibility: r.visibility,
+      ...(mine ? { shareToken: r.share_token } : {}),
+      clonedFromLabel: r.cloned_from_label,
+      cloneCount: r.clone_count,
       players: content.players,
       zoneCount: content.zones.length,
-      slots: content.slots.map((s) => ({ ...s, defaultDeckName: s.defaultDeckId ? (this.app.decks.row(s.defaultDeckId)?.name ?? null) : null })),
+      slots: content.slots.map((s) => {
+        const d = s.defaultDeckId ? this.app.decks.row(s.defaultDeckId) : undefined;
+        return {
+          ...s,
+          defaultDeckName: d?.name ?? null,
+          defaultDeckShareable: !!d && d.status === 'active' && (!!d.built_in || d.visibility !== 'private'),
+          defaultDeckUsable: !!d && !!viewer && this.app.decks.canView(d.id, viewer) !== null && this.app.decks.canView(d.id, viewer) !== 'table',
+        };
+      }),
       fixed: !!content.fixed,
       currentVersionId: r.current_version_id,
-      hasDraft: !!this.db.prepare('SELECT 1 FROM setup_drafts WHERE setup_id = ?').get(r.id),
+      hasDraft: mine && !!this.db.prepare('SELECT 1 FROM setup_drafts WHERE setup_id = ?').get(r.id),
       updatedAt: r.updated_at,
     };
   }
 
-  detail(id: string, playerId: string): SetupDetail {
-    const r = this.owned(id, playerId);
+  detail(id: string, playerId: string | null, shareToken?: string): SetupDetail {
+    const r = this.viewable(id, playerId, shareToken);
     const content = this.versionContent(r.current_version_id);
-    return { ...this.summary(r, content), content, draft: this.draftContent(id) };
+    const s = this.summary(r, content, playerId);
+    return { ...s, content, draft: s.mine ? this.draftContent(id) : null };
   }
 
   listMine(playerId: string, status: 'active' | 'archived'): SetupSummary[] {
-    const rows = this.db.prepare('SELECT * FROM setups WHERE owner_id = ? AND status = ? ORDER BY updated_at DESC').all(playerId, status) as SetupRow[];
-    return rows.map((r) => this.summary(r, this.versionContent(r.current_version_id)));
+    const rows = this.db.prepare('SELECT * FROM setups WHERE owner_id = ? AND built_in = 0 AND status = ? ORDER BY updated_at DESC').all(playerId, status) as SetupRow[];
+    return rows.map((r) => this.summary(r, this.versionContent(r.current_version_id), playerId));
+  }
+
+  listBuiltIn(viewer: string | null): SetupSummary[] {
+    const rows = this.db.prepare("SELECT * FROM setups WHERE built_in = 1 AND status = 'active' ORDER BY name").all() as SetupRow[];
+    return rows.map((r) => this.summary(r, this.versionContent(r.current_version_id), viewer));
+  }
+
+  /** setup-sharing D3: active public setups, not hidden, not built in; FTS prefix search on name and owner. */
+  gallery(viewer: string | null, q: string, sort: 'newest' | 'cloned', offset: number, limit: number) {
+    const order = sort === 'cloned' ? 's.clone_count DESC, s.updated_at DESC' : 's.updated_at DESC';
+    const where = "s.visibility = 'public' AND s.status = 'active' AND s.hidden = 0 AND s.built_in = 0";
+    const terms = q
+      .split(/\s+/)
+      .map((t) => t.replace(/["*^():]/g, ''))
+      .filter(Boolean);
+    let rows: SetupRow[];
+    let total: number;
+    if (terms.length) {
+      const match = terms.map((t) => `"${t}"*`).join(' ');
+      rows = this.db.prepare(`SELECT s.* FROM setups s JOIN setups_fts f ON f.setup_id = s.id WHERE ${where} AND setups_fts MATCH ? ORDER BY ${order} LIMIT ? OFFSET ?`).all(match, limit, offset) as SetupRow[];
+      total = (this.db.prepare(`SELECT COUNT(*) n FROM setups s JOIN setups_fts f ON f.setup_id = s.id WHERE ${where} AND setups_fts MATCH ?`).get(match) as { n: number }).n;
+    } else {
+      rows = this.db.prepare(`SELECT s.* FROM setups s WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(limit, offset) as SetupRow[];
+      total = (this.db.prepare(`SELECT COUNT(*) n FROM setups s WHERE ${where}`).get() as { n: number }).n;
+    }
+    return { total, setups: rows.map((r) => this.summary(r, this.versionContent(r.current_version_id), viewer)) };
+  }
+
+  setVisibility(id: string, playerId: string, visibility: SetupVisibility) {
+    const r = this.owned(id, playerId);
+    const token = visibility === 'private' ? r.share_token : (r.share_token ?? randomId(12));
+    this.db.prepare('UPDATE setups SET visibility = ?, share_token = ?, updated_at = ? WHERE id = ?').run(visibility, token, Date.now(), id);
+  }
+
+  report(id: string, playerId: string, reason?: string) {
+    const r = this.viewable(id, playerId);
+    if (r.built_in || r.visibility !== 'public') return;
+    this.db.prepare('INSERT OR IGNORE INTO setup_reports (setup_id, reporter_id, reason, at) VALUES (?, ?, ?, ?)').run(id, playerId, reason ?? null, Date.now());
+    this.db.prepare('UPDATE setups SET hidden = 1 WHERE id = ? AND built_in = 0').run(id);
+  }
+
+  /** setup-sharing D7: built-in setups, created when missing and updated when their content changes. */
+  seedBuiltIns() {
+    for (const b of builtInSetups()) {
+      const content = parseSetup(b.content, { strict: true });
+      const r = this.row(b.id);
+      if (!r) {
+        this.create('', content, { id: b.id, builtIn: true });
+        continue;
+      }
+      if (JSON.stringify(this.versionContent(r.current_version_id)) !== JSON.stringify(content)) {
+        const vid = this.writeVersion(b.id, content);
+        this.db.prepare('UPDATE setups SET current_version_id = ?, name = ?, updated_at = ? WHERE id = ?').run(vid, content.name, Date.now(), b.id);
+        this.indexFts(b.id);
+      }
+    }
   }
 
   private writeVersion(id: string, content: SetupContent): string {
@@ -97,17 +228,21 @@ export class Setups {
     return vid;
   }
 
-  /** Creates a setup. With `draft`, the saved version is blank-ish and the content opens as a draft. */
-  create(ownerId: string, content: SetupContent, opts: { clonedFrom?: string; asDraft?: boolean } = {}): string {
-    const id = 'st_' + randomId(9);
+  /** Creates a setup. With `asDraft`, the saved version is blank and the content opens as a draft. */
+  create(ownerId: string, content: SetupContent, opts: { clonedFrom?: string; clonedFromLabel?: string; asDraft?: boolean; id?: string; builtIn?: boolean } = {}): string {
+    const id = opts.id ?? 'st_' + randomId(9);
     const now = Date.now();
     this.db.transaction(() => {
       const saved = opts.asDraft ? blankSetup(content.name) : content;
       const vid = this.writeVersion(id, saved);
       this.db
-        .prepare('INSERT INTO setups (id, owner_id, name, cloned_from_setup_id, current_version_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(id, ownerId, content.name, opts.clonedFrom ?? null, vid, now, now);
+        .prepare(
+          `INSERT INTO setups (id, owner_id, name, cloned_from_setup_id, cloned_from_label, current_version_id, built_in, visibility, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(id, ownerId, content.name, opts.clonedFrom ?? null, opts.clonedFromLabel ?? null, vid, opts.builtIn ? 1 : 0, opts.builtIn ? 'public' : 'private', now, now);
       if (opts.asDraft) this.db.prepare('INSERT INTO setup_drafts (setup_id, content, updated_at) VALUES (?, ?, ?)').run(id, JSON.stringify(content), now);
+      this.indexFts(id);
     })();
     return id;
   }
@@ -135,6 +270,7 @@ export class Setups {
       const vid = this.writeVersion(id, content);
       this.db.prepare('UPDATE setups SET current_version_id = ?, name = ?, updated_at = ? WHERE id = ?').run(vid, content.name, Date.now(), r.id);
       this.db.prepare('DELETE FROM setup_drafts WHERE setup_id = ?').run(id);
+      this.indexFts(id);
     })();
     return this.detail(id, playerId);
   }
@@ -150,16 +286,24 @@ export class Setups {
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM setup_versions WHERE setup_id = ?').run(id);
       this.db.prepare('DELETE FROM setup_drafts WHERE setup_id = ?').run(id);
+      this.db.prepare('DELETE FROM setup_reports WHERE setup_id = ?').run(id);
       this.db.prepare('DELETE FROM setups WHERE id = ?').run(id);
+      this.db.prepare('DELETE FROM setups_fts WHERE setup_id = ?').run(id);
     })();
   }
 
-  /** Clone (deck pattern: your own copy is "Name (copy)"). */
-  clone(id: string, playerId: string): string {
-    const r = this.owned(id, playerId);
+  /** Clone anything you can view (setup-sharing D5); your own copy is "Name (copy)". */
+  clone(id: string, playerId: string, shareToken?: string): string {
+    const r = this.viewable(id, playerId, shareToken);
     const content = structuredClone(this.versionContent(r.current_version_id));
-    content.name = `${content.name} (copy)`.slice(0, 40);
-    return this.create(playerId, content, { clonedFrom: id });
+    const mine = !r.built_in && r.owner_id === playerId;
+    if (mine) content.name = `${content.name} (copy)`.slice(0, 40);
+    const newId = this.create(playerId, content, {
+      clonedFrom: id,
+      ...(mine ? {} : { clonedFromLabel: `Cloned from ${r.name} by ${this.ownerName(r) ?? 'someone'}` }),
+    });
+    if (!mine) this.db.prepare('UPDATE setups SET clone_count = clone_count + 1 WHERE id = ?').run(id);
+    return newId;
   }
 
   /**
@@ -167,9 +311,10 @@ export class Setups {
    * choices, locked versions for fixed deals) through deck access rules, expands the setup for the
    * seated players and runs one undoable table action. Refusals change nothing.
    */
-  applyToTable(s: TableSession, hostId: string, setupId: string, choices: Record<string, string> = {}) {
+  applyToTable(s: TableSession, hostId: string, setupId: string, choices: Record<string, string> = {}, shareToken?: string) {
     const r = this.row(setupId);
-    if (!r || r.owner_id !== hostId) throw new ActionError('NO_SETUP', 'That setup is not available');
+    const access = r ? this.canView(setupId, hostId, shareToken) : null;
+    if (!r || !access) throw new ActionError('NO_SETUP', 'That setup is no longer available');
     if (r.status !== 'active') throw new ActionError('NO_SETUP', `${r.name} is archived; restore it to use it`);
     const content = this.versionContent(r.current_version_id);
     const decks: { slot: string; deck: TableDeck }[] = [];
@@ -186,6 +331,7 @@ export class Setups {
         td = lockedVersion ? this.app.decks.tableDeckAtVersion(deckId, lockedVersion, hostId, tdId) : this.app.decks.tableDeck(deckId, hostId, undefined, tdId);
       } catch (e) {
         if (e instanceof ActionError && e.code === 'FIXED_DECK') throw e;
+        if (lockedVersion) throw new ActionError('FIXED_DECK', `This setup's fixed deal needs ${this.ownerName(r) ?? 'its owner'}'s deck`);
         throw new ActionError('NO_DECK', `The deck for "${slot.label}" is not available; choose another`);
       }
       const { ownerName: _o, ...deck } = td;
@@ -211,14 +357,49 @@ export class Setups {
     http.get('/api/setups', async (req) => {
       const me = auth(req);
       const status = (req.query as any).status === 'archived' ? 'archived' : 'active';
-      return { setups: this.listMine(me.id, status) };
+      return { setups: this.listMine(me.id, status), builtIn: status === 'active' ? this.listBuiltIn(me.id) : [] };
+    });
+    http.get('/api/setup-gallery', async (req) => {
+      const me = this.app.auth(req, false);
+      const q = z
+        .object({
+          q: z.string().max(100).default(''),
+          sort: z.enum(['newest', 'cloned']).default('newest'),
+          offset: z.coerce.number().int().min(0).default(0),
+          limit: z.coerce.number().int().min(1).max(100).default(24),
+        })
+        .parse(req.query);
+      return this.gallery(me?.id ?? null, q.q, q.sort, q.offset, q.limit);
+    });
+    http.get('/api/setup-share/:token', async (req) => {
+      const me = this.app.auth(req, false);
+      const token = (req.params as { token: string }).token;
+      const r = this.db.prepare('SELECT id FROM setups WHERE share_token = ?').get(token) as { id: string } | undefined;
+      if (!r) throw new HttpError(404, 'NO_SETUP', 'This setup is unavailable');
+      try {
+        return this.detail(r.id, me?.id ?? null, token);
+      } catch {
+        throw new HttpError(404, 'NO_SETUP', 'This setup is unavailable');
+      }
+    });
+    http.put('/api/setups/:id/visibility', async (req) => {
+      const me = auth(req);
+      const body = z.object({ visibility: z.enum(['private', 'link', 'public']) }).parse(req.body);
+      this.setVisibility(pid(req), me.id, body.visibility);
+      return this.detail(pid(req), me.id);
+    });
+    http.post('/api/setups/:id/report', async (req) => {
+      const me = auth(req);
+      const body = z.object({ reason: z.string().max(500).optional() }).parse(req.body ?? {});
+      this.report(pid(req), me.id, body.reason);
+      return { ok: true };
     });
     http.post('/api/setups', async (req) => {
       const me = auth(req);
       const body = z.object({ name: z.string().trim().min(1).max(40) }).parse(req.body);
       return this.detail(this.create(me.id, blankSetup(body.name)), me.id);
     });
-    http.get('/api/setups/:id', async (req) => this.detail(pid(req), auth(req).id));
+    http.get('/api/setups/:id', async (req) => this.detail(pid(req), auth(req).id, (req.query as any)?.share || undefined));
     http.put('/api/setups/:id/draft', async (req) => ({ draft: this.writeDraft(pid(req), auth(req).id, (req.body as any)?.content) }));
     http.delete('/api/setups/:id/draft', async (req) => {
       const me = auth(req);
@@ -255,7 +436,7 @@ export class Setups {
     });
     http.post('/api/setups/:id/clone', async (req) => {
       const me = auth(req);
-      return this.detail(this.clone(pid(req), me.id), me.id);
+      return this.detail(this.clone(pid(req), me.id, (req.query as any)?.share || undefined), me.id);
     });
   }
 }

@@ -254,7 +254,7 @@ export class Hub {
       }
       case 'table.applySetup': {
         const s = this.hostSession(msg.tableId, me.id);
-        app.setups.applyToTable(s, me.id, msg.setupId, msg.slots);
+        app.setups.applyToTable(s, me.id, msg.setupId, msg.slots, msg.shareToken);
         return ok();
       }
       case 'table.reloadDeck': {

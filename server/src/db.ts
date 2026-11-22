@@ -142,6 +142,27 @@ const MIGRATIONS: string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  // 3: setup sharing (setup-sharing), mirroring the deck library
+  `
+  ALTER TABLE setups ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
+  ALTER TABLE setups ADD COLUMN share_token TEXT;
+  ALTER TABLE setups ADD COLUMN built_in INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE setups ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE setups ADD COLUMN clone_count INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE setups ADD COLUMN cloned_from_label TEXT;
+  CREATE UNIQUE INDEX setups_share ON setups(share_token);
+  CREATE INDEX setups_gallery ON setups(visibility, status, hidden);
+
+  CREATE VIRTUAL TABLE setups_fts USING fts5(setup_id UNINDEXED, name, owner_name, tokenize = 'unicode61');
+
+  CREATE TABLE setup_reports (
+    setup_id TEXT NOT NULL,
+    reporter_id TEXT NOT NULL,
+    reason TEXT,
+    at INTEGER NOT NULL,
+    PRIMARY KEY (setup_id, reporter_id)
+  );
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

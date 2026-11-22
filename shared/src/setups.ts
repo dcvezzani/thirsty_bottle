@@ -228,13 +228,33 @@ export function expandSetup(c: SetupContent, input: ExpandInput): ExpandResult {
 // --------------------------------------------------------------------------------- the library
 
 export type SetupStatus = 'active' | 'archived';
+export type SetupVisibility = 'private' | 'link' | 'public';
 export interface SetupSummary {
   id: string;
   name: string;
   status: SetupStatus;
+  ownerId: string | null;
+  ownerName: string | null;
+  /** True when the viewer owns it (can edit). */
+  mine: boolean;
+  builtIn: boolean;
+  visibility: SetupVisibility;
+  /** Owner only. */
+  shareToken?: string | null;
+  clonedFromLabel: string | null;
+  cloneCount: number;
   players: { min: number; max: number };
   zoneCount: number;
-  slots: { id: string; label: string; defaultDeckId: string | null; defaultDeckName: string | null }[];
+  slots: {
+    id: string;
+    label: string;
+    defaultDeckId: string | null;
+    defaultDeckName: string | null;
+    /** Other players can use the default deck (built-in, public or link). */
+    defaultDeckShareable: boolean;
+    /** The viewer can load the default deck. */
+    defaultDeckUsable: boolean;
+  }[];
   fixed: boolean;
   currentVersionId: string;
   hasDraft: boolean;
@@ -242,6 +262,7 @@ export interface SetupSummary {
 }
 export interface SetupDetail extends SetupSummary {
   content: SetupContent;
+  /** Owner only. */
   draft: SetupContent | null;
 }
 

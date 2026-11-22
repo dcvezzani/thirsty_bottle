@@ -235,6 +235,8 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
     rid,
     tableId,
     setupId: z.string().max(64),
+    /** setup-sharing: needed for a link-shared setup the host reached through its link. */
+    shareToken: z.string().max(64).optional(),
     slots: z.record(z.string().max(40), z.string().max(64)).optional(),
   }),
   z.object({ t: z.literal('chat.send'), rid, channel: z.string().max(80), text: z.string().max(2000) }),

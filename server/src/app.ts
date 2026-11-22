@@ -108,6 +108,7 @@ export class App {
     }, 3600_000);
     this.purgeTimer.unref();
     this.deckio.seedBuiltIns();
+    this.setups.seedBuiltIns();
     this.tables.loadAll();
     await this.routes();
     this.http.server.on('upgrade', (req, socket, head) => {
