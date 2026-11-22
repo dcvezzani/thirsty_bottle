@@ -242,7 +242,8 @@ function SetupEditor({ setup, reload, share }: { setup: SetupDetail; reload: () 
   const myTableId = useApp((s) => s.myTableId);
   const me = useApp((s) => s.me);
   const tableView = useTable((s) => s.view);
-  const hostingTable = !!myTableId && tableView?.id === myTableId && tableView.hostId === me?.id;
+  const myTableHost = useApp((s) => s.myTableHost);
+  const hostingTable = !!myTableId && (tableView?.id === myTableId ? tableView.hostId === me?.id : myTableHost);
   const [visibility, setVisibility] = useState(setup.visibility);
   useEffect(() => {
     api('GET', '/api/decks')
@@ -334,6 +335,11 @@ function SetupEditor({ setup, reload, share }: { setup: SetupDetail; reload: () 
           </p>
         )}
         {setup.clonedFromLabel && <p className="small-text muted">{setup.clonedFromLabel}</p>}
+        {setup.mine && dirty && hostingTable && !archived && (
+          <p id="use-hint" className="small-text muted">
+            Save first to use it at your table: tables use the last saved version.
+          </p>
+        )}
         <div className="row wrap">
           {setup.mine && (
             <>
@@ -346,9 +352,11 @@ function SetupEditor({ setup, reload, share }: { setup: SetupDetail; reload: () 
             </>
           )}
           <span className="grow" />
-          {!setup.mine && hostingTable && (
+          {hostingTable && !archived && (
             <button
               className="primary"
+              disabled={setup.mine && dirty}
+              aria-describedby={setup.mine && dirty ? 'use-hint' : undefined}
               onClick={() => {
                 useUI.setState({ sheet: { kind: 'applySetup', preset: { id: setup.id, name: setup.name, share } } });
                 nav(`/t/${myTableId}`);

@@ -12,6 +12,8 @@
 - [x] 2.1 Setups page Gallery tab and Built-in list, the read-only setup view with Clone and Report, visibility controls with share link and the default-deck warning, and the `/s/:token` page with Use at my table (D8). Verify with e2e tests: Alex publishes "Rummy" and sees the warning about a private default deck; Sam finds it in the gallery by "rum", opens it read-only, clones it ("Cloned from Rummy by Alex"); Sam opens a link setup at `/s/<token>`; after Sam reports it, it disappears from Sam's gallery search.
 - [x] 2.2 Apply setup sheet sections (Your setups, Built-in, Gallery) and the New table select's Built-in group. Verify with e2e tests: a solo host applies built-in Klondike (zones in order, P1..P7 with 1..7 cards, last face up); Sam applies Alex's public setup from the sheet's gallery search, choosing a deck where the default isn't available; Play again works for Sam on Alex's setup; contrast checks for the gallery, read-only view, share page and the sheet's new sections.
 
+- [x] 2.3 Show Use at my table on your own setups too (disabled with "Save first" while there are unsaved changes; hidden when archived). Verify with an e2e test: a host opens their own setup, sees the button, uses it, and the table is set up; after an unsaved edit the button is disabled with the hint.
+
 ## 3. Verification
 
 - [x] 3.1 Run lint, all unit and server tests and the full e2e suite, push to `main`, and confirm the deploy.

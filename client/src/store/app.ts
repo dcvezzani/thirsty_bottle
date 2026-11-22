@@ -15,6 +15,8 @@ interface AppState {
   status: ConnStatus;
   me: PlayerPublic | null;
   myTableId: string | null;
+  /** Whether I host my table, as of connecting (the live table view is more current when loaded). */
+  myTableHost: boolean;
   players: PlayerPublic[];
   tables: TableSummary[];
   chat: Record<string, ChatMessage[]>;
@@ -31,6 +33,7 @@ export const useApp = create<AppState>((set, get) => ({
   status: 'offline',
   me: null,
   myTableId: null,
+  myTableHost: false,
   players: [],
   tables: [],
   chat: {},
@@ -97,7 +100,7 @@ export function connect(token: string) {
     onStatus: (status) => useApp.setState({ status }),
     onHello: (data) => {
       setImageKey(data.imageKey);
-      useApp.setState({ me: data.player, myTableId: data.tableId });
+      useApp.setState({ me: data.player, myTableId: data.tableId, myTableHost: !!data.tableHost });
       saveIdentity({ token, id: data.player.id, name: data.player.name, color: data.player.color });
       useTable.getState().onReconnected();
     },

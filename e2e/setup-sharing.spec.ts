@@ -121,3 +121,29 @@ test("built-in Klondike for a solo host; Sam applies Alex's public setup choosin
   await expect(sam.locator('.toast').filter({ hasText: 'choose another' })).toHaveCount(0);
   await Promise.all([c1.close(), c2.close()]);
 });
+
+test('Use at my table also works on your own setup; disabled with a hint while unsaved (2.3)', async ({ browser }) => {
+  const { ctx, page } = await newPlayer(browser, 'Alex', PHONE);
+  const id = await setupWithDeck(page, 'Own game', 'builtin-standard-52');
+  await page.goto(`/setups/${id}`);
+  await expect(page.getByRole('button', { name: 'Use at my table' })).toHaveCount(0); // not hosting yet
+  await page.goto('/');
+  await createTable(page, `Own ${Date.now() % 100000}`);
+  await page.goto(`/setups/${id}`);
+  const use = page.getByRole('button', { name: 'Use at my table' });
+  await expect(use).toBeEnabled();
+  // an unsaved edit disables it, with the hint
+  await page.getByLabel('Zone 2 name').fill('Melds edited');
+  await expect(use).toBeDisabled();
+  await expect(page.getByText('Save first to use it at your table')).toBeVisible();
+  await page.getByRole('button', { name: 'Discard' }).click();
+  await expect(use).toBeEnabled();
+  await use.click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Own game' })).toBeVisible();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('dialog').getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await settle(page);
+  await expect.poll(() => zoneOrder(page)).toEqual(['Stock', 'Melds']);
+  await ctx.close();
+});

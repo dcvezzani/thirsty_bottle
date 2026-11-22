@@ -84,7 +84,8 @@ Reads (`detail`), `clone`, `report` and `applyToTable` use it. Edits (draft, sav
 - **Setups page:** tabs My setups, Archived and Gallery. The gallery has search and sort, plus a Built-in list under My setups, as decks have.
 - **Read-only view:** opening a setup you don't own shows the same editor sections disabled, with Clone and Report (Report for public, non-built-in setups only) and a "Cloned from …" label.
 - **Owner editor:** gains a Visibility select (Private, Link, Public) with the share link and Copy button, and the default-deck warning.
-- **`/s/:token`** shows the read-only view, plus **Use at my table**, which opens the table's Apply sheet preselected, when the viewer is the host of a table.
+- **`/s/:token`** shows the read-only view.
+- **Use at my table** appears on any setup page whenever the viewer hosts a table, whether the setup is theirs, someone else's, or built in. It opens the table's Apply sheet with the setup preselected. On your own setup it is disabled while there are unsaved changes ("Save first"), because tables use the last saved version. It is hidden for archived setups. Added after review: the first version showed it only for others' setups.
 - **Apply setup sheet:** sections Your setups, Built-in, and Gallery (search).
 - **Lobby New table setup select:** gains a "Built-in" group.
 

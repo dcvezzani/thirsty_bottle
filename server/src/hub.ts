@@ -310,7 +310,9 @@ export class Hub {
     const tid = this.app.playerTables.get(p.id);
     if (tid) this.app.tables.get(tid)?.onConnected(p.id);
     this.lobbyChanged(true);
-    ok({ player: this.publicPlayer(p), tableId: tid ?? null, imageKey: this.app.imageKey(p.id) });
+    // tableHost: lets pages away from the table (setups) know the player can apply setups there
+    const tableHost = !!tid && this.app.tables.get(tid)?.state.hostId === p.id;
+    ok({ player: this.publicPlayer(p), tableId: tid ?? null, tableHost, imageKey: this.app.imageKey(p.id) });
   }
 
   // ------------------------------------------------------------------ lobby presence
