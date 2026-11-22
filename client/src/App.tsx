@@ -7,6 +7,7 @@ import { ConnectionBanner, Toasts } from './components/ui';
 import { UpdateBar, UpdateGate } from './components/UpdateBar';
 import { Lobby } from './pages/Lobby';
 import { DecksPage } from './pages/Decks';
+import { SetupPage, SetupsPage } from './pages/Setups';
 import { DeckPage, ShareLinkPage } from './pages/DeckEditor';
 import { TablePage } from './pages/Table';
 
@@ -76,6 +77,8 @@ export function App() {
         <Route path="/" element={<Lobby onSwitchPlayer={() => { switchIdentity(null); setGate({ kind: 'pick' }); }} />} />
         <Route path="/decks" element={<DecksPage />} />
         <Route path="/decks/:id" element={<DeckPage />} />
+        <Route path="/setups" element={<SetupsPage />} />
+        <Route path="/setups/:id" element={<SetupPage />} />
         <Route path="/d/:token" element={<ShareLinkPage />} />
         <Route path="/t/:id" element={<TablePage />} />
       </Routes>

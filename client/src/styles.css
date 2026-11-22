@@ -316,3 +316,9 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .zone-label { display: flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; white-space: nowrap; }
 .zone-label .zone-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .zone-label .zone-count { flex: none; }
+/* table-setups: setup editor */
+.setup-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--control-line); }
+.setup-row > input:not([type='checkbox']), .setup-row > select { flex: 1 1 120px; min-width: 0; width: auto; }
+.setup-row .count-text, .count-text { flex: 0 0 auto; width: 92px; }
+.count-text.bad { outline: 2px solid #b00020; }
+.setup-editor h3 { margin: 18px 0 6px; }

@@ -29,6 +29,9 @@ export function Lobby({ onSwitchPlayer }: { onSwitchPlayer: () => void }) {
         <Link to="/decks">
           <button>Decks</button>
         </Link>
+        <Link to="/setups">
+          <button>Setups</button>
+        </Link>
         <button aria-label="Player menu" onClick={() => setMenu(true)}>
           <span className="dot" style={{ background: me?.color }} /> {me?.name}
         </button>

@@ -22,7 +22,7 @@
 
 ## 4. Client
 
-- [ ] 4.1 Setups page and setup editor (D7). Verify with e2e tests: create from scratch, edit, discard or save (version), clone, archive, then delete.
+- [x] 4.1 Setups page and setup editor (D7). Verify with e2e tests: create from scratch, edit, discard or save (version), clone, archive, then delete.
 - [ ] 4.2 Table: Save table as setup, Apply setup… (with slot swapping), and Play again with confirmation. Verify with e2e tests on a phone:
   - build Klondike by hand, save it as a setup, and save the draft;
   - on a new table with 1 player, apply it and see the zones in order with P1..P7 holding 1..7 cards (the last face up);
