@@ -88,6 +88,8 @@ Reads (`detail`), `clone`, `report` and `applyToTable` use it. Edits (draft, sav
 - **Apply setup sheet:** sections Your setups, Built-in, and Gallery (search).
 - **Lobby New table setup select:** gains a "Built-in" group.
 
+**D9. Play again remembers the decks.** Applying records, in the table's `lastSetup`, the source deck used for each slot. Play again sends those choices again. A host who had to pick their own deck for someone else's setup therefore isn't asked again, and Play again keeps working. Found while testing 2.2.
+
 ## Risks / Trade-offs
 
 - [Abuse in the gallery] → The same report-and-hide flow and admin review as decks.

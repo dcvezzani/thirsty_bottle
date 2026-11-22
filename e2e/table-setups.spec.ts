@@ -42,7 +42,7 @@ test('setup library: create, edit, discard, save, clone, archive, delete (4.1)',
   // archive the copy, then delete it from the Archived tab
   await page.getByRole('button', { name: 'Archive' }).click();
   await expect(page.getByRole('heading', { name: 'Setups' })).toBeVisible();
-  await expect(page.getByTestId('setup-row')).toHaveCount(1);
+  await expect(page.getByLabel('My setups').getByTestId('setup-row')).toHaveCount(1);
   await page.getByRole('tab', { name: /Archived/ }).click();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Delete Quick game (copy) permanently' }).click();
@@ -70,7 +70,7 @@ async function openSettings(page: Page) {
 async function applyFromSheet(page: Page, name: string) {
   await openSettings(page);
   await page.getByRole('button', { name: 'Apply setup…' }).click();
-  await page.getByRole('dialog').locator('li', { hasText: name }).getByRole('button', { name: 'Choose' }).click();
+  await page.getByRole('dialog').getByLabel('Your setups').locator('li', { hasText: name }).getByRole('button', { name: 'Choose' }).click();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('dialog').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 3000 });

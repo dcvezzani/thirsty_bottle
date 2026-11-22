@@ -11,7 +11,7 @@ export type Sheet =
   | { kind: 'deal'; zone: string }
   | { kind: 'draw'; zone: string }
   | { kind: 'decks' }
-  | { kind: 'applySetup' }
+  | { kind: 'applySetup'; preset?: { id: string; name: string; share?: string } }
   | { kind: 'saveSetup' }
   | null;
 

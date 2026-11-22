@@ -123,15 +123,25 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Apply setup…' }).click();
       await expect(page.getByRole('dialog').getByText('Contrast setup')).toBeVisible();
       await expectReadable(page, 'apply setup sheet');
-      await page.getByRole('dialog').getByRole('button', { name: 'Choose' }).click();
+      await page.getByRole('dialog').getByLabel('Your setups').getByRole('button', { name: 'Choose' }).click();
       await expectReadable(page, 'apply setup decks');
       await page.keyboard.press('Escape');
       await page.goto('/setups');
-      await expect(page.getByTestId('setup-row')).toHaveCount(1);
+      await expect(page.getByLabel('My setups').getByTestId('setup-row')).toHaveCount(1);
       await expectReadable(page, 'setups page');
-      await page.getByTestId('setup-row').click();
+      await page.getByLabel('My setups').getByTestId('setup-row').click();
       await expect(page.getByLabel('Zone 2 face down')).toHaveValue('2');
       await expectReadable(page, 'setup editor');
+      // setup-sharing: the visibility control, the gallery and a read-only (built-in) setup
+      await page.locator('#svisibility').selectOption('link');
+      await expect(page.getByLabel('Setup share link')).toBeVisible();
+      await expectReadable(page, 'setup visibility');
+      await page.goto('/setups');
+      await page.getByRole('tab', { name: 'Gallery' }).click();
+      await expectReadable(page, 'setup gallery');
+      await page.goto('/setups/builtin-setup-klondike');
+      await expect(page.getByTestId('setup-owner')).toContainText('Built-in');
+      await expectReadable(page, 'read-only setup');
       await ctx.close();
     });
   }

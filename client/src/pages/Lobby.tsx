@@ -162,7 +162,7 @@ export function CreateTable({ onClose }: { onClose: () => void }) {
       .then((r) => setDecks([...r.builtIn.map((d: any) => ({ id: d.id, name: d.name, group: 'Built-in' })), ...r.decks.map((d: any) => ({ id: d.id, name: d.name, group: 'My decks' }))]))
       .catch(() => {});
     api('GET', '/api/setups')
-      .then((r) => setSetups(r.setups.map((x: any) => ({ id: x.id, name: x.name }))))
+      .then((r) => setSetups([...r.setups.map((x: any) => ({ id: x.id, name: x.name })), ...r.builtIn.map((x: any) => ({ id: x.id, name: `Built-in: ${x.name}` }))]))
       .catch(() => {});
   }, []);
   const submit = async (e: React.FormEvent) => {

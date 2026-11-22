@@ -120,7 +120,7 @@ export interface TableView {
   /** Milliseconds left in the undo window for my last action (approximate). */
   undoMsLeft: number;
   /** The setup last applied here (table-setups: Play again); null when none. */
-  lastSetup: { id: string; versionId: string; name: string } | null;
+  lastSetup: { id: string; versionId: string; name: string; slots?: Record<string, string> } | null;
 }
 
 export type AnimView =

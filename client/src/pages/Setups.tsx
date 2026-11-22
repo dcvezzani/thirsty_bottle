@@ -5,9 +5,11 @@ import { api } from '../lib/api';
 import { Tabs } from '../components/ui';
 import { useApp } from '../store/app';
 import { formatCount, parseCount } from '../lib/setupCount';
+import { useTable } from '../store/table';
+import { useUI } from '../table/ui';
 
 /** table-setups: the setup library (D7), following the Decks page. */
-type Tab = 'mine' | 'archived';
+type Tab = 'mine' | 'archived' | 'gallery';
 
 function SetupTile({ s, onOpen, extra }: { s: SetupSummary; onOpen: () => void; extra?: React.ReactNode }) {
   const players = s.players.min === s.players.max ? `${s.players.min}` : `${s.players.min}-${s.players.max}`;
@@ -20,6 +22,10 @@ function SetupTile({ s, onOpen, extra }: { s: SetupSummary; onOpen: () => void; 
           {s.slots.length ? ` · ${s.slots.map((x) => x.defaultDeckName ?? x.label).join(', ')}` : ''}
         </div>
         <div className="row wrap" style={{ gap: 4, marginTop: 2 }}>
+          {!s.mine && s.ownerName && <span className="pill">by {s.ownerName}</span>}
+          {s.mine && s.visibility !== 'private' && <span className="pill">{s.visibility === 'public' ? 'Public' : 'Link'}</span>}
+          {s.cloneCount > 0 && <span className="pill">cloned {s.cloneCount}×</span>}
+          {s.clonedFromLabel && <span className="pill">{s.clonedFromLabel}</span>}
           {s.fixed && <span className="pill">Fixed deal</span>}
           {s.hasDraft && <span className="pill warn">Unsaved draft</span>}
         </div>
@@ -35,14 +41,25 @@ export function SetupsPage() {
   const [tab, setTab] = useState<Tab>('mine');
   const [mine, setMine] = useState<SetupSummary[]>([]);
   const [archived, setArchived] = useState<SetupSummary[]>([]);
+  const [builtIn, setBuiltIn] = useState<SetupSummary[]>([]);
+  const [gallery, setGallery] = useState<SetupSummary[]>([]);
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'newest' | 'cloned'>('newest');
   const [newName, setNewName] = useState('');
   const load = async () => {
-    setMine((await api('GET', '/api/setups')).setups);
+    const r = await api('GET', '/api/setups');
+    setMine(r.setups);
+    setBuiltIn(r.builtIn);
     setArchived((await api('GET', '/api/setups?status=archived')).setups);
   };
   useEffect(() => {
     load().catch((e) => toast(e.message, 'error'));
   }, []);
+  useEffect(() => {
+    if (tab !== 'gallery') return;
+    const t = setTimeout(() => api('GET', `/api/setup-gallery?q=${encodeURIComponent(q)}&sort=${sort}`).then((r) => setGallery(r.setups)), 200);
+    return () => clearTimeout(t);
+  }, [tab, q, sort]);
   return (
     <div className="page">
       <header className="topbar">
@@ -57,6 +74,7 @@ export function SetupsPage() {
         tabs={[
           { id: 'mine', label: 'My setups' },
           { id: 'archived', label: `Archived${archived.length ? ` (${archived.length})` : ''}` },
+          { id: 'gallery', label: 'Gallery' },
         ]}
       />
       <div className="content">
@@ -79,6 +97,29 @@ export function SetupsPage() {
             <ul className="list" aria-label="My setups">
               {mine.length === 0 && <li className="empty">No setups yet.</li>}
               {mine.map((s) => (
+                <SetupTile key={s.id} s={s} onOpen={() => nav(`/setups/${s.id}`)} />
+              ))}
+            </ul>
+            <h3>Built-in</h3>
+            <ul className="list" aria-label="Built-in setups">
+              {builtIn.map((s) => (
+                <SetupTile key={s.id} s={s} onOpen={() => nav(`/setups/${s.id}`)} />
+              ))}
+            </ul>
+          </>
+        )}
+        {tab === 'gallery' && (
+          <>
+            <div className="row">
+              <input aria-label="Search setups" placeholder="Search by setup or owner" value={q} onChange={(e) => setQ(e.target.value)} />
+              <select aria-label="Sort setups" value={sort} onChange={(e) => setSort(e.target.value as 'newest')} style={{ width: 'auto' }}>
+                <option value="newest">Newest</option>
+                <option value="cloned">Most cloned</option>
+              </select>
+            </div>
+            <ul className="list" aria-label="Setup gallery">
+              {gallery.length === 0 && <li className="empty">No public setups found.</li>}
+              {gallery.map((s) => (
                 <SetupTile key={s.id} s={s} onOpen={() => nav(`/setups/${s.id}`)} />
               ))}
             </ul>
@@ -125,6 +166,28 @@ export function SetupsPage() {
   );
 }
 
+/** /s/:token: a link-shared setup (setup-sharing D8). */
+export function SetupSharePage() {
+  const { token } = useParams();
+  const [setup, setSetup] = useState<SetupDetail | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api('GET', `/api/setup-share/${token}`)
+      .then(setSetup)
+      .catch((e) => setErr(e.message));
+  }, [token]);
+  if (err)
+    return (
+      <div className="page">
+        <div className="content empty" role="alert">
+          {err} <Link to="/">Back to the lobby</Link>
+        </div>
+      </div>
+    );
+  if (!setup) return <div className="page"><div className="content">Loading…</div></div>;
+  return <SetupEditor setup={setup} reload={() => {}} share={token} />;
+}
+
 export function SetupPage() {
   const { id } = useParams();
   const toast = useApp((s) => s.toast);
@@ -168,7 +231,7 @@ function CountText({ value, onChange, label, caption, wide }: { value: SetupZone
   );
 }
 
-function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void }) {
+function SetupEditor({ setup, reload, share }: { setup: SetupDetail; reload: () => void; share?: string }) {
   const nav = useNavigate();
   const toast = useApp((s) => s.toast);
   const [content, setContent] = useState<SetupContent>(setup.draft ?? setup.content);
@@ -176,6 +239,11 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
   const [decks, setDecks] = useState<{ id: string; name: string }[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const archived = setup.status === 'archived';
+  const myTableId = useApp((s) => s.myTableId);
+  const me = useApp((s) => s.me);
+  const tableView = useTable((s) => s.view);
+  const hostingTable = !!myTableId && tableView?.id === myTableId && tableView.hostId === me?.id;
+  const [visibility, setVisibility] = useState(setup.visibility);
   useEffect(() => {
     api('GET', '/api/decks')
       .then((r) => setDecks([...r.builtIn, ...r.decks].map((d: any) => ({ id: d.id, name: d.name }))))
@@ -221,7 +289,16 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
     return `${prefix}${i}`;
   };
   const homeChoices = content.zones.filter((z) => !z.perSeat);
-  const disabled = archived;
+  const disabled = archived || !setup.mine;
+  const unshareable = setup.slots.filter((x) => x.defaultDeckId && !x.defaultDeckShareable);
+  const shareUrl = setup.shareToken ? `${location.origin}/s/${setup.shareToken}` : '';
+  const changeVisibility = async (v: SetupDetail['visibility']) => {
+    if (v !== 'private' && unshareable.length)
+      toast(`Other players can't use ${unshareable.map((x) => x.defaultDeckName ?? x.label).join(', ')}; they will choose their own deck for that slot.`);
+    await api('PUT', `/api/setups/${setup.id}/visibility`, { visibility: v });
+    setVisibility(v);
+    reload();
+  };
 
   return (
     <div className="page">
@@ -230,7 +307,7 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
           <button aria-label="Back">←</button>
         </Link>
         <h1>{content.name}</h1>
-        {dirty && (
+        {setup.mine && dirty && (
           <span className="pill warn" data-testid="unsaved">
             Unsaved
           </span>
@@ -251,24 +328,57 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
         </div>
       )}
       <div className="content setup-editor">
+        {!setup.mine && (
+          <p className="small-text muted" data-testid="setup-owner">
+            {setup.builtIn ? 'Built-in setup' : `By ${setup.ownerName ?? 'someone'}`}. View only: clone it to make your own version.
+          </p>
+        )}
+        {setup.clonedFromLabel && <p className="small-text muted">{setup.clonedFromLabel}</p>}
         <div className="row wrap">
-          <button disabled={!dirty} onClick={discard}>
-            Discard
-          </button>
-          <button className="primary" disabled={!dirty || disabled} onClick={save}>
-            Save
-          </button>
+          {setup.mine && (
+            <>
+              <button disabled={!dirty} onClick={discard}>
+                Discard
+              </button>
+              <button className="primary" disabled={!dirty || disabled} onClick={save}>
+                Save
+              </button>
+            </>
+          )}
           <span className="grow" />
+          {!setup.mine && hostingTable && (
+            <button
+              className="primary"
+              onClick={() => {
+                useUI.setState({ sheet: { kind: 'applySetup', preset: { id: setup.id, name: setup.name, share } } });
+                nav(`/t/${myTableId}`);
+              }}
+            >
+              Use at my table
+            </button>
+          )}
           <button
             onClick={async () => {
-              const c = await api('POST', `/api/setups/${setup.id}/clone`);
+              const c = await api('POST', `/api/setups/${setup.id}/clone${share ? `?share=${share}` : ''}`);
               toast(`Cloned "${c.name}"`);
               nav(`/setups/${c.id}`);
             }}
           >
             Clone
           </button>
-          {!archived && (
+          {!setup.mine && !setup.builtIn && setup.visibility === 'public' && (
+            <button
+              onClick={async () => {
+                const reason = prompt('Report this setup? It will be hidden from the gallery pending review. Reason (optional):');
+                if (reason === null) return;
+                await api('POST', `/api/setups/${setup.id}/report`, { reason: reason || undefined });
+                toast('Thanks, the setup has been reported');
+              }}
+            >
+              Report
+            </button>
+          )}
+          {setup.mine && !archived && (
             <button
               onClick={async () => {
                 await api('POST', `/api/setups/${setup.id}/archive`);
@@ -281,6 +391,34 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
           )}
         </div>
 
+        {setup.mine && !archived && (
+          <>
+            <label htmlFor="svisibility">Visibility</label>
+            <select id="svisibility" value={visibility} onChange={(e) => changeVisibility(e.target.value as SetupDetail['visibility'])}>
+              <option value="private">Private: only you</option>
+              <option value="link">Link: anyone with the link</option>
+              <option value="public">Public: listed in the setup gallery</option>
+            </select>
+            {visibility !== 'private' && unshareable.length > 0 && (
+              <p className="small-text warn-text" role="note">
+                Other players can't use {unshareable.map((x) => x.defaultDeckName ?? x.label).join(', ')}. They will choose their own deck for that slot.
+              </p>
+            )}
+            {visibility !== 'private' && shareUrl && (
+              <div className="row">
+                <input readOnly aria-label="Setup share link" value={shareUrl} />
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(shareUrl);
+                    toast('Link copied');
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+          </>
+        )}
         <label htmlFor="sname">Name</label>
         <input id="sname" value={content.name} maxLength={40} disabled={disabled} onChange={(e) => update((c) => void (c.name = e.target.value || ' '))} />
 

@@ -321,10 +321,12 @@ export class Setups {
     const deckSizes: Record<string, number> = {};
     const deckVersions: Record<string, string | null> = {};
     const records: (TableDeck & { ownerName?: string })[] = [];
+    const used: Record<string, string> = {};
     for (const slot of content.slots) {
       const lockedVersion = content.fixed?.deckVersions[slot.id];
       const deckId = lockedVersion ? slot.defaultDeckId : (choices[slot.id] ?? slot.defaultDeckId);
       if (!deckId) throw new ActionError('NO_DECK', `Choose a deck for "${slot.label}"`);
+      used[slot.id] = deckId;
       const tdId = 'td' + randomId(6);
       let td;
       try {
@@ -347,7 +349,7 @@ export class Setups {
     const res = expandSetup(content, { seats: order.map((x) => ({ name: x.name })), deckSizes, deckVersions });
     if (!res.ok) throw new ActionError(res.code, res.message);
     for (const td of records) this.app.tables.recordDeck(s.id, td);
-    s.apply({ type: 'applySetup', setup: { id: r.id, versionId: r.current_version_id, name: content.name }, decks, plan: res.plan }, hostId);
+    s.apply({ type: 'applySetup', setup: { id: r.id, versionId: r.current_version_id, name: content.name, slots: used }, decks, plan: res.plan }, hostId);
   }
 
   async routes(http: FastifyInstance) {

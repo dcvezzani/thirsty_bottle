@@ -143,7 +143,7 @@ export interface TableState {
   /** Seat ids in the order players first sat, used for host auto-transfer. */
   seatedOrder: string[];
   /** The setup last applied to this table (table-setups: Play again). */
-  lastSetup?: { id: string; versionId: string; name: string };
+  lastSetup?: { id: string; versionId: string; name: string; slots?: Record<string, string> };
   /** 1 once zoneOrder (not x/y) drives the board layout; see migrateState. */
   zoneLayoutVersion?: number;
 }
@@ -287,7 +287,8 @@ export type SystemAction =
   /** table-setups: replace zones, cards and counters with an expanded setup (built by the server). */
   | {
       type: 'applySetup';
-      setup: { id: string; versionId: string; name: string };
+      /** `slots`: the source deck used for each slot, so Play again can reuse the host's choices. */
+      setup: { id: string; versionId: string; name: string; slots?: Record<string, string> };
       decks: { slot: string; deck: z.infer<typeof TableDeckSchema> }[];
       plan: Plan;
     };
