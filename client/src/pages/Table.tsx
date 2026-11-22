@@ -17,6 +17,7 @@ import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutShee
 import { useFlip, inkOn } from '../table/anim';
 import { flowRows } from '../table/flow';
 import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
+import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
 
 export function TablePage() {
   const { id } = useParams();
@@ -235,6 +236,8 @@ function TableScreen({ view }: { view: TableView }) {
       {sheet?.kind === 'fanout' && <FanOutSheet view={view} zoneId={sheet.zone} onClose={closeSheet} />}
       {sheet?.kind === 'seat' && <SeatSheet view={view} seatId={sheet.seat} onClose={closeSheet} />}
       {sheet?.kind === 'settings' && <SettingsSheet view={view} onClose={closeSheet} />}
+      {sheet?.kind === 'applySetup' && <ApplySetupSheet view={view} onClose={closeSheet} />}
+      {sheet?.kind === 'saveSetup' && <SaveSetupSheet view={view} onClose={closeSheet} />}
       {sheet?.kind === 'decks' && <DecksSheet view={view} onClose={closeSheet} />}
     </div>
   );

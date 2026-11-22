@@ -146,22 +146,25 @@ export function SetupPage() {
 }
 
 /** A count field that accepts "7", "rest" or "2:10, 3-4:7". */
-function CountText({ value, onChange, label }: { value: SetupZone['down']; onChange: (c: SetupZone['down']) => void; label: string }) {
+function CountText({ value, onChange, label, caption, wide }: { value: SetupZone['down']; onChange: (c: SetupZone['down']) => void; label: string; caption: string; wide?: boolean }) {
   const [text, setText] = useState(formatCount(value));
   const bad = parseCount(text) === null;
   return (
-    <input
-      className={`count-text ${bad ? 'bad' : ''}`}
-      aria-label={label}
-      aria-invalid={bad}
-      value={text}
-      placeholder="0"
-      onChange={(e) => {
-        setText(e.target.value);
-        const c = parseCount(e.target.value);
-        if (c !== null) onChange(c);
-      }}
-    />
+    <label className={`count-l ${wide ? 'wide' : ''}`}>
+      <span>{caption}</span>
+      <input
+        className={`count-text ${bad ? 'bad' : ''}`}
+        aria-label={label}
+        aria-invalid={bad}
+        value={text}
+        placeholder="0"
+        onChange={(e) => {
+          setText(e.target.value);
+          const c = parseCount(e.target.value);
+          if (c !== null) onChange(c);
+        }}
+      />
+    </label>
   );
 }
 
@@ -357,13 +360,13 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
                 <option value="free">Free</option>
               </select>
               <select aria-label={`Zone ${i + 1} width`} value={z.width ?? ''} disabled={disabled} onChange={(e) => update((c) => void (e.target.value ? (c.zones[i].width = e.target.value as 'fit') : delete c.zones[i].width))}>
-                <option value="">Width: auto</option>
+                <option value="">Auto width</option>
                 <option value="fit">Fit</option>
                 <option value="half">Half</option>
                 <option value="full">Full</option>
               </select>
-              <CountText label={`Zone ${i + 1} face down`} value={z.down} onChange={(v) => update((c) => void (c.zones[i].down = v))} />
-              <CountText label={`Zone ${i + 1} face up`} value={z.up} onChange={(v) => update((c) => void (c.zones[i].up = v))} />
+              <CountText caption="Face down" label={`Zone ${i + 1} face down`} value={z.down} onChange={(v) => update((c) => void (c.zones[i].down = v))} />
+              <CountText caption="Face up" label={`Zone ${i + 1} face up`} value={z.up} onChange={(v) => update((c) => void (c.zones[i].up = v))} />
               <label className="row small-text" style={{ margin: 0 }}>
                 <input type="checkbox" style={{ width: 18, minHeight: 18 }} checked={!!z.newRow} disabled={disabled} onChange={(e) => update((c) => void (c.zones[i].newRow = e.target.checked || undefined))} />
                 New row
@@ -401,7 +404,7 @@ function SetupEditor({ setup, reload }: { setup: SetupDetail; reload: () => void
 
         <h3>Each player's hand</h3>
         <div className="row wrap">
-          <CountText label="Cards in each hand" value={content.hands?.count ?? 0} onChange={(v) => update((c) => void (v === 0 ? delete c.hands : (c.hands = { ...(c.hands ?? { face: 'down' }), count: v })))} />
+          <CountText caption="Cards" wide label="Cards in each hand" value={content.hands?.count ?? 0} onChange={(v) => update((c) => void (v === 0 ? delete c.hands : (c.hands = { ...(c.hands ?? { face: 'down' }), count: v })))} />
           <select aria-label="Hand cards face" value={content.hands?.face ?? 'down'} disabled={disabled || !content.hands} onChange={(e) => update((c) => void (c.hands && (c.hands.face = e.target.value as 'down')))} style={{ width: 'auto' }}>
             <option value="down">Face down</option>
             <option value="up">Face up</option>

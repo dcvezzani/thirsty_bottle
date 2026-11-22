@@ -154,10 +154,15 @@ export function CreateTable({ onClose }: { onClose: () => void }) {
   const [layout, setLayout] = useState<'standard' | 'blank'>('standard');
   const [deckId, setDeckId] = useState('');
   const [decks, setDecks] = useState<{ id: string; name: string; group: string }[]>([]);
+  const [setupId, setSetupId] = useState('');
+  const [setups, setSetups] = useState<{ id: string; name: string }[]>([]);
   const [err, setErr] = useState('');
   useEffect(() => {
     api('GET', '/api/decks')
       .then((r) => setDecks([...r.builtIn.map((d: any) => ({ id: d.id, name: d.name, group: 'Built-in' })), ...r.decks.map((d: any) => ({ id: d.id, name: d.name, group: 'My decks' }))]))
+      .catch(() => {});
+    api('GET', '/api/setups')
+      .then((r) => setSetups(r.setups.map((x: any) => ({ id: x.id, name: x.name }))))
       .catch(() => {});
   }, []);
   const submit = async (e: React.FormEvent) => {
@@ -172,10 +177,13 @@ export function CreateTable({ onClose }: { onClose: () => void }) {
         password: password || undefined,
         spectatorsAllowed: spectators,
         layout,
-        deckId: deckId || undefined,
+        deckId: setupId ? undefined : deckId || undefined,
+        setupId: setupId || undefined,
       });
       await useTable.getState().join(r.tableId);
       nav(`/t/${r.tableId}`);
+      // table-setups: the table exists either way; say why a setup could not be applied
+      if (r.setupError) useApp.getState().toast(r.setupError, 'error');
     } catch (e: any) {
       setErr(e.message);
     }
@@ -196,15 +204,32 @@ export function CreateTable({ onClose }: { onClose: () => void }) {
         </select>
         <label htmlFor="tpw">Password (optional)</label>
         <input id="tpw" type="password" value={password} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
-        <label htmlFor="tdeck">Deck (optional)</label>
-        <select id="tdeck" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
-          <option value="">No deck yet</option>
-          {decks.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.group}: {d.name}
-            </option>
-          ))}
-        </select>
+        {setups.length > 0 && (
+          <>
+            <label htmlFor="tsetup">Setup (optional)</label>
+            <select id="tsetup" value={setupId} onChange={(e) => setSetupId(e.target.value)}>
+              <option value="">None: set up by hand</option>
+              {setups.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        {!setupId && (
+          <>
+            <label htmlFor="tdeck">Deck (optional)</label>
+            <select id="tdeck" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
+              <option value="">No deck yet</option>
+              {decks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.group}: {d.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <details>
           <summary className="muted small-text" style={{ marginTop: 10 }}>More options</summary>
           <label htmlFor="tvis">Visibility</label>

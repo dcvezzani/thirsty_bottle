@@ -102,6 +102,36 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Done' }).click();
       await page.getByTestId('row-hand').click({ button: 'right', position: { x: 60, y: 60 } });
       await expectReadable(page, 'card info sheet');
+      await page.keyboard.press('Escape');
+
+      // table-setups: the Apply setup sheet, the Setups page and the setup editor
+      await page.evaluate(async () => {
+        const h = { authorization: `Bearer ${sessionStorage.getItem('vct.token')}`, 'content-type': 'application/json' };
+        const s = await (await fetch('/api/setups', { method: 'POST', headers: h, body: JSON.stringify({ name: 'Contrast setup' }) })).json();
+        const content = {
+          name: 'Contrast setup',
+          players: { min: 1, max: 4 },
+          slots: [{ id: 's1', label: 'Deck', defaultDeckId: 'builtin-standard-52' }],
+          homes: { s1: 'stock' },
+          zones: [{ key: 'stock', name: 'Stock', layout: 'pile' }, { key: 'row', name: 'Row', layout: 'column', down: 2, up: 1 }],
+          hands: { count: 5 },
+          counters: [{ label: '{name} score', value: 0, perSeat: true }],
+        };
+        await fetch(`/api/setups/${s.id}/save`, { method: 'POST', headers: h, body: JSON.stringify({ content }) });
+      });
+      await page.getByRole('button', { name: 'Table settings' }).click();
+      await page.getByRole('button', { name: 'Apply setup…' }).click();
+      await expect(page.getByRole('dialog').getByText('Contrast setup')).toBeVisible();
+      await expectReadable(page, 'apply setup sheet');
+      await page.getByRole('dialog').getByRole('button', { name: 'Choose' }).click();
+      await expectReadable(page, 'apply setup decks');
+      await page.keyboard.press('Escape');
+      await page.goto('/setups');
+      await expect(page.getByTestId('setup-row')).toHaveCount(1);
+      await expectReadable(page, 'setups page');
+      await page.getByTestId('setup-row').click();
+      await expect(page.getByLabel('Zone 2 face down')).toHaveValue('2');
+      await expectReadable(page, 'setup editor');
       await ctx.close();
     });
   }

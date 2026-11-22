@@ -67,7 +67,7 @@
   - a counter starting with a seated player's name becomes a `{name}` per-seat counter;
   - the player range is set to the current count;
   - each loaded deck's source deck becomes a slot default, and a deck without a source has no default and must be chosen.
-- The fixed-deal option is off unless chosen in the editor. Turning it on records the current arrangement and the deck versions.
+- The fixed-deal option is off unless the host ticks "Fixed deal" when saving the table. That records the current arrangement, home piles included, and the deck versions. A fixed deal can only be recorded from a live table, since it needs real cards; the editor can remove one.
 - It creates a setup with a draft, owned by the host, and returns its id. The client opens the editor.
 
 **D5. Storage and API mirror decks.**
@@ -88,10 +88,12 @@
 
 **D7. Client.**
 - **Setups page:** reached from the lobby next to Decks, with list, filters (active or archived), New, clone, archive and delete, reusing the Decks page components and styles.
-- **Setup editor:** sections for Players, Decks (slots), Zones (rows with layout, width, new row, deal down/up, per-seat toggle), Per seat (hand and add zone/counter), Counters, and Counts by player count (a rule list per count). It has a Fixed deal toggle, Save, Discard, and a "Try on a new table" shortcut.
+- **Setup editor:** sections for Players, Decks (slots with a default deck and home zone), Zones (rows with layout, width, new row, per seat, deal down/up), Each player's hand, and Counters with a per-seat option.
+  - Counts are short text: "7", "rest", or by player count like "2:10, 3-4:7". This keeps counts by player count in one compact field instead of a separate rule list.
+  - It has Save, Discard, Clone and Archive. A recorded fixed deal is shown with a Remove button.
 - **On the table:** Settings → **Save table as setup** and **Apply setup…**, which opens a sheet listing your setups with their slots, swappable through the deck picker used by "Load deck".
-- **Play again** sits in the Settings sheet and in the table's top bar menu, shown once `lastSetup` exists. Both ask for confirmation.
-- **New table dialog:** a "Setup" select (None or your setups), with slot choices collapsed under "Decks…".
+- **Play again** sits in the Settings sheet's Setups section, next to Apply setup… and Save table as setup…, and appears once `lastSetup` exists. It asks for confirmation. It is not also in the top bar, which has no room on a phone.
+- **New table dialog:** a "Setup" select (None or your setups), shown once you have setups. A chosen setup uses its default decks and hides the deck select; decks are swapped with Apply setup… on the table. A refused setup still creates the table and shows why.
 
 ## Risks / Trade-offs
 

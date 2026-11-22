@@ -11,6 +11,8 @@ export type Sheet =
   | { kind: 'deal'; zone: string }
   | { kind: 'draw'; zone: string }
   | { kind: 'decks' }
+  | { kind: 'applySetup' }
+  | { kind: 'saveSetup' }
   | null;
 
 export type DropTarget = { kind: 'zone'; zone: string; index?: number; pos?: { x: number; y: number } } | { kind: 'seat'; seat: string } | null;

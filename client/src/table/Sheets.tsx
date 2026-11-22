@@ -9,6 +9,7 @@ import { MetaList } from '../pages/DeckEditor';
 import { findCard, orderedSelection, useUI, zoneLabel } from './ui';
 import { moveCards } from './drag';
 import { flipCards, flipSelection } from './flip';
+import { playAgain } from './SetupSheets';
 import { CardRow } from './CardRow';
 import { CountField } from '../components/CountField';
 
@@ -728,6 +729,18 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
           <div className="actions">
             <button onClick={() => useUI.getState().setSheet({ kind: 'decks' })}>Decks…</button>
             <button onClick={() => useUI.setState({ sheet: null, arranging: true })}>Arrange zones</button>
+          </div>
+          <h4 style={{ margin: '14px 0 4px' }}>Setups</h4>
+          <div className="actions">
+            {view.lastSetup && (
+              <button className="primary" onClick={async () => (await playAgain(view)) && onClose()}>
+                Play again: {view.lastSetup.name}
+              </button>
+            )}
+            <button onClick={() => useUI.getState().setSheet({ kind: 'applySetup' })}>Apply setup…</button>
+            <button onClick={() => useUI.getState().setSheet({ kind: 'saveSetup' })}>Save table as setup…</button>
+          </div>
+          <div className="actions" style={{ marginTop: 10 }}>
             <button onClick={() => confirm('Reset the table? All cards return to their decks face down.') && (send({ type: 'reset' }), onClose())}>Reset table</button>
             <button onClick={() => confirm('Close the table for everyone?') && getSocket()?.request({ t: 'table.close', tableId: view.id })}>Close table</button>
           </div>
