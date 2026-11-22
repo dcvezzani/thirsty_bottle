@@ -5,6 +5,7 @@ import { api, download, imageUrl } from '../lib/api';
 import { useApp } from '../store/app';
 import { Sheet } from '../components/ui';
 import { DefCard, TextFace } from '../components/Card';
+import { loadPins, prefill, savePins, snapshot, type FormSnapshot, type MetaRow, type ScalarPin } from '../lib/cardPins';
 
 const newId = () => 'c_' + Math.random().toString(36).slice(2, 10);
 
@@ -183,6 +184,9 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
   const [resumePrompt, setResumePrompt] = useState(!!deck.draft);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<CardDef | 'new' | null>(null);
+  // "Save & add another" remounts the New card form with fresh pinned values.
+  const [formKey, setFormKey] = useState(0);
+  const [lastName, setLastName] = useState<string | undefined>(undefined);
   const [settings, setSettings] = useState(false);
   const [copying, setCopying] = useState(false);
   const [bulk, setBulk] = useState('');
@@ -299,7 +303,7 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
       <div className="content">
         {deck.clonedFromLabel && <p className="small-text muted">{deck.clonedFromLabel}</p>}
         <div className="row wrap">
-          <button className="primary" disabled={archived || resumePrompt} onClick={() => setEditing('new')}>
+          <button className="primary" disabled={archived || resumePrompt} onClick={() => (setLastName(undefined), setEditing('new'))}>
             + Add card
           </button>
           <button disabled={archived || resumePrompt} onClick={() => setCopying(true)}>
@@ -387,17 +391,23 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
       </div>
       {editing && (
         <CardForm
+          key={formKey}
           card={editing === 'new' ? null : editing}
           template={content.propertyTemplate ?? []}
+          deckId={deck.id}
+          lastName={editing === 'new' ? lastName : undefined}
           onClose={() => setEditing(null)}
-          onSave={(card) => {
+          onSave={(card, next) => {
             update((c) => {
               const i = c.cards.findIndex((x) => x.id === card.id);
               if (i >= 0) c.cards[i] = card;
               else c.cards.push(card);
               return c;
             });
-            setEditing(null);
+            if (next) {
+              setLastName(card.name);
+              setFormKey((k) => k + 1);
+            } else setEditing(null);
           }}
           onRemove={(id) => {
             update((c) => ({ ...c, cards: c.cards.filter((x) => x.id !== id) }));
@@ -689,7 +699,6 @@ export function ImagePicker({ value, onChange, disabled, label = 'image' }: { va
   );
 }
 
-type MetaRow = { key: string; type: MetaType; value: string };
 
 function toRows(md: Record<string, MetaValue>): MetaRow[] {
   return Object.entries(md).map(([key, v]) => ({
@@ -715,33 +724,82 @@ function fromRows(rows: MetaRow[]): { md: Record<string, MetaValue>; err?: strin
   return { md };
 }
 
-function CardForm({
+function PinToggle({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button type="button" className={`ghost pin${on ? ' on' : ''}`} aria-pressed={on} aria-label={`Pin ${label}`} title={on ? `${label} carries over to the next new card` : `Keep ${label} for the next new card`} onClick={onToggle}>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M9 3h6l-1 6 4 4v2h-5v6l-1 1-1-1v-6H6v-2l4-4z" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+export function CardForm({
   card,
   template,
+  deckId,
+  lastName,
   onClose,
   onSave,
   onRemove,
 }: {
   card: CardDef | null;
   template: { key: string; type: MetaType }[];
+  deckId: string;
+  /** Name of the card just saved with "Save & add another", for the same-name hint. */
+  lastName?: string;
   onClose: () => void;
-  onSave: (c: CardDef) => void;
+  onSave: (c: CardDef, next?: boolean) => void;
   onRemove: (id: string) => void;
 }) {
-  const [name, setName] = useState(card?.name ?? '');
-  const [description, setDescription] = useState(card?.description ?? '');
-  const [count, setCount] = useState(String(card?.count ?? 1));
-  const [front, setFront] = useState<string | undefined>(card?.frontImageId);
-  const [back, setBack] = useState<string | undefined>(card?.backImageId);
-  const [rows, setRows] = useState<MetaRow[]>(() => {
-    const r = toRows(card?.metadata ?? {});
+  const isNew = !card;
+  const [init] = useState(() => (isNew ? prefill(loadPins(deckId), template) : null));
+  const [name, setName] = useState(card?.name ?? init!.name);
+  const [description, setDescription] = useState(card?.description ?? init?.description ?? '');
+  const [count, setCount] = useState(card ? String(card.count) : init!.count);
+  const [front, setFront] = useState<string | undefined>(card ? card.frontImageId : init!.front);
+  const [back, setBack] = useState<string | undefined>(card ? card.backImageId : init!.back);
+  const [rows, setRows] = useState<(MetaRow & { pin?: boolean })[]>(() => {
+    if (init) return init.rows;
+    const r = toRows(card!.metadata ?? {});
     for (const t of template) if (!r.some((x) => x.key === t.key)) r.push({ key: t.key, type: t.type, value: t.type === 'boolean' ? 'false' : '' });
     return r;
   });
-  const [abilities, setAbilities] = useState<Ability[]>(card?.abilities ?? []);
+  const [abilities, setAbilities] = useState<Ability[]>(card ? (card.abilities ?? []) : init!.abilities);
+  const [abilityPins, setAbilityPins] = useState<boolean[]>(init?.abilityPins ?? []);
+  const [pinned, setPinned] = useState<Record<ScalarPin, boolean>>(init?.pinned ?? { name: false, count: false, description: false, front: false, back: false });
   const [err, setErr] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
 
-  const submit = () => {
+  useEffect(() => {
+    const el = nameRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+  }, []);
+
+  const form = (over: Partial<FormSnapshot> = {}): FormSnapshot => ({ name, count, description, front, back, rows, abilities, abilityPins, pinned, ...over });
+  /** Pin changes are remembered at once, so they survive Cancel. */
+  const persist = (over: Partial<FormSnapshot>) => isNew && savePins(deckId, snapshot(form(over)));
+  const togglePin = (k: ScalarPin) => {
+    const p = { ...pinned, [k]: !pinned[k] };
+    setPinned(p);
+    persist({ pinned: p });
+  };
+  const toggleRowPin = (i: number) => {
+    const r = rows.map((x, j) => (j === i ? { ...x, pin: !x.pin } : x));
+    setRows(r);
+    persist({ rows: r });
+  };
+  const toggleAbilityPin = (i: number) => {
+    const a = abilityPins.map((x, j) => (j === i ? !x : x));
+    setAbilityPins(a);
+    persist({ abilityPins: a });
+  };
+  const pin = (k: ScalarPin, label: string) => isNew && <PinToggle on={pinned[k]} label={label} onToggle={() => togglePin(k)} />;
+
+  const submit = (next = false) => {
     const n = Number(count);
     if (!name.trim()) return setErr('Name is required');
     if (!Number.isInteger(n) || n < 1) return setErr('Instance count must be at least 1');
@@ -753,24 +811,45 @@ function CardForm({
     if (back) c.backImageId = back;
     const ab = abilities.filter((a) => a.trigger || a.effect);
     if (ab.length) c.abilities = ab;
-    onSave(c);
+    // Pins follow the last save.
+    if (isNew) savePins(deckId, snapshot(form()));
+    onSave(c, next);
   };
+
+  const sameName = isNew && lastName !== undefined && name.trim() !== '' && name.trim() === lastName;
 
   return (
     <Sheet title={card ? `Edit ${card.name}` : 'New card'} onClose={onClose}>
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <div className="grow">
-          <label htmlFor="cname">Name</label>
-          <input id="cname" value={name} maxLength={100} autoFocus onChange={(e) => setName(e.target.value)} />
+          <div className="row label-row">
+            <label htmlFor="cname">Name</label>
+            {pin('name', 'name')}
+          </div>
+          <input id="cname" ref={nameRef} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+          {sameName && (
+            <p className="small-text muted" role="status" style={{ margin: '4px 0 0' }}>
+              Same name as the last card
+            </p>
+          )}
         </div>
         <div style={{ width: 100 }}>
-          <label htmlFor="ccount">Copies</label>
+          <div className="row label-row">
+            <label htmlFor="ccount">Copies</label>
+            {pin('count', 'copies')}
+          </div>
           <input id="ccount" type="number" min={1} max={500} value={count} onChange={(e) => setCount(e.target.value)} />
         </div>
       </div>
-      <label htmlFor="cdesc">Description</label>
+      <div className="row label-row">
+        <label htmlFor="cdesc">Description</label>
+        {pin('description', 'description')}
+      </div>
       <textarea id="cdesc" value={description} onChange={(e) => setDescription(e.target.value)} />
-      <label>Front artwork</label>
+      <div className="row label-row">
+        <label>Front artwork</label>
+        {pin('front', 'front artwork')}
+      </div>
       <ImagePicker value={front} onChange={setFront} label="front" />
       {!front && (
         <div className="row small-text muted" style={{ marginTop: 4 }}>
@@ -780,7 +859,10 @@ function CardForm({
           </div>
         </div>
       )}
-      <label>Back artwork (optional, overrides the deck back)</label>
+      <div className="row label-row">
+        <label>Back artwork (optional, overrides the deck back)</label>
+        {pin('back', 'back artwork')}
+      </div>
       <ImagePicker value={back} onChange={setBack} label="back" />
       <label>Properties</label>
       {rows.map((r, i) => (
@@ -800,7 +882,16 @@ function CardForm({
           ) : (
             <input aria-label="Property value" placeholder={r.type === 'list' ? 'a, b, c' : 'value'} value={r.value} style={{ flex: 1 }} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />
           )}
-          <button className="ghost small" aria-label="Remove property" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+          {isNew && <PinToggle on={!!r.pin} label={`property ${r.key || i + 1}`} onToggle={() => toggleRowPin(i)} />}
+          <button
+            className="ghost small"
+            aria-label="Remove property"
+            onClick={() => {
+              const nr = rows.filter((_, j) => j !== i);
+              setRows(nr);
+              if (r.pin) persist({ rows: nr });
+            }}
+          >
             ✕
           </button>
         </div>
@@ -832,16 +923,33 @@ function CardForm({
               }
             />
           ))}
-          <button className="ghost small" aria-label="Remove ability" onClick={() => setAbilities(abilities.filter((_, j) => j !== i))}>
+          {isNew && <PinToggle on={!!abilityPins[i]} label={`ability ${i + 1}`} onToggle={() => toggleAbilityPin(i)} />}
+          <button
+            className="ghost small"
+            aria-label="Remove ability"
+            onClick={() => {
+              const na = abilities.filter((_, j) => j !== i);
+              const np = abilityPins.filter((_, j) => j !== i);
+              setAbilities(na);
+              setAbilityPins(np);
+              if (abilityPins[i]) persist({ abilities: na, abilityPins: np });
+            }}
+          >
             ✕
           </button>
         </div>
       ))}
-      <button className="small" onClick={() => setAbilities([...abilities, { trigger: '', effect: '', target: '' }])}>
+      <button
+        className="small"
+        onClick={() => {
+          setAbilities([...abilities, { trigger: '', effect: '', target: '' }]);
+          setAbilityPins([...abilityPins, false]);
+        }}
+      >
         + Ability
       </button>
       {err && <p className="err" role="alert">{err}</p>}
-      <div className="row" style={{ marginTop: 14 }}>
+      <div className="row wrap" style={{ marginTop: 14 }}>
         {card && (
           <button onClick={() => onRemove(card.id)} aria-label="Remove card">
             Remove
@@ -849,7 +957,8 @@ function CardForm({
         )}
         <span className="grow" />
         <button onClick={onClose}>Cancel</button>
-        <button className="primary" onClick={submit}>
+        {isNew && <button onClick={() => submit(true)}>Save &amp; add another</button>}
+        <button className="primary" onClick={() => submit()}>
           Done
         </button>
       </div>

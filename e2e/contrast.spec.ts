@@ -38,6 +38,13 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: '+ Add card' }).click();
       await page.getByRole('button', { name: '+ Property' }).click();
       await expectReadable(page, 'card form');
+      // card-form-remember: pinned state and the same-name hint
+      await page.getByLabel('Pin name').click();
+      await page.getByLabel('Pin copies').click();
+      await page.locator('#cname').fill('Pinned');
+      await page.getByRole('button', { name: 'Save & add another' }).click();
+      await expect(page.getByText('Same name as the last card')).toBeVisible();
+      await expectReadable(page, 'card form pinned');
       await page.keyboard.press('Escape');
 
       // table: zone sheet, draw sheet, counters, drawer, seat and card info

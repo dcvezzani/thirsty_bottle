@@ -179,3 +179,57 @@ test('export and re-import a deck; a text-only card renders its name (8.4)', asy
   await expect(page.getByLabel('My decks').getByTestId('deck-row').filter({ hasText: 'Portable' })).toHaveCount(2);
   await ctx.close();
 });
+
+test('card-form-remember: pinned fields and Save & add another build a run of cards', async ({ browser }) => {
+  const { ctx, page } = await newPlayer(browser, 'Alex');
+  await newDeck(page, 'Goblins');
+  await page.getByRole('button', { name: '+ Add card' }).click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByLabel(/^Pin /).first()).toBeVisible();
+  // Pin Name (prefix), Copies and a property.
+  await sheet.getByLabel('Pin name').click();
+  await sheet.getByLabel('Pin copies').click();
+  await page.getByRole('button', { name: '+ Property' }).click();
+  const row = page.getByTestId('meta-row').last();
+  await row.getByLabel('Property name').fill('tribe');
+  await row.getByLabel('Property value').fill('goblin');
+  await row.getByLabel('Pin property tribe').click();
+  await page.locator('#cname').fill('Goblin Archer');
+  await page.locator('#ccount').fill('2');
+  await page.getByRole('button', { name: 'Save & add another' }).click();
+  // Fresh form: pinned values filled, focus on Name with the cursor at the end.
+  await expect(page.locator('#cname')).toHaveValue('Goblin Archer');
+  await expect(page.locator('#cname')).toBeFocused();
+  await expect(page.getByText('Same name as the last card')).toBeVisible();
+  await expect(page.locator('#ccount')).toHaveValue('2');
+  await expect(page.getByTestId('meta-row').last().getByLabel('Property value')).toHaveValue('goblin');
+  for (const n of ['Goblin Shaman', 'Goblin Chief']) {
+    await page.locator('#cname').fill(n);
+    await page.getByRole('button', { name: 'Save & add another' }).click();
+  }
+  await expect(page.locator('#cname')).toHaveValue('Goblin Chief');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  const rows = page.getByTestId('card-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(1)).toContainText(/Goblin Shaman\s*×2/);
+  await expect(rows.nth(1)).toContainText('tribe: goblin');
+
+  // Pins survive a reload.
+  await page.waitForTimeout(600); // draft autosave
+  await page.reload();
+  await page.getByRole('button', { name: 'Resume' }).click();
+  await page.getByRole('button', { name: '+ Add card' }).click();
+  await expect(page.locator('#cname')).toHaveValue('Goblin Chief');
+  await expect(page.locator('#ccount')).toHaveValue('2');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // Editing an existing card shows no pins and leaves remembered values alone.
+  await rows.first().getByRole('button', { name: /^Goblin Archer/ }).click();
+  await expect(page.getByLabel(/^Pin /)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save & add another' })).toHaveCount(0);
+  await page.locator('#ccount').fill('5');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: '+ Add card' }).click();
+  await expect(page.locator('#ccount')).toHaveValue('2');
+  await ctx.close();
+});

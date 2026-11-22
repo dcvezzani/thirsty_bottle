@@ -252,6 +252,12 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .actor-float { position: fixed; z-index: 95; pointer-events: none; transform: translate(-50%, 0); }
 .anim-ghost { position: fixed; z-index: 85; pointer-events: none; }
 label.row { min-height: var(--tap); cursor: pointer; }
+/* Pin toggles on the New card form: remembered values for the next card. 44px hit area, compact glyph. */
+.label-row { gap: 2px; margin: 10px 0 4px; }
+.label-row > label { margin: 0; }
+button.pin { min-height: var(--tap, 44px); min-width: 44px; padding: 0; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2); }
+button.pin.on { color: var(--accent); }
+.label-row button.pin { margin: -12px -8px; }
 input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--accent); flex: none; }
 
 /* ---------------------------------------------------------------- count field (slider + number, one input-sized row) */
