@@ -14,4 +14,4 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run lint, all unit and server tests and the full e2e suite, push to `main`, and confirm the deploy.
+- [x] 3.1 Run lint, all unit and server tests and the full e2e suite, push to `main`, and confirm the deploy.
