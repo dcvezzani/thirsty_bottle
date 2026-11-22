@@ -21,4 +21,4 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run lint, all unit tests and the full e2e suite (including `e2e/quick-flip.spec.ts` and `e2e/contrast.spec.ts`), push to `main`, and confirm the deploy.
+- [x] 3.1 Run lint, all unit tests and the full e2e suite (including `e2e/quick-flip.spec.ts` and `e2e/contrast.spec.ts`), push to `main`, and confirm the deploy.
