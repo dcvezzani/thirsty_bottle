@@ -19,6 +19,10 @@ export interface GestureCallbacks {
   onTap?(index: number | null): void;
   /** Two quick taps on the same card (quick-flip). Fired instead of the second onTap. */
   onDoubleTap?(index: number): void;
+  /** pile-move: a press that lands within the double-tap window of a tap on the same card. */
+  onSecondPress?(index: number): void;
+  /** pile-move: that second press starts moving. Replaces the scrub or ordinary drag; the gesture then continues as a drag. */
+  onSecondPressDrag?(index: number, s: Sample): void;
   onLongPress?(index: number): void;
   onScrubStart?(index: number): void;
   onScrub?(index: number): void;
@@ -57,6 +61,8 @@ export class ZoneGesture {
   private scrubIndex: number | null = null;
   /** The previous tap, for double-tap detection; forgotten by anything that is not a tap. */
   private lastTap: { index: number; x: number; y: number; t: number } | null = null;
+  /** The current press follows a tap on the same card within the double-tap window. */
+  private secondPress = false;
   private cfg: GestureConfig;
 
   constructor(
@@ -71,6 +77,14 @@ export class ZoneGesture {
     this.start = s;
     this.startIndex = this.cb.hit(s.x, s.y);
     this.scrubIndex = null;
+    const prev = this.lastTap;
+    this.secondPress =
+      this.startIndex !== null &&
+      !!prev &&
+      prev.index === this.startIndex &&
+      s.t - prev.t <= this.cfg.doubleTapMs &&
+      Math.hypot(s.x - prev.x, s.y - prev.y) <= this.cfg.doubleTapPx;
+    if (this.secondPress) this.cb.onSecondPress?.(this.startIndex!);
   }
 
   /** Call periodically (or from a timer) so a still hold can become a long press. */
@@ -92,6 +106,14 @@ export class ZoneGesture {
         this.tick(s.t);
         if (this.state !== 'pressed') return;
         if (Math.hypot(dx, dy) < this.cfg.slop) return;
+        if (this.secondPress && this.cb.onSecondPressDrag && this.startIndex !== null) {
+          // tap, then press again and move: the caller's "drag everything" gesture (pile-move)
+          this.state = 'drag';
+          this.lastTap = null;
+          this.cb.onSecondPressDrag(this.startIndex, s);
+          this.cb.onDragMove?.(s);
+          return;
+        }
         const along = this.cfg.axis === 'y' ? Math.abs(dy) > Math.abs(dx) : Math.abs(dx) >= Math.abs(dy);
         if (this.cfg.scrub && along) {
           const i = this.scrubHit(s) ?? this.startIndex;

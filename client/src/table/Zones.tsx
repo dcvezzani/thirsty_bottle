@@ -27,6 +27,9 @@ export function Pile({
   const drag = useUI((s) => s.drag);
   const visible = drag ? zone.cards.filter((c) => !drag.handles.includes(c.h)) : zone.cards;
   const top = visible[0];
+  const selZone = useUI((s) => s.selZone);
+  const selected = useUI((s) => s.selected);
+  const selCount = selZone === zone.id ? zone.cards.filter((c) => selected.includes(c.h)).length : 0;
   const live = useRef({ zone, canAct });
   live.current = { zone, canAct };
   const g = useMemo(() => {
@@ -57,8 +60,30 @@ export function Pile({
           onLongPress: () => live.current.zone.cards[0] && onInfo(live.current.zone.cards[0].h),
           onDragStart: (_i, s) => {
             const c = live.current.zone.cards[0];
-            if (c && live.current.canAct)
-              startDrag([c.h], live.current.zone.id, s.x + origin.x, s.y + origin.y);
+            if (!c || !live.current.canAct) return;
+            // card-handling "Moving a whole pile": a selected pile carries its selected cards, in pile order
+            const st = useUI.getState();
+            const zid = live.current.zone.id;
+            const handles =
+              st.selZone === zid && st.selected.includes(c.h)
+                ? live.current.zone.cards.filter((x) => st.selected.includes(x.h)).map((x) => x.h)
+                : [c.h];
+            startDrag(handles, zid, s.x + origin.x, s.y + origin.y);
+          },
+          // tap, then press again: cancel the pending sheet; if that press moves, drag the whole pile
+          onSecondPress: () => {
+            if (tapTimer) clearTimeout(tapTimer);
+            tapTimer = null;
+          },
+          onSecondPressDrag: (_i, s) => {
+            const cards = live.current.zone.cards;
+            if (!cards.length || !live.current.canAct) return;
+            startDrag(
+              cards.map((x) => x.h),
+              live.current.zone.id,
+              s.x + origin.x,
+              s.y + origin.y,
+            );
           },
           onDragMove: (s) => moveDrag(s.x + origin.x, s.y + origin.y),
           onDragEnd: (s) => endDrag(s.x + origin.x, s.y + origin.y),
@@ -113,7 +138,12 @@ export function Pile({
           <div className="gen-back" />
         </div>
       ))}
-      {top ? <CardFace card={top} decks={decks} className="pile-top" /> : <div className="card slot" />}
+      {top ? <CardFace card={top} decks={decks} className={`pile-top ${selCount ? 'selected' : ''}`} /> : <div className="card slot" />}
+      {selCount > 0 && (
+        <span className="sel-count" data-testid="sel-count">
+          {selCount}
+        </span>
+      )}
       <span className="pile-count" aria-label={`${visible.length} cards`}>
         {visible.length}
       </span>

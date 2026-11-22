@@ -262,3 +262,62 @@ describe('double tap (quick-flip 1.1)', () => {
     expect(ev).toEqual(['tap:1', 'tap:1']);
   });
 });
+
+describe('tap, then drag (pile-move 1.1)', () => {
+  function recS(withDrag = true) {
+    const ev: string[] = [];
+    const g = new ZoneGesture(
+      {
+        hit: () => 0,
+        onTap: (i) => ev.push(`tap:${i}`),
+        onDoubleTap: (i) => ev.push(`double:${i}`),
+        onSecondPress: (i) => ev.push(`second:${i}`),
+        ...(withDrag ? { onSecondPressDrag: (i: number) => ev.push(`secondDrag:${i}`) } : {}),
+        onScrubStart: (i) => ev.push(`scrubStart:${i}`),
+        onDragStart: (i) => ev.push(`dragStart:${i}`),
+        onDragMove: () => ev.push('dragMove'),
+        onDragEnd: () => ev.push('dragEnd'),
+      },
+      { scrub: false },
+    );
+    return { g, ev };
+  }
+  const tap = (g: ZoneGesture, t: number) => {
+    g.down({ x: 20, y: 20, t });
+    g.up({ x: 20, y: 20, t: t + 50 });
+  };
+  it('tap, then a second press that moves: second press, then a whole-pile drag (no flip, no plain drag)', () => {
+    const { g, ev } = recS();
+    tap(g, 0);
+    g.down({ x: 21, y: 20, t: 150 });
+    g.move({ x: 21, y: 60, t: 200 });
+    g.move({ x: 21, y: 90, t: 230 });
+    g.up({ x: 21, y: 90, t: 260 });
+    expect(ev).toEqual(['tap:0', 'second:0', 'secondDrag:0', 'dragMove', 'dragMove', 'dragEnd']);
+  });
+  it('tap, then a still second press is still a double tap', () => {
+    const { g, ev } = recS();
+    tap(g, 0);
+    tap(g, 150);
+    expect(ev).toEqual(['tap:0', 'second:0', 'double:0']);
+  });
+  it('without onSecondPressDrag, a moving second press is an ordinary drag', () => {
+    const { g, ev } = recS(false);
+    tap(g, 0);
+    g.down({ x: 20, y: 20, t: 150 });
+    g.move({ x: 20, y: 60, t: 200 });
+    expect(ev).toEqual(['tap:0', 'second:0', 'dragStart:0', 'dragMove']);
+  });
+  it('a slow or distant second press is a normal press', () => {
+    const slow = recS();
+    tap(slow.g, 0);
+    slow.g.down({ x: 20, y: 20, t: 600 });
+    slow.g.move({ x: 20, y: 60, t: 650 });
+    expect(slow.ev).toEqual(['tap:0', 'dragStart:0', 'dragMove']);
+    const far = recS();
+    tap(far.g, 0);
+    far.g.down({ x: 60, y: 20, t: 150 });
+    far.g.move({ x: 60, y: 60, t: 200 });
+    expect(far.ev).toEqual(['tap:0', 'dragStart:0', 'dragMove']);
+  });
+});
