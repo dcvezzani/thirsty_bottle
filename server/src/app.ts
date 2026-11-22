@@ -21,6 +21,7 @@ import { Tables, type TableSession } from './tables.js';
 import { Chat } from './chat.js';
 import { Hub } from './hub.js';
 import { Decks } from './decks.js';
+import { Setups } from './setups.js';
 import { Images, MAX_UPLOAD_BYTES, UPLOAD_RULES } from './images.js';
 import { DeckIO } from './deckio.js';
 import multipart from '@fastify/multipart';
@@ -50,6 +51,7 @@ export class App {
   chat: Chat;
   hub: Hub;
   decks: Decks;
+  setups: Setups;
   images: Images;
   deckio: DeckIO;
   http: FastifyInstance;
@@ -85,6 +87,7 @@ export class App {
     this.hub = new Hub(this);
     this.tables = new Tables(this);
     this.decks = new Decks(this);
+    this.setups = new Setups(this);
     this.images = new Images(this);
     this.deckio = new DeckIO(this);
     // trustProxy: in production the server sits behind the platform's TLS proxy (server-hosting spec),
@@ -249,6 +252,7 @@ export class App {
     });
 
     await this.decks.routes(app);
+    await this.setups.routes(app);
     await this.deckio.routes();
 
     const clientDir = this.opts.clientDir!;

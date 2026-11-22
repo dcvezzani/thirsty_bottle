@@ -83,7 +83,7 @@ Each player SHALL have a private library of setups with the same lifecycle as de
 
 #### Scenario: Clone a setup
 - **WHEN** a player clones their "Klondike" setup
-- **THEN** a new setup "Copy of Klondike" appears in their library, editable independently
+- **THEN** a new setup "Klondike (copy)" appears in their library, editable independently, as cloning one's own deck does
 
 #### Scenario: Delete only when archived
 - **WHEN** a player tries to delete an active setup

@@ -335,7 +335,9 @@ export class Decks {
       .prepare(
         `DELETE FROM deck_versions WHERE created_at < ?
            AND id NOT IN (SELECT current_version_id FROM decks)
-           AND id NOT IN (SELECT version_id FROM table_decks WHERE version_id IS NOT NULL)`,
+           AND id NOT IN (SELECT version_id FROM table_decks WHERE version_id IS NOT NULL)
+           AND id NOT IN (SELECT j.value FROM setup_versions sv, json_each(sv.content, '$.fixed.deckVersions') j)
+           AND id NOT IN (SELECT j.value FROM setup_drafts sd, json_each(sd.content, '$.fixed.deckVersions') j)`,
       )
       .run(Date.now() - maxAgeMs);
     return r.changes;
@@ -456,6 +458,16 @@ export class Decks {
     const owner = d.built_in ? 'Card Table' : this.ownerName(d.owner_id);
     if (owner) td.ownerName = owner;
     return td;
+  }
+
+  /** table-setups: a snapshot of a specific saved version (fixed deals), with the usual access check. */
+  tableDeckAtVersion(deckId: string, versionId: string, playerId: string, tableDeckId: string): TableDeck & { ownerName?: string } {
+    const td = this.tableDeck(deckId, playerId, undefined, tableDeckId);
+    if (td.versionId === versionId) return td;
+    const v = this.db.prepare('SELECT content FROM deck_versions WHERE id = ? AND deck_id = ?').get(versionId, deckId) as { content: string } | undefined;
+    if (!v) throw new ActionError('FIXED_DECK', 'The deck version this fixed deal was recorded with is no longer available; record the setup again');
+    const content = JSON.parse(v.content) as DeckContent;
+    return { ...td, versionId, name: content.name, defs: content.cards, ...(content.backImageId ? { backImageId: content.backImageId } : {}) };
   }
 
   hasNewerVersion(d: TableDeck | undefined): boolean {

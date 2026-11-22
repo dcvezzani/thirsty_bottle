@@ -156,15 +156,25 @@ export class Hub {
           },
         );
         app.playerTables.set(me.id, s.id);
-        if (msg.deckId) {
+        if (msg.deckId && !msg.setupId) {
           try {
             await app.loadDeckOntoTable(s, me.id, msg.deckId, msg.shareToken);
           } catch (e) {
             app.log(`deck load on create failed: ${(e as Error).message}`);
           }
         }
+        // table-setups: the table is created either way; a refused setup is reported, not fatal
+        let setupError: string | undefined;
+        if (msg.setupId) {
+          try {
+            app.setups.applyToTable(s, me.id, msg.setupId, msg.slots);
+          } catch (e) {
+            if (!(e instanceof ActionError)) throw e;
+            setupError = e.message;
+          }
+        }
         this.lobbyChanged();
-        return ok({ tableId: s.id });
+        return ok({ tableId: s.id, ...(setupError ? { setupError } : {}) });
       }
       case 'table.join': {
         const s = app.tables.get(msg.tableId);
@@ -240,6 +250,11 @@ export class Hub {
       case 'table.loadDeck': {
         const s = this.hostSession(msg.tableId, me.id);
         await app.loadDeckOntoTable(s, me.id, msg.deckId, msg.shareToken);
+        return ok();
+      }
+      case 'table.applySetup': {
+        const s = this.hostSession(msg.tableId, me.id);
+        app.setups.applyToTable(s, me.id, msg.setupId, msg.slots);
         return ok();
       }
       case 'table.reloadDeck': {

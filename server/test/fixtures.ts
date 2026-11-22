@@ -37,3 +37,17 @@ export async function tableWith(srv: TestServer, host: Client, others: Client[],
   await new Promise((r) => setTimeout(r, 50));
   return tableId as string;
 }
+
+/** A small table setup (table-setups tests). */
+export const miniContent = (name = 'Mini') => ({
+  name,
+  players: { min: 1, max: 4 },
+  slots: [{ id: 's1', label: 'Deck', defaultDeckId: 'builtin-standard-52' }],
+  homes: { s1: 'stock' },
+  zones: [
+    { key: 'stock', name: 'Stock', layout: 'pile' },
+    { key: 'p1', name: 'P1', layout: 'column', down: 2, up: 1 },
+  ],
+  hands: { count: 5 },
+  counters: [{ label: '{name} score', value: 0, perSeat: true }],
+});

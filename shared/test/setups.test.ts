@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { expandSetup, SetupContentSchema, type SetupContent, type Plan } from '@vct/shared';
+import { expandSetup, recordSetup, SetupContentSchema, type SetupContent, type Plan } from '@vct/shared';
+import { ALEX, SAM, setup as tableSetup, run, zoneByName } from './helpers.js';
 
 const klondike = (): SetupContent =>
   SetupContentSchema.parse({
@@ -130,5 +131,48 @@ describe('expandSetup (table-setups 1.1)', () => {
     ]);
     expect(expandSetup({ ...c, players: { min: 1, max: 2 } }, { seats: seats('A', 'B'), deckSizes: { s1: 52 } })).toMatchObject({ ok: false, code: 'FIXED_PLAYERS' });
     expect(expandSetup(c, { seats: seats('A'), deckSizes: { s1: 52 }, deckVersions: { s1: 'v8' } })).toMatchObject({ ok: false, code: 'FIXED_DECK' });
+  });
+});
+
+describe('recordSetup (table-setups 3.3)', () => {
+  it('records zones in order with their deals, the deck slot and its home, per-seat hands and counters', () => {
+    const { eng, deckZone } = tableSetup([SAM]);
+    let s = eng.state;
+    s = run(s, { type: 'zoneAdd', name: 'P1', layout: 'column', newRow: true }, ALEX.playerId).state;
+    const p1 = zoneByName(s, 'P1').id;
+    const top3 = s.zones[deckZone].cards.slice(0, 3);
+    s = run(s, { type: 'move', cards: top3, to: p1 }, ALEX.playerId).state;
+    s = run(s, { type: 'flip', cards: [top3[2]] }, ALEX.playerId).state;
+    s = run(s, { type: 'deal', zone: deckZone, count: 7, seats: s.seats.filter((x) => x.playerId).map((x) => x.id) }, ALEX.playerId).state;
+    s = run(s, { type: 'counterAdd', label: 'Alex score', value: 4 }, ALEX.playerId).state;
+    s = run(s, { type: 'counterAdd', label: 'Sam score', value: 2 }, ALEX.playerId).state;
+    s = run(s, { type: 'counterAdd', label: 'Round', value: 1 }, ALEX.playerId).state;
+    const c = recordSetup(s, { name: 'Recorded' });
+    expect(c.zones.map((z) => z.name)).toEqual(['Discard', 'Standard', 'Table', 'P1']);
+    const z = Object.fromEntries(c.zones.map((x) => [x.name, x]));
+    expect(z.P1).toMatchObject({ layout: 'column', newRow: true, down: 2, up: 1 });
+    expect(z.Standard).toMatchObject({ down: 0, up: 0 }); // the home pile keeps the rest
+    expect(c.slots).toEqual([{ id: 's1', label: 'Standard', defaultDeckId: 'src' }]);
+    expect(c.homes).toEqual({ s1: z.Standard.key });
+    expect(c.hands).toEqual({ count: 7, face: 'down' });
+    expect(c.counters).toEqual([{ label: '{name} score', value: 4, perSeat: true }, { label: 'Round', value: 1 }]);
+    expect(c.players).toEqual({ min: 2, max: 2 });
+    expect(c.fixed).toBeUndefined();
+    // and it expands back to the same counts
+    const r = expandSetup(c, { seats: seats('Alex', 'Sam'), deckSizes: { s1: 52 } });
+    expect(r.ok).toBe(true);
+  });
+
+  it('with fixed, records the exact arrangement (home pile included) and deck versions', () => {
+    const { eng, deckZone } = tableSetup([]);
+    const s = run(eng.state, { type: 'move', cards: eng.state.zones[deckZone].cards.slice(0, 2), to: zoneByName(eng.state, 'Table').id, face: 'up' }, ALEX.playerId).state;
+    const c = recordSetup(s, { name: 'Puzzle', fixed: true });
+    expect(c.fixed!.players).toBe(1);
+    expect(c.fixed!.deckVersions).toEqual({ s1: 'v1' });
+    const tableKey = c.zones.find((z) => z.name === 'Table')!.key;
+    expect(c.fixed!.zones[tableKey]).toHaveLength(2);
+    expect(c.fixed!.zones[tableKey].every((x) => x.faceUp)).toBe(true);
+    const homeKey = c.homes.s1;
+    expect(c.fixed!.zones[homeKey]).toHaveLength(50);
   });
 });

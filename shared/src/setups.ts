@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ZoneLayout, ZoneWidth } from './table.js';
+import type { TableState, ZoneLayout, ZoneWidth } from './table.js';
 
 /**
  * Table setups (table-setups): a saved recipe for a table: zones, deck slots, the deal (counts and
@@ -223,4 +223,111 @@ export function expandSetup(c: SetupContent, input: ExpandInput): ExpandResult {
     for (let k = 0; k < total; k++) deals.push({ slot: handSlot, to: { hand: k % n }, faceUp: handUp, count: 1 });
   }
   return { ok: true, plan: { zones, homes: { ...c.homes }, deals, counters } };
+}
+
+// --------------------------------------------------------------------------------- the library
+
+export type SetupStatus = 'active' | 'archived';
+export interface SetupSummary {
+  id: string;
+  name: string;
+  status: SetupStatus;
+  players: { min: number; max: number };
+  zoneCount: number;
+  slots: { id: string; label: string; defaultDeckId: string | null; defaultDeckName: string | null }[];
+  fixed: boolean;
+  currentVersionId: string;
+  hasDraft: boolean;
+  updatedAt: number;
+}
+export interface SetupDetail extends SetupSummary {
+  content: SetupContent;
+  draft: SetupContent | null;
+}
+
+/** An empty setup to start editing from. */
+export function blankSetup(name: string): SetupContent {
+  return { name, players: { min: 1, max: 12 }, slots: [], homes: {}, zones: [], counters: [] };
+}
+
+// ------------------------------------------------------------------------- recording (D4)
+
+/**
+ * "Save table as setup": turns a live table into setup content. Zones keep their order, layout,
+ * width, new row and color; each loaded deck becomes a slot (its source deck as the default);
+ * zones record how many cards they hold face down and face up (a deck's home zone keeps the rest);
+ * equal hands become a per-seat hand; counters named after a seated player become per-seat
+ * "{name} …" counters. With `fixed`, the exact arrangement and deck versions are recorded too.
+ */
+export function recordSetup(state: TableState, opts: { name: string; fixed?: boolean }): SetupContent {
+  const sharedZones = state.zoneOrder.map((id) => state.zones[id]).filter((z) => z && z.kind === 'shared');
+  const keyOf = new Map(sharedZones.map((z, i) => [z.id, `z${i + 1}`]));
+  const decks = Object.values(state.decks);
+  const slotOf = new Map(decks.map((d, i) => [d.id, `s${i + 1}`]));
+  const slots = decks.map((d) => ({ id: slotOf.get(d.id)!, label: d.name.slice(0, 40), defaultDeckId: d.sourceDeckId ?? null }));
+  const homes: Record<string, string> = {};
+  for (const d of decks) homes[slotOf.get(d.id)!] = keyOf.get(d.homeZoneId) ?? keyOf.get(sharedZones.find((z) => z.layout === 'pile')?.id ?? '') ?? 'z1';
+  const homeKeys = new Set(Object.values(homes));
+  const majoritySlot = (cardIds: string[]) => {
+    const tally = new Map<string, number>();
+    for (const id of cardIds) {
+      const sl = slotOf.get(state.cards[id]?.deckId ?? '');
+      if (sl) tally.set(sl, (tally.get(sl) ?? 0) + 1);
+    }
+    return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const firstSlot = slots[0]?.id;
+  const zones: SetupZone[] = sharedZones.map((z) => {
+    const key = keyOf.get(z.id)!;
+    const isHome = homeKeys.has(key);
+    const down = isHome ? 0 : z.cards.filter((c) => !state.cards[c].faceUp).length;
+    const up = isHome ? 0 : z.cards.length - down;
+    const slot = majoritySlot(z.cards);
+    return {
+      key,
+      name: z.name.slice(0, 40),
+      layout: z.layout,
+      ...(z.width ? { width: z.width } : {}),
+      ...(z.newRow ? { newRow: true } : {}),
+      color: z.color,
+      ...(slot && slot !== firstSlot ? { slot } : {}),
+      down,
+      up,
+    };
+  });
+  const seated = state.seats.filter((x) => x.playerId);
+  const hostAt = Math.max(0, seated.findIndex((x) => x.playerId === state.hostId));
+  const order = seated.slice(hostAt).concat(seated.slice(0, hostAt));
+  const handCards = order.map((x) => state.zones[`hand:${x.id}`]?.cards ?? []);
+  const sizes = new Set(handCards.map((h) => h.length));
+  const all = handCards.flat();
+  const hands =
+    sizes.size === 1 && all.length > 0
+      ? { count: handCards[0].length, face: (all.filter((c) => state.cards[c].faceUp).length > all.length / 2 ? 'up' : 'down') as 'up' | 'down', ...(majoritySlot(all) !== firstSlot ? { slot: majoritySlot(all) } : {}) }
+      : undefined;
+  const counters: SetupContent['counters'] = [];
+  const seen = new Set<string>();
+  for (const c of state.counters) {
+    const who = order.find((x) => c.label.startsWith(x.name + ' ') || c.label.startsWith(x.name + "'"));
+    const label = who ? `{name}${c.label.slice(who.name.length)}` : c.label;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    counters.push({ label: label.slice(0, 40), value: c.value, ...(who ? { perSeat: true } : {}) });
+  }
+  const n = Math.max(1, order.length);
+  const content: SetupContent = { name: opts.name.slice(0, 40), players: { min: n, max: n }, slots, homes, zones, ...(hands ? { hands } : {}), counters };
+  if (opts.fixed) {
+    const card = (id: string) => {
+      const c = state.cards[id];
+      return { slot: slotOf.get(c.deckId)!, defId: c.defId, copyNo: c.copyNo, faceUp: c.faceUp };
+    };
+    content.fixed = {
+      players: order.length,
+      deckVersions: Object.fromEntries(decks.filter((d) => d.versionId).map((d) => [slotOf.get(d.id)!, d.versionId!])),
+      // every zone, home piles included, so even the stock comes back in the recorded order
+      zones: Object.fromEntries(sharedZones.map((z) => [keyOf.get(z.id)!, z.cards.map(card)])),
+      hands: handCards.map((h) => h.map(card)),
+    };
+  }
+  return content;
 }

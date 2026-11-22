@@ -113,6 +113,35 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX chat_channel ON chat_messages(channel, id);
   `,
+  // 2: table setups (table-setups), mirroring decks
+  `
+  CREATE TABLE setups (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    archived_at INTEGER,
+    cloned_from_setup_id TEXT,
+    current_version_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX setups_owner ON setups(owner_id, status);
+
+  CREATE TABLE setup_versions (
+    id TEXT PRIMARY KEY,
+    setup_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX setup_versions_setup ON setup_versions(setup_id);
+
+  CREATE TABLE setup_drafts (
+    setup_id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

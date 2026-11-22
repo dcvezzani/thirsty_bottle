@@ -195,6 +195,7 @@ export class Viewer {
       me: { playerId: me, seatId: mySeat?.id ?? null, isHost, spectator: !mySeat },
       canUndo: undoMs > 0,
       undoMsLeft: undoMs,
+      lastSetup: s.lastSetup ?? null,
     };
   }
 

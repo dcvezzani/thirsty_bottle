@@ -16,9 +16,9 @@
 
 ## 3. Storage, API and table messages
 
-- [ ] 3.1 Add the setups tables and the service with deck-like lifecycle routes (D5). Verify with server tests: create, draft, save (versions), clone ("Copy of …"), archive, delete only when archived, owner-only access.
-- [ ] 3.2 Add the `table.applySetup` message and `setupId` on `table.create` (D6). Slots resolve through deck access rules, and refusals change nothing. Verify with server tests: apply with defaults and with a swapped deck, refusal for a small deck and for the player range, Play again with `lastSetup`, and the result surviving a server restart.
-- [ ] 3.3 Add record-setup from a live table (D4). Verify with a server test: a Klondike-like table records 13 zones with their deals; equal hands become a per-seat hand; "Alex score" and "Sam score" become a per-seat counter; the player range equals the current count.
+- [x] 3.1 Add the setups tables and the service with deck-like lifecycle routes (D5). Verify with server tests: create, draft, save (versions), clone ("… (copy)", as for decks), archive, delete only when archived, owner-only access.
+- [x] 3.2 Add the `table.applySetup` message and `setupId` on `table.create` (D6). Slots resolve through deck access rules, and refusals change nothing. Verify with server tests: apply with defaults and with a swapped deck, refusal for a small deck and for the player range, Play again with `lastSetup`, and the result surviving a server restart.
+- [x] 3.3 Add record-setup from a live table (D4). Verify with a server test: a Klondike-like table records 13 zones with their deals; equal hands become a per-seat hand; "Alex score" and "Sam score" become a per-seat counter; the player range equals the current count.
 
 ## 4. Client
 

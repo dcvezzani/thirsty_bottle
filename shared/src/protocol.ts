@@ -119,6 +119,8 @@ export interface TableView {
   canUndo: boolean;
   /** Milliseconds left in the undo window for my last action (approximate). */
   undoMsLeft: number;
+  /** The setup last applied here (table-setups: Play again); null when none. */
+  lastSetup: { id: string; versionId: string; name: string } | null;
 }
 
 export type AnimView =
@@ -194,6 +196,9 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
     deckId: z.string().max(64).optional(),
     shareToken: z.string().max(64).optional(),
     layout: z.enum(['standard', 'blank']).default('standard'),
+    /** table-setups: apply this setup right after creating the table. */
+    setupId: z.string().max(64).optional(),
+    slots: z.record(z.string().max(40), z.string().max(64)).optional(),
   }),
   z.object({
     t: z.literal('table.join'),
@@ -225,6 +230,13 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
     shareToken: z.string().max(64).optional(),
   }),
   z.object({ t: z.literal('table.reloadDeck'), rid, tableId, tableDeckId: z.string().max(64) }),
+  z.object({
+    t: z.literal('table.applySetup'),
+    rid,
+    tableId,
+    setupId: z.string().max(64),
+    slots: z.record(z.string().max(40), z.string().max(64)).optional(),
+  }),
   z.object({ t: z.literal('chat.send'), rid, channel: z.string().max(80), text: z.string().max(2000) }),
   z.object({ t: z.literal('chat.mute'), rid, playerId: z.string().max(64), muted: z.boolean() }),
   z.object({
