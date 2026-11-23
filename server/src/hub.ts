@@ -85,7 +85,7 @@ export class Hub {
         return;
       }
       const msg = r.data;
-      if (msg.t === 'table.drag') {
+      if (msg.t === 'table.drag' || msg.t === 'table.view') {
         if (!conn.dragBucket.take()) return;
       } else if (!conn.bucket.take()) {
         this.reply(ws, msg, { ok: false, code: 'RATE_LIMIT', error: 'Too many actions, slow down' });
@@ -226,6 +226,10 @@ export class Hub {
       }
       case 'table.drag': {
         app.tables.get(msg.tableId)?.drag(me.id, msg);
+        return;
+      }
+      case 'table.view': {
+        app.tables.get(msg.tableId)?.view(me.id, msg.seat);
         return;
       }
       case 'table.kick': {

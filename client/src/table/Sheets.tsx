@@ -191,6 +191,8 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
   const spectator = view.me.spectator;
   const n = zone.cards.length;
   const others = view.zones.filter((z) => z.kind === 'shared' && z.id !== zone.id);
+  // player-views: another player's zone offers only taking (draw asks) and passing, not handling
+  const mine = !isOthersZone(view, zone);
   const act = (a: any) => {
     send(a);
     onClose();
@@ -206,18 +208,18 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
             </button>
           )}
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'draw', zone: zone.id })}>Draw…</button>}
-          {n > 1 && <button onClick={() => act({ type: 'shuffle', zone: zone.id })}>Shuffle</button>}
-          {n > 1 && <button onClick={() => act({ type: 'cut', zone: zone.id, mode: 'complete' })}>Cut (random)</button>}
-          {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'deal', zone: zone.id })}>Deal…</button>}
-          <button onClick={() => act({ type: 'gather', zones: 'all', to: zone.id })}>Gather all here</button>
-          {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id })}>Flip all</button>}
-          {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'up' })}>All face up</button>}
-          {n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}
+          {mine && n > 1 && <button onClick={() => act({ type: 'shuffle', zone: zone.id })}>Shuffle</button>}
+          {mine && n > 1 && <button onClick={() => act({ type: 'cut', zone: zone.id, mode: 'complete' })}>Cut (random)</button>}
+          {mine && n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'deal', zone: zone.id })}>Deal…</button>}
+          {mine && <button onClick={() => act({ type: 'gather', zones: 'all', to: zone.id })}>Gather all here</button>}
+          {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id })}>Flip all</button>}
+          {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'up' })}>All face up</button>}
+          {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'fanout', zone: zone.id })}>Fan out</button>}
           {n > 0 && <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>}
         </div>
       )}
-      {!spectator && n > 1 && (
+      {!spectator && mine && n > 1 && (
         <>
           <label htmlFor="peekn" style={{ marginTop: 10 }}>
             Peek at top
@@ -552,6 +554,12 @@ export function SeatSheet({ view, seatId, onClose }: { view: TableView; seatId: 
           );
         })}
       <div className="actions">
+        {/* player-views: look at this seat's table */}
+        {seat.playerId && seat.id !== view.me.seatId && (
+          <button className="primary" onClick={() => (useUI.setState({ viewSeat: seat.id }), onClose())}>
+            View table
+          </button>
+        )}
         {handles.length > 0 && seat.id !== view.me.seatId && selZone && (
           <button className="primary" onClick={() => (moveCards(handles, selZone, `hand:${seat.id}`), onClose())}>
             Pass {handles.length} selected card{handles.length === 1 ? '' : 's'}

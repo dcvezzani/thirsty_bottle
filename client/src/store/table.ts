@@ -173,6 +173,13 @@ export const useTable = create<TableState>((set, get) => ({
         set({ drags });
         break;
       }
+      case 'table.viewers': {
+        // player-views: live presence, outside the version sequence (like drags)
+        if (m.tableId !== st.tableId || !st.server) break;
+        const server = { ...st.server, viewers: m.viewers };
+        set({ server, view: st.view ? { ...st.view, viewers: m.viewers } : st.view });
+        break;
+      }
       case 'table.left':
         if (m.tableId === st.tableId) {
           set({ tableId: null, server: null, view: null, pending: [], left: { reason: m.reason } });

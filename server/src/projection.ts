@@ -16,6 +16,7 @@ import {
   type TableView,
   type Zone,
   type ZoneView,
+  type ViewerPresence,
 } from '@vct/shared';
 
 let handleCounter = 0;
@@ -32,6 +33,8 @@ export interface ProjectionExtras {
   markedDisconnected: ReadonlySet<string>;
   undoFor: (playerId: string) => number; // ms left, 0 if none
   newerVersion: (deckId: string) => boolean;
+  /** player-views: live viewing presence. */
+  viewers: ViewerPresence[];
 }
 
 /** Per-recipient projection state: handle maps and what was last sent. */
@@ -198,6 +201,7 @@ export class Viewer {
       notes: s.notes,
       requests,
       vacated: isHost ? s.vacated : [],
+      viewers: x.viewers,
       me: { playerId: me, seatId: mySeat?.id ?? null, isHost, spectator: !mySeat },
       canUndo: undoMs > 0,
       undoMsLeft: undoMs,

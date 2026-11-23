@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { useNavigate, useParams } from 'react-router-dom';
 import type { TableSummary, TableView } from '@vct/shared';
 import { useTable } from '../store/table';
-import { useApp } from '../store/app';
+import { getSocket, useApp } from '../store/app';
 import { api } from '../lib/api';
 import { Chat } from '../components/Chat';
 import { CardFace } from '../components/Card';
@@ -10,7 +10,7 @@ import { JoinTable } from './Lobby';
 import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
-import { useUI, findCard, boardZones, type DrawerTab } from '../table/ui';
+import { useUI, findCard, boardZones, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
@@ -119,12 +119,24 @@ function TableScreen({ view }: { view: TableView }) {
     if (keep.length !== st.selected.length) st.select(st.selZone, keep);
   }, [view]);
 
-  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [], arranging: false }), []);
+  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [], arranging: false, viewSeat: null }), []);
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
   // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
-  // per-player-zones: each per-player zone shows as this player's own copy, in the group's slot
-  const shared = boardZones(view);
+  // player-views: whose table is shown (mine by default; spectators start at the first seat)
+  const viewSeat = useUI((s) => s.viewSeat);
+  const seen = shownSeat(view, viewSeat);
+  const viewingOther = !!seen && seen !== view.me.seatId;
+  const seenSeat = view.seats.find((s) => s.id === seen);
+  const seenHand = viewingOther ? view.zones.find((z) => z.kind === 'hand' && z.seatId === seen) : undefined;
+  // announce whose table I'm looking at (live presence), once the rotation settles
+  const lookingAt = viewingOther ? seen : null;
+  useEffect(() => {
+    const t = setTimeout(() => getSocket()?.send({ t: 'table.view', tableId: view.id, seat: lookingAt }), 150);
+    return () => clearTimeout(t);
+  }, [lookingAt, view.id]);
+  // per-player-zones: each per-player zone shows as the shown seat's copy, in the group's slot
+  const shared = boardZones(view, false, seen);
   const boardSize = useBoardSize(boardRef, zoom);
   const arranging = useUI((s) => s.arranging) && view.me.isHost;
   const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW) : [];
@@ -141,6 +153,7 @@ function TableScreen({ view }: { view: TableView }) {
           ←
         </button>
         <h1 title={view.settings.name}>{view.settings.name}</h1>
+        <ViewingPill view={view} />
         <button
           className={`mode-chip ${view.mode}`}
           aria-label={`Mode: ${view.mode === 'turn' ? 'turn-based' : 'real-time'}${canSwitch ? ' (tap to switch)' : ''}`}
@@ -176,7 +189,25 @@ function TableScreen({ view }: { view: TableView }) {
         </div>
       )}
       <Prompts view={view} />
-      <SeatBar view={view} />
+      {(viewingOther || (view.me.spectator && seen)) && seenSeat && (
+        <div className="view-banner" role="region" aria-label="Viewing another table">
+          <button className="small" aria-label="Previous table" onClick={() => useUI.setState({ viewSeat: rotateSeat(view, seen, -1) })}>
+            ‹
+          </button>
+          <span className="grow">
+            Viewing {seenSeat.name}'s table · {viewRotation(view).indexOf(seenSeat.id) + 1} of {viewRotation(view).length}
+          </span>
+          <button className="small" aria-label="Next table" onClick={() => useUI.setState({ viewSeat: rotateSeat(view, seen, 1) })}>
+            ›
+          </button>
+          {view.me.seatId && (
+            <button className="small primary" onClick={() => useUI.setState({ viewSeat: null })}>
+              Mine
+            </button>
+          )}
+        </div>
+      )}
+      <SeatBar view={view} shown={seen} />
       {arranging && <ArrangeBar />}
       <div className="board" ref={boardRef}>
         {arranging && boardSize ? (
@@ -200,6 +231,14 @@ function TableScreen({ view }: { view: TableView }) {
         <OthersDrags view={view} />
       </div>
       <SelectionBar view={view} />
+      {seenHand && seenSeat && (
+        <div className="viewed-hand" aria-label={`${seenSeat.name}'s hand`} style={{ ['--card-w' as any]: `${Math.round(36 * zoom)}px` }}>
+          <span className="viewed-hand-label small-text">
+            {seenSeat.name}'s hand · {seenHand.cards.length}
+          </span>
+          <CardRow zone={seenHand} decks={view.decks} dropId={seenHand.id} onInfo={onInfo} testId="row-viewed-hand" />
+        </div>
+      )}
       {myHand && (
         <div className="hand-area" aria-label="Your hand">
           <CardRow zone={myHand} decks={view.decks} arc dropId={myHand.id} onInfo={onInfo} />
@@ -241,6 +280,22 @@ function TableScreen({ view }: { view: TableView }) {
       {sheet?.kind === 'saveSetup' && <SaveSetupSheet view={view} onClose={closeSheet} />}
       {sheet?.kind === 'decks' && <DecksSheet view={view} onClose={closeSheet} />}
     </div>
+  );
+}
+
+/** player-views: who is looking at my table (players by name, spectators counted). */
+function ViewingPill({ view }: { view: TableView }) {
+  const mine = view.me.seatId;
+  const lookers = (view.viewers ?? []).filter((v) => mine && v.seat === mine);
+  if (!lookers.length) return null;
+  const players = lookers.map((v) => view.seats.find((s) => s.playerId === v.playerId)?.name).filter((n): n is string => !!n);
+  const spectators = lookers.length - players.length;
+  const label = `Viewing your table: ${[...players, ...(spectators ? [`${spectators} spectator${spectators === 1 ? '' : 's'}`] : [])].join(', ')}`;
+  return (
+    <span className="viewing-pill" role="status" aria-label={label} title={label}>
+      👁 {players.join(', ')}
+      {spectators > 0 && ` +${spectators} watching`}
+    </span>
   );
 }
 

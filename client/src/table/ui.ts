@@ -40,6 +40,8 @@ interface UIState {
   zoom: number;
   /** Host arrange mode (zone-arrangement): zones shown as draggable tiles, cards locked. */
   arranging: boolean;
+  /** player-views: the seat whose table is shown; null = my own. */
+  viewSeat: string | null;
   recent: string[];
   select(zone: string, handles: string[]): void;
   toggle(zone: string, h: string): void;
@@ -60,6 +62,7 @@ export const useUI = create<UIState>((set, get) => ({
   drawer: null,
   zoom: 1,
   arranging: false,
+  viewSeat: null,
   recent: (() => {
     try {
       return JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? '[]');
@@ -126,12 +129,13 @@ export function zoneLabel(view: TableView, z: ZoneView): string {
  * per-player-zones: the board's slots for this viewer. Each per-player zone shows as the viewer's own copy;
  * `forArrange` keeps a slot (as its first copy) even for a viewer without a copy, so indexes match the server.
  */
-export function boardZones(view: TableView, forArrange = false): ZoneView[] {
+export function boardZones(view: TableView, forArrange = false, seat: string | null = view.me.seatId): ZoneView[] {
   const out: ZoneView[] = [];
   for (const z of boardSlots(view.zones)) {
     if (z.kind !== 'player') out.push(z);
     else {
-      const mine = view.zones.find((x) => x.kind === 'player' && x.group === z.group && x.seatId === view.me.seatId);
+      // player-views: `seat` is whose table is shown (my own by default)
+      const mine = view.zones.find((x) => x.kind === 'player' && x.group === z.group && x.seatId === seat);
       if (mine) out.push(mine);
       else if (forArrange) out.push(z);
     }
@@ -141,3 +145,25 @@ export function boardZones(view: TableView, forArrange = false): ZoneView[] {
 
 /** A hand or per-player zone of another player. */
 export const isOthersZone = (view: TableView, z: ZoneView) => z.kind !== 'shared' && z.seatId !== view.me.seatId;
+
+/** player-views: occupied seats in table order (the rotation). */
+export function viewRotation(view: TableView): string[] {
+  return view.seats.filter((x) => x.playerId).map((x) => x.id);
+}
+
+/** The next seat in the rotation (wrapping), from `from`; step -1 goes back. */
+export function rotateSeat(view: TableView, from: string | null, step: 1 | -1): string | null {
+  const order = viewRotation(view);
+  if (!order.length) return null;
+  const i = from ? order.indexOf(from) : -1;
+  if (i < 0) return order[step === 1 ? 0 : order.length - 1];
+  return order[(i + step + order.length) % order.length];
+}
+
+/** The seat whose table this viewer is looking at, falling back to their own (or the first seat for spectators). */
+export function shownSeat(view: TableView, viewSeat: string | null): string | null {
+  const order = viewRotation(view);
+  if (viewSeat && order.includes(viewSeat)) return viewSeat;
+  if (view.me.seatId) return view.me.seatId;
+  return order[0] ?? null;
+}

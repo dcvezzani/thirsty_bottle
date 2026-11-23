@@ -152,7 +152,14 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByTestId('seat-Sam').click();
       await expect(page.getByRole('region', { name: "Sam's Mine" })).toBeVisible();
       await expectReadable(page, 'seat sheet with per-player zone');
-      await page.keyboard.press('Escape');
+      // player-views: the view banner, the eye pill and a viewing seat chip
+      await page.getByRole('button', { name: 'View table' }).click();
+      await expect(page.getByRole('region', { name: 'Viewing another table' })).toBeVisible();
+      await expectReadable(page, 'viewing another table');
+      await expect(samPage.locator('.viewing-pill')).toContainText('Alex');
+      await expect(samPage.getByTestId('seat-Alex')).toContainText('viewing you');
+      await expectReadable(samPage, 'eye pill and viewing seat chip');
+      await page.getByRole('button', { name: 'Mine', exact: true }).click();
       await samCtx.close();
 
       // table-setups: the Apply setup sheet, the Setups page and the setup editor

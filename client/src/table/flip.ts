@@ -1,7 +1,7 @@
 import type { TableView } from '@vct/shared';
 import { useTable } from '../store/table';
 import { predictFlip } from '../store/predict';
-import { useUI } from './ui';
+import { isOthersZone, useUI } from './ui';
 
 /** Flip these cards as one action, turning them at once (the server confirms or rolls back). */
 export function flipCards(handles: string[]) {
@@ -23,6 +23,10 @@ export function flipSelection() {
  */
 export function quickFlip(zoneId: string, h: string) {
   const st = useUI.getState();
+  // player-views: double tap does nothing on another player's hand or per-player zone
+  const view = useTable.getState().view;
+  const z = view?.zones.find((x) => x.id === zoneId);
+  if (view && z && isOthersZone(view, z)) return;
   if (st.selZone === zoneId && st.selected.includes(h)) return flipSelection();
   return flipCards([h]);
 }

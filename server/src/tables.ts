@@ -41,6 +41,8 @@ export class TableSession {
   roomMuted: Set<string>;
   closed = false;
   private viewers = new Map<string, Viewer>();
+  /** player-views: playerId -> seat id they are looking at (memory only). */
+  private looking = new Map<string, string>();
   private marked = new Set<string>();
   private timers = new Map<string, NodeJS.Timeout[]>();
   private emptyTimer: NodeJS.Timeout | null = null;
@@ -93,6 +95,7 @@ export class TableSession {
       undoFor: (pid) =>
         this.engine.undo && this.engine.undo.actor === pid ? Math.max(0, 10_000 - (now - this.engine.undo.at)) : 0,
       newerVersion: (deckId) => this.app.decks?.hasNewerVersion(this.state.decks[deckId]) ?? false,
+      viewers: this.viewerList(),
     };
   }
 
@@ -109,6 +112,47 @@ export class TableSession {
 
   detachViewer(pid: string) {
     this.viewers.delete(pid);
+    this.clearLooking(pid);
+  }
+
+  // ------------------------------------------------------------------ player-views presence (memory only)
+
+  /** Which seat's table a participant is looking at; null = their own. Never saved. */
+  view(pid: string, seat: string | null) {
+    if (!this.isParticipant(pid)) return;
+    if (seat !== null && !this.state.seats.some((x) => x.id === seat)) throw new ActionError('NO_SEAT', 'That seat no longer exists');
+    const own = this.state.seats.find((x) => x.playerId === pid)?.id ?? null;
+    const next = seat === own ? null : seat;
+    if ((this.looking.get(pid) ?? null) === next) return;
+    if (next) this.looking.set(pid, next);
+    else this.looking.delete(pid);
+    this.broadcastViewers();
+  }
+
+  private viewerList() {
+    return [...this.looking].map(([playerId, seat]) => ({ playerId, seat }));
+  }
+
+  private broadcastViewers() {
+    const viewers = this.viewerList();
+    for (const pid of this.viewers.keys()) this.app.hub.send(pid, { t: 'table.viewers', tableId: this.id, viewers });
+  }
+
+  private clearLooking(pid: string) {
+    if (this.looking.delete(pid)) this.broadcastViewers();
+  }
+
+  /** Drop entries for participants who left, seats that are gone, or a seat that became the viewer's own. */
+  private pruneLooking() {
+    let changed = false;
+    for (const [pid, seat] of this.looking) {
+      const seatObj = this.state.seats.find((x) => x.id === seat);
+      if (!this.isParticipant(pid) || !seatObj || seatObj.playerId === pid) {
+        this.looking.delete(pid);
+        changed = true;
+      }
+    }
+    if (changed) this.broadcastViewers();
   }
 
   /** Socket for a participant came up. */
@@ -128,6 +172,7 @@ export class TableSession {
   /** Socket for a participant went away: start the reconnect grace period. */
   onDisconnected(pid: string) {
     this.viewers.delete(pid);
+    this.clearLooking(pid);
     if (!this.isParticipant(pid)) return;
     for (const t of this.timers.get(pid) ?? []) clearTimeout(t);
     const { markMs, graceMs } = this.app.opts;
@@ -178,6 +223,7 @@ export class TableSession {
     this.version += 1;
     this.persist(action, actor, { now: ctx.now, draws: rng!.draws, connected: [...ctx.connected] });
     this.broadcast(res);
+    this.pruneLooking();
     this.app.lobbyChanged();
     this.app.metrics.record(performance.now() - t0);
     return res;

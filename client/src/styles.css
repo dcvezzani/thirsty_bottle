@@ -347,3 +347,11 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 /* ---------------------------------------------------------------- per-player zones (per-player-zones) */
 .seat-zone-count { display: block; color: inherit; opacity: 0.85; white-space: nowrap; }
 .seat-zone-card { padding: 0; min-height: var(--tap); min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------------------------------------------------------------- player views (player-views) */
+.view-banner { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel); color: var(--ink); border-bottom: 1px solid var(--line); font-size: 14px; }
+.view-banner button.small { min-width: 44px; min-height: var(--tap); }
+.viewed-hand { padding: 4px 12px 0; }
+.viewed-hand-label { display: block; color: #fff; opacity: 0.9; margin-bottom: 2px; }
+.viewing-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+.seat-viewing { display: block; white-space: nowrap; opacity: 0.9; }

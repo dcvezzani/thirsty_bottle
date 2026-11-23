@@ -30,6 +30,7 @@ export function CardRow({
   height,
   dropId,
   onInfo,
+  testId,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
@@ -40,6 +41,8 @@ export function CardRow({
   /** Zone id used as drop target (omit to disable dropping). */
   dropId?: string;
   onInfo: (h: string) => void;
+  /** Overrides the row's test id (the viewed player's hand while viewing their table). */
+  testId?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
@@ -230,7 +233,7 @@ export function CardRow({
       className={`card-row ${arc ? 'arc' : ''}`}
       style={{ height: rowH, ['--cw' as any]: `${cardW}px` }}
       data-zone-id={zone.id}
-      data-testid={`row-${zone.kind === 'hand' ? 'hand' : zone.name}`}
+      data-testid={testId ?? `row-${zone.kind === 'hand' ? 'hand' : zone.name}`}
       {...(dropId ? { 'data-drop-zone': dropId } : {})}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

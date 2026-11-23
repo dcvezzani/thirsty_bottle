@@ -92,6 +92,12 @@ export interface LogView {
   cardAction?: boolean;
 }
 
+/** player-views: a participant viewing another seat's table. */
+export interface ViewerPresence {
+  playerId: string;
+  seat: string;
+}
+
 export interface RequestView {
   id: string;
   from: string;
@@ -121,6 +127,8 @@ export interface TableView {
   log: LogView[];
   requests: RequestView[];
   vacated: { seatId: string; playerName: string }[];
+  /** player-views: who is looking at which seat's table (live, never saved). */
+  viewers: ViewerPresence[];
   me: { playerId: string; seatId: string | null; isHost: boolean; spectator: boolean };
   canUndo: boolean;
   /** Milliseconds left in the undo window for my last action (approximate). */
@@ -225,6 +233,8 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
     y: z.number(),
     end: z.boolean().optional(),
   }),
+  /** player-views: which seat's table I'm looking at (null = my own); live presence only. */
+  z.object({ t: z.literal('table.view'), tableId, seat: z.string().max(64).nullable() }),
   z.object({ t: z.literal('table.kick'), rid, tableId, playerId: z.string().max(64) }),
   z.object({ t: z.literal('table.password'), rid, tableId, password: z.string().max(100).nullable() }),
   z.object({ t: z.literal('table.close'), rid, tableId }),
@@ -273,6 +283,7 @@ export type ServerMessage =
   | { t: 'table.patch'; tableId: string; patch: TablePatch }
   | { t: 'table.ack'; tableId: string; seq: number; ok: boolean; code?: string; error?: string; notice?: string }
   | { t: 'table.drag'; tableId: string; playerId: string; color: string; handles: string[]; x: number; y: number; end?: boolean }
+  | { t: 'table.viewers'; tableId: string; viewers: ViewerPresence[] }
   | { t: 'table.left'; tableId: string; reason: 'left' | 'kicked' | 'closed' | 'expired' }
   | { t: 'chat.history'; channel: string; messages: ChatMessage[] }
   | { t: 'chat.msg'; message: ChatMessage }
