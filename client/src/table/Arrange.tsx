@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { TableView, ZoneView } from '@vct/shared';
 import { useTable } from '../store/table';
-import { useUI } from './ui';
+import { useUI, boardZones } from './ui';
 import { arrangeRows, type FlowItem } from './flow';
 import { EdgeScroller } from './edgeScroll';
 
@@ -76,7 +76,7 @@ interface TileDrag {
 
 /** table-play "Arranging zones": every shared zone as a tile; drag a tile's grip to move it. */
 export function ArrangeBoard({ view, boardRef, boardW }: { view: TableView; boardRef: RefObject<HTMLDivElement>; boardW: number }) {
-  const shared = view.zones.filter((z) => z.kind === 'shared');
+  const shared = boardZones(view, true);
   const [drag, setDragState] = useState<TileDrag | null>(null);
   const tiles = useRef(new Map<string, HTMLElement>());
   const edge = useRef(new EdgeScroller());

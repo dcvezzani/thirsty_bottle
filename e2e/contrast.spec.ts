@@ -1,5 +1,5 @@
 import { test, expect, devices, type Page } from '@playwright/test';
-import { onboard, createTable, draw } from './helpers';
+import { onboard, createTable, draw, joinTable } from './helpers';
 import sharp from 'sharp';
 import { lowContrast } from './contrast';
 
@@ -133,6 +133,27 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByTestId('row-hand').click({ button: 'right', position: { x: 60, y: 60 } });
       await expectReadable(page, 'card info sheet');
       await page.keyboard.press('Escape');
+
+      // per-player-zones: my own copy on the board, another player's counts and seat sheet
+      await page.getByRole('button', { name: 'Table settings' }).click();
+      await page.getByLabel('New zone name').fill('Mine');
+      await page.getByLabel('One per player (each player gets their own copy)').check();
+      await expectReadable(page, 'add per-player zone');
+      await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.zone-name', { hasText: 'Your Mine' })).toBeVisible();
+      await expectReadable(page, 'per-player zone');
+      const samCtx = await browser.newContext({ ...size.use, colorScheme: scheme });
+      const samPage = await samCtx.newPage();
+      await onboard(samPage, 'Sam');
+      await joinTable(samPage, `Contrast ${scheme} ${size.name}`);
+      await expect(page.getByTestId('seat-Sam')).toContainText('Mine 0');
+      await expectReadable(page, 'seat bar counts');
+      await page.getByTestId('seat-Sam').click();
+      await expect(page.getByRole('region', { name: "Sam's Mine" })).toBeVisible();
+      await expectReadable(page, 'seat sheet with per-player zone');
+      await page.keyboard.press('Escape');
+      await samCtx.close();
 
       // table-setups: the Apply setup sheet, the Setups page and the setup editor
       await page.evaluate(async () => {

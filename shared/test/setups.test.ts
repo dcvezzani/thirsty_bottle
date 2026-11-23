@@ -60,7 +60,8 @@ describe('expandSetup (table-setups 1.1)', () => {
       counters: [{ label: '{name} score', value: 0, perSeat: true }, { label: 'Round', value: 1 }],
     });
     const p = ok(expandSetup(c, { seats: seats('Alex', 'Sam', 'Kim'), deckSizes: { s1: 52 } }));
-    expect(p.zones.map((z) => z.name)).toEqual(['Stock', "Alex's melds", "Sam's melds", "Kim's melds"]);
+    // per-player-zones: one per-player zone instead of a named zone per seat
+    expect(p.zones.map((z) => [z.name, !!z.perPlayer])).toEqual([['Stock', false], ['melds', true]]);
     expect([0, 1, 2].map((i) => handTotal(p, i))).toEqual([7, 7, 7]);
     // round-robin: first three deals go to seats 0, 1, 2
     expect(p.deals.slice(0, 3).map((d) => (d.to as { hand: number }).hand)).toEqual([0, 1, 2]);

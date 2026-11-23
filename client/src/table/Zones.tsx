@@ -4,7 +4,7 @@ import { CardFace } from '../components/Card';
 import { CardRow } from './CardRow';
 import { ColumnZone } from './ColumnZone';
 import { ZoneGesture } from './gestures';
-import { useUI } from './ui';
+import { useUI, zoneLabel } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import type { FlowItem } from './flow';
@@ -316,7 +316,7 @@ export function ZoneBox({
         {...longPress.handlers}
       >
         {/* table-play "Zone card count": the name shortens, the count never does */}
-        <span className="zone-name">{zone.name}</span>
+        <span className="zone-name">{zone.kind === 'player' ? zoneLabel(view, zone) : zone.name}</span>
         <span className="zone-count muted">· {zone.cards.length}</span>
       </button>
       {slim ? (

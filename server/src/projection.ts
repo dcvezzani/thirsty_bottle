@@ -127,6 +127,7 @@ export class Viewer {
       y: z.y,
       width: z.width ?? defaultZoneWidth(z.layout),
       newRow: !!z.newRow,
+      ...(z.group ? { group: z.group } : {}),
       cards: z.cards.map((id) => this.cardView(s, s.cards[id], z)),
     };
   }
@@ -151,6 +152,10 @@ export class Viewer {
       connected: !!st.playerId && x.connected.has(st.playerId),
       disconnected: !!st.playerId && x.markedDisconnected.has(st.playerId),
       handCount: s.zones[handZoneId(st.id)]?.cards.length ?? 0,
+      zoneCounts: s.zoneOrder
+        .map((id) => s.zones[id])
+        .filter((z) => z?.kind === 'player' && z.seatId === st.id)
+        .map((z) => ({ zone: z.id, name: z.name, count: z.cards.length })),
     }));
     const decks: TableDeckView[] = Object.values(s.decks).map((d) => {
       const v: TableDeckView = {
@@ -176,6 +181,7 @@ export class Viewer {
         seatId: r.seatId,
         count: r.cards.length,
         to: r.to,
+        ...(r.zone && s.zones[r.zone] ? { zoneName: s.zones[r.zone].name } : {}),
         dir: (r.from === me ? 'outgoing' : 'incoming') as 'incoming' | 'outgoing',
       }));
     const undoMs = x.undoFor(me);

@@ -52,6 +52,8 @@ export interface ZoneView {
   y: number;
   width: ZoneWidth;
   newRow: boolean;
+  /** Per-player zones: the definition every seat's copy shares. */
+  group?: string;
   cards: CardView[];
 }
 
@@ -65,6 +67,8 @@ export interface SeatView {
   /** Disconnected for longer than the 5 s grace before marking. */
   disconnected: boolean;
   handCount: number;
+  /** Card count of each of the seat's per-player zones, in board order. */
+  zoneCounts: { zone: string; name: string; count: number }[];
 }
 
 export interface TableDeckView {
@@ -95,6 +99,8 @@ export interface RequestView {
   seatId: string;
   count: number;
   to: string;
+  /** Name of the per-player zone the cards are in; missing = the hand. */
+  zoneName?: string;
   /** 'incoming' = someone wants cards from my hand. */
   dir: 'incoming' | 'outgoing';
 }

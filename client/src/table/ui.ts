@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CardView, TableView, ZoneView } from '@vct/shared';
+import { boardSlots } from '@vct/shared';
 
 export type Sheet =
   | { kind: 'cards' }
@@ -110,8 +111,33 @@ export function findCard(view: TableView, h: string): { card: CardView; zone: Zo
 }
 
 export function zoneLabel(view: TableView, z: ZoneView): string {
+  if (z.kind === 'player') {
+    if (z.seatId === view.me.seatId) return `Your ${z.name}`;
+    const seat = view.seats.find((s) => s.id === z.seatId);
+    return seat?.playerId ? `${seat.name}'s ${z.name}` : `Seat ${(seat?.index ?? 0) + 1} ${z.name}`;
+  }
   if (z.kind !== 'hand') return z.name;
   if (z.seatId === view.me.seatId) return 'Your hand';
   const seat = view.seats.find((s) => s.id === z.seatId);
   return seat?.playerId ? `${seat.name}'s hand` : `Seat ${(seat?.index ?? 0) + 1} hand`;
 }
+
+/**
+ * per-player-zones: the board's slots for this viewer. Each per-player zone shows as the viewer's own copy;
+ * `forArrange` keeps a slot (as its first copy) even for a viewer without a copy, so indexes match the server.
+ */
+export function boardZones(view: TableView, forArrange = false): ZoneView[] {
+  const out: ZoneView[] = [];
+  for (const z of boardSlots(view.zones)) {
+    if (z.kind !== 'player') out.push(z);
+    else {
+      const mine = view.zones.find((x) => x.kind === 'player' && x.group === z.group && x.seatId === view.me.seatId);
+      if (mine) out.push(mine);
+      else if (forArrange) out.push(z);
+    }
+  }
+  return out;
+}
+
+/** A hand or per-player zone of another player. */
+export const isOthersZone = (view: TableView, z: ZoneView) => z.kind !== 'shared' && z.seatId !== view.me.seatId;

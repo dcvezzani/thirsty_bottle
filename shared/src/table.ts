@@ -15,7 +15,8 @@ const WIDTHS = ['fit', 'half', 'full'] as const;
 export function defaultZoneWidth(layout: ZoneLayout): ZoneWidth {
   return layout === 'pile' || layout === 'column' ? 'fit' : 'full';
 }
-export type ZoneKind = 'shared' | 'hand';
+/** shared: one zone for everyone; hand: a seat's private hand; player: one copy per seat of a per-player zone. */
+export type ZoneKind = 'shared' | 'hand' | 'player';
 
 /** A deck snapshot loaded onto a table. Never changes after load (until reload). */
 export interface TableDeck {
@@ -46,8 +47,10 @@ export interface Zone {
   id: string;
   name: string;
   kind: ZoneKind;
-  /** For hand zones: the seat id that owns it. */
+  /** For hand and per-player zones: the seat id that owns it. */
   seatId: string | null;
+  /** For per-player zones: the definition shared by every seat's copy (copy id = `<group>:<seatId>`). */
+  group?: string;
   layout: ZoneLayout;
   color: string;
   x: number;
@@ -97,6 +100,8 @@ export interface TakeRequest {
   id: string;
   from: string; // requesting player
   seatId: string; // hand owner seat
+  /** Zone the cards are taken from; missing = the seat's hand. */
+  zone?: string;
   cards: string[];
   to: string; // destination zone
   at: number;
@@ -221,6 +226,8 @@ export const ActionSchema = z.discriminatedUnion('type', [
     color: zoneColor.optional(),
     width: z.enum(WIDTHS).optional(),
     newRow: z.boolean().optional(),
+    /** One copy of the zone for every seat (per-player zone). */
+    perPlayer: z.boolean().optional(),
     x: z.number().min(0).max(1).optional(),
     y: z.number().min(0).max(1).optional(),
   }),

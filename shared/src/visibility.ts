@@ -16,9 +16,9 @@ export function handZoneId(seatId: string): string {
   return `hand:${seatId}`;
 }
 
-/** Owner player of a hand zone, or null for shared zones / empty seats. */
+/** Owner player of a hand or per-player zone, or null for shared zones / empty seats. */
 export function zoneOwner(state: TableState, zone: Zone): string | null {
-  if (zone.kind !== 'hand' || !zone.seatId) return null;
+  if (zone.kind === 'shared' || !zone.seatId) return null;
   return state.seats.find((s) => s.id === zone.seatId)?.playerId ?? null;
 }
 
@@ -33,7 +33,29 @@ export function canSee(state: TableState, viewer: string | null, card: CardInst,
 /** Visible to everyone at the table (including spectators)? */
 export function isPublic(card: CardInst, zone: Zone): boolean {
   if (card.shownTo.includes('*')) return true;
-  return zone.kind === 'shared' && card.faceUp;
+  // per-player zones follow the ordinary face rules, like shared zones
+  return zone.kind !== 'hand' && card.faceUp;
+}
+
+export function perPlayerZoneId(group: string, seatId: string): string {
+  return `${group}:${seatId}`;
+}
+
+/**
+ * The board's slots in order: every shared zone, and each per-player group once (as its first copy).
+ * Arranging indexes into this list on both server and client.
+ */
+export function boardSlots<Z extends { id: string; kind: string; group?: string }>(zones: Z[]): Z[] {
+  const seen = new Set<string>();
+  const out: Z[] = [];
+  for (const z of zones) {
+    if (z.kind === 'shared') out.push(z);
+    else if (z.kind === 'player' && z.group && !seen.has(z.group)) {
+      seen.add(z.group);
+      out.push(z);
+    }
+  }
+  return out;
 }
 
 export function playerName(state: TableState, playerId: string | null | undefined): string {

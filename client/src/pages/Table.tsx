@@ -10,7 +10,7 @@ import { JoinTable } from './Lobby';
 import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
-import { useUI, findCard, type DrawerTab } from '../table/ui';
+import { useUI, findCard, boardZones, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
@@ -123,7 +123,8 @@ function TableScreen({ view }: { view: TableView }) {
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
   // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
-  const shared = view.zones.filter((z) => z.kind === 'shared');
+  // per-player-zones: each per-player zone shows as this player's own copy, in the group's slot
+  const shared = boardZones(view);
   const boardSize = useBoardSize(boardRef, zoom);
   const arranging = useUI((s) => s.arranging) && view.me.isHost;
   const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW) : [];

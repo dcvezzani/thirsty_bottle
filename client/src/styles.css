@@ -343,3 +343,7 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .img-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .img-use { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .img-order { position: absolute; top: 4px; left: 4px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+
+/* ---------------------------------------------------------------- per-player zones (per-player-zones) */
+.seat-zone-count { display: block; color: inherit; opacity: 0.85; white-space: nowrap; }
+.seat-zone-card { padding: 0; min-height: var(--tap); min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }

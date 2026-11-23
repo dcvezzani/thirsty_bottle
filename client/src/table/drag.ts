@@ -115,8 +115,8 @@ export function defaultFace(view: TableView, from: string, to: string, faceDown:
   const src = view.zones.find((z) => z.id === from);
   const dst = view.zones.find((z) => z.id === to);
   if (!src || !dst) return undefined;
-  if (dst.kind === 'shared' && src.kind === 'hand' && src.seatId === view.me.seatId) return faceDown ? 'down' : 'up';
-  if (dst.kind === 'shared' && faceDown) return 'down';
+  if (dst.kind !== 'hand' && src.kind === 'hand' && src.seatId === view.me.seatId) return faceDown ? 'down' : 'up';
+  if (dst.kind !== 'hand' && faceDown) return 'down';
   return undefined;
 }
 

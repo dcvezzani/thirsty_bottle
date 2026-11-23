@@ -6,7 +6,7 @@ import { useTable } from '../store/table';
 import { getSocket, useApp } from '../store/app';
 import { api, imageUrl } from '../lib/api';
 import { MetaList } from '../pages/DeckEditor';
-import { findCard, orderedSelection, useUI, zoneLabel } from './ui';
+import { boardZones, findCard, isOthersZone, orderedSelection, useUI, zoneLabel } from './ui';
 import { moveCards } from './drag';
 import { flipCards, flipSelection } from './flip';
 import { playAgain } from './SetupSheets';
@@ -20,7 +20,15 @@ function destinations(view: TableView, exclude: string | null) {
   const recent = useUI.getState().recent;
   const all = view.zones
     .filter((z) => z.id !== exclude && (z.kind === 'shared' || z.seatId === view.me.seatId || view.seats.find((s) => s.id === z.seatId)?.playerId))
-    .map((z) => ({ id: z.id, label: z.kind === 'hand' && z.seatId !== view.me.seatId ? `Pass to ${zoneLabel(view, z).replace("'s hand", '')}` : zoneLabel(view, z) }));
+    .map((z) => ({
+      id: z.id,
+      label:
+        z.kind === 'hand' && z.seatId !== view.me.seatId
+          ? `Pass to ${zoneLabel(view, z).replace("'s hand", '')}`
+          : z.kind === 'player' && z.seatId !== view.me.seatId
+            ? `Pass to ${zoneLabel(view, z)}`
+            : zoneLabel(view, z),
+    }));
   const rec = recent.map((r) => all.find((a) => a.id === r)).filter((x): x is { id: string; label: string } => !!x);
   return { recent: rec, rest: all.filter((a) => !recent.includes(a.id)) };
 }
@@ -74,7 +82,8 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
   if (!zone || !handles.length) return null;
   const cards = zone.cards.filter((c) => handles.includes(c.h));
   const allKnown = cards.every((c) => c.known);
-  const inOthersHand = zone.kind === 'hand' && zone.seatId !== view.me.seatId;
+  // another player's hand or per-player zone: hand rules (ask to take, or take with open hands)
+  const inOthersHand = isOthersZone(view, zone);
   const shownByMe = cards.some((c) => c.shownTo?.length);
   const players = view.seats.filter((s) => s.playerId && s.playerId !== view.me.playerId);
   const { recent, rest } = destinations(view, zone.id);
@@ -137,8 +146,8 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
       </div>
       <div className="actions">
         {inOthersHand ? (
-          <button className="primary" onClick={() => (moveCards(handles, zone.id, `hand:${view.me.seatId}`), done())}>
-            Ask to take
+          <button className="primary" disabled={!view.me.seatId} onClick={() => (moveCards(handles, zone.id, `hand:${view.me.seatId}`), done())}>
+            {view.settings.openHands ? 'Take' : 'Ask to take'}
           </button>
         ) : (
           <>
@@ -187,7 +196,8 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
     onClose();
   };
   return (
-    <Sheet title={`${zone.name} · ${n} card${n === 1 ? '' : 's'}`} onClose={onClose}>
+    <Sheet title={`${zone.kind === 'player' ? zoneLabel(view, zone) : zone.name} · ${n} card${n === 1 ? '' : 's'}`} onClose={onClose}>
+      {zone.kind === 'player' && <p className="small-text muted">One per player: everyone has their own {zone.name}. Changes here apply to every copy.</p>}
       {!spectator && (
         <div className="actions">
           {n > 0 && (
@@ -232,7 +242,7 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
           </div>
         </>
       )}
-      {host && zone.kind === 'shared' && (
+      {host && zone.kind !== 'hand' && (
         <>
           <h4 style={{ margin: '14px 0 4px' }}>Host</h4>
           <div className="row">
@@ -260,7 +270,7 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
 
 /** table-play "Arranging from the zone sheet": order, width and row break without dragging. */
 function ZonePlacement({ view, zone }: { view: TableView; zone: ZoneView }) {
-  const shared = view.zones.filter((z) => z.kind === 'shared');
+  const shared = boardZones(view, true);
   const idx = shared.findIndex((z) => z.id === zone.id);
   return (
     <>
@@ -504,6 +514,43 @@ export function SeatSheet({ view, seatId, onClose }: { view: TableView; seatId: 
         {seat.handCount} cards in hand{seat.disconnected ? ' · disconnected' : ''}
         {view.hostId === seat.playerId ? ' · host' : ''}
       </p>
+      {/* per-player-zones: this player's per-player zones; face-up cards visible, face-down as backs */}
+      {view.zones
+        .filter((z) => z.kind === 'player' && z.seatId === seat.id)
+        .map((z) => {
+          const others = seat.id !== view.me.seatId;
+          const canTake = others && !!view.me.seatId && !view.me.spectator;
+          return (
+            <section key={z.id} className="seat-zone" aria-label={zoneLabel(view, z)}>
+              <h4 style={{ margin: '8px 0 4px' }}>
+                {z.name} · {z.cards.length}
+              </h4>
+              <div className="row" style={{ gap: 4, overflowX: 'auto' }}>
+                {z.cards.length === 0 && <span className="small-text muted">Empty</span>}
+                {z.cards.map((c, i) => {
+                  const name = findDef(view.decks, c)?.name ?? `face-down card ${i + 1}`;
+                  return canTake ? (
+                    <button
+                      key={c.h}
+                      className="ghost seat-zone-card"
+                      aria-label={`${view.settings.openHands ? 'Take' : 'Ask to take'} ${name}`}
+                      onClick={() => (moveCards([c.h], z.id, `hand:${view.me.seatId}`), onClose())}
+                    >
+                      <CardFace card={c} decks={view.decks} style={{ ['--card-w' as any]: '44px' }} />
+                    </button>
+                  ) : (
+                    <CardFace key={c.h} card={c} decks={view.decks} style={{ ['--card-w' as any]: '44px' }} />
+                  );
+                })}
+              </div>
+              {others && handles.length > 0 && selZone && selZone !== z.id && (
+                <button className="small" style={{ marginTop: 6 }} onClick={() => (moveCards(handles, selZone, z.id), onClose())}>
+                  Pass {handles.length} selected to {z.name}
+                </button>
+              )}
+            </section>
+          );
+        })}
       <div className="actions">
         {handles.length > 0 && seat.id !== view.me.seatId && selZone && (
           <button className="primary" onClick={() => (moveCards(handles, selZone, `hand:${seat.id}`), onClose())}>
@@ -650,6 +697,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
   const [pw, setPw] = useState('');
   const [zoneName, setZoneName] = useState('');
   const [zoneLayout, setZoneLayout] = useState<'pile' | 'spread' | 'column' | 'free'>('spread');
+  const [perPlayer, setPerPlayer] = useState(false);
   const toast = useApp((s) => s.toast);
   const invite = `${location.origin}/t/${view.id}`;
   const host = view.me.isHost;
@@ -722,10 +770,18 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
               <option value="column">Column</option>
               <option value="free">Free</option>
             </select>
-            <button disabled={!zoneName.trim()} onClick={() => (send({ type: 'zoneAdd', name: zoneName.trim(), layout: zoneLayout, x: 0.1, y: 0.9 }), setZoneName(''))}>
+            <button
+              disabled={!zoneName.trim()}
+              onClick={() => (send({ type: 'zoneAdd', name: zoneName.trim(), layout: zoneLayout, x: 0.1, y: 0.9, ...(perPlayer ? { perPlayer: true } : {}) }), setZoneName(''), setPerPlayer(false))}
+            >
               Add
             </button>
           </div>
+          {/* per-player-zones: one copy for every seat; each player sees their own */}
+          <label className="row small-text" style={{ margin: '6px 0 0' }}>
+            <input type="checkbox" checked={perPlayer} onChange={(e) => setPerPlayer(e.target.checked)} />
+            One per player (each player gets their own copy)
+          </label>
           <div className="actions">
             <button onClick={() => useUI.getState().setSheet({ kind: 'decks' })}>Decks…</button>
             <button onClick={() => useUI.setState({ sheet: null, arranging: true })}>Arrange zones</button>
@@ -763,7 +819,7 @@ export function Prompts({ view }: { view: TableView }) {
         <div className="overlay" style={{ alignItems: 'center' }}>
           <div className="sheet" role="alertdialog" aria-label="Card request">
             <h2>
-              {incoming[0].fromName} wants {incoming[0].count} card{incoming[0].count === 1 ? '' : 's'} from your hand
+              {incoming[0].fromName} wants {incoming[0].count} card{incoming[0].count === 1 ? '' : 's'} from your {incoming[0].zoneName ?? 'hand'}
             </h2>
             <div className="row">
               <button className="primary grow" onClick={() => send({ type: 'respondTake', requestId: incoming[0].id, approve: true })}>

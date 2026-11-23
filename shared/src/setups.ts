@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { TableState, ZoneLayout, ZoneWidth } from './table.js';
+import type { TableState, Zone, ZoneLayout, ZoneWidth } from './table.js';
+import { boardSlots } from './visibility.js';
 
 /**
  * Table setups (table-setups): a saved recipe for a table: zones, deck slots, the deal (counts and
@@ -80,8 +81,10 @@ export interface PlanZone {
   width?: ZoneWidth;
   newRow?: boolean;
   color?: string;
+  /** One copy per seat (per-player zone); deals target `{ zone, seat }`. */
+  perPlayer?: boolean;
 }
-export type PlanTarget = { zone: string } | { hand: number };
+export type PlanTarget = { zone: string } | { zone: string; seat: number } | { hand: number };
 export interface PlanDeal {
   slot: string;
   to: PlanTarget;
@@ -111,6 +114,11 @@ export interface ExpandInput {
 }
 
 const fail = (code: string, message: string): ExpandResult => ({ ok: false, code, message });
+
+/** A per-seat zone's name without its "{name}" placeholder: "{name}'s Tableau" -> "Tableau". */
+export function perPlayerName(name: string): string {
+  return name.replace(/\{name\}('s)?\s*/g, '').trim() || 'Area';
+}
 
 /** Resolves a count for `players` seated players (no matching rule = 0). */
 export function resolveCount(c: SetupCount, players: number): number | 'rest' {
@@ -156,20 +164,17 @@ export function expandSetup(c: SetupContent, input: ExpandInput): ExpandResult {
   const firstSlot = c.slots[0]?.id;
   for (const s of c.slots) if (input.deckSizes[s.id] === undefined) return fail('NO_DECK', `Choose a deck for "${s.label}"`);
 
-  // zones, with per-seat zones expanded per seat (key#i)
+  // zones; a per-seat zone becomes one per-player zone, dealt into each seat's copy
   const zones: PlanZone[] = [];
-  const dealZones: { key: string; z: SetupZone }[] = [];
+  const dealZones: { to: PlanTarget; z: SetupZone }[] = [];
   for (const z of c.zones) {
-    const base = { layout: z.layout, ...(z.width ? { width: z.width } : {}), ...(z.color ? { color: z.color } : {}) };
+    const base = { layout: z.layout, ...(z.width ? { width: z.width } : {}), ...(z.color ? { color: z.color } : {}), ...(z.newRow ? { newRow: true } : {}) };
     if (z.perSeat) {
-      input.seats.forEach((seat, i) => {
-        const k = `${z.key}#${i}`;
-        zones.push({ key: k, name: named(z.name, seat.name), ...base, ...(z.newRow && i === 0 ? { newRow: true } : {}) });
-        dealZones.push({ key: k, z });
-      });
+      zones.push({ key: z.key, name: perPlayerName(z.name), ...base, perPlayer: true });
+      input.seats.forEach((_seat, i) => dealZones.push({ to: { zone: z.key, seat: i }, z }));
     } else {
-      zones.push({ key: z.key, name: z.name, ...base, ...(z.newRow ? { newRow: true } : {}) });
-      dealZones.push({ key: z.key, z });
+      zones.push({ key: z.key, name: z.name, ...base });
+      dealZones.push({ to: { zone: z.key }, z });
     }
   }
   const counters = c.counters.flatMap((k) =>
@@ -182,7 +187,12 @@ export function expandSetup(c: SetupContent, input: ExpandInput): ExpandResult {
     for (const [slot, v] of Object.entries(c.fixed.deckVersions))
       if (input.deckVersions && input.deckVersions[slot] !== v) return fail('FIXED_DECK', `${c.name}'s fixed deal needs the deck version it was recorded with`);
     const fixed: NonNullable<Plan['fixed']> = [];
-    for (const [k, cards] of Object.entries(c.fixed.zones)) for (const card of cards) fixed.push({ ...card, to: { zone: k } });
+    for (const [k, cards] of Object.entries(c.fixed.zones)) {
+      // a per-seat zone's copies are recorded as "<key>#<seat index>"
+      const m = /^(.*)#(\d+)$/.exec(k);
+      const to: PlanTarget = m ? { zone: m[1], seat: Number(m[2]) } : { zone: k };
+      for (const card of cards) fixed.push({ ...card, to });
+    }
     c.fixed.hands.forEach((cards, i) => cards.forEach((card) => fixed.push({ ...card, to: { hand: i } })));
     return { ok: true, plan: { zones, homes: { ...c.homes }, deals: [], fixed, counters } };
   }
@@ -190,13 +200,13 @@ export function expandSetup(c: SetupContent, input: ExpandInput): ExpandResult {
   // fixed counts first (to know how much 'rest' gets), then emit deals in order
   type Req = { slot: string; to: PlanTarget; faceUp: boolean; count: number | 'rest' };
   const reqs: Req[] = [];
-  for (const { key: k, z } of dealZones) {
+  for (const { to, z } of dealZones) {
     const slot = z.slot ?? firstSlot;
     const down = resolveCount(z.down, n);
     const up = resolveCount(z.up, n);
     const parts: Req[] = [
-      { slot, to: { zone: k }, faceUp: false, count: down },
-      { slot, to: { zone: k }, faceUp: true, count: up },
+      { slot, to, faceUp: false, count: down },
+      { slot, to, faceUp: true, count: up },
     ];
     if (z.layout === 'pile') parts.reverse();
     reqs.push(...parts.filter((p) => p.count !== 0));
@@ -281,7 +291,8 @@ export function blankSetup(name: string): SetupContent {
  * "{name} …" counters. With `fixed`, the exact arrangement and deck versions are recorded too.
  */
 export function recordSetup(state: TableState, opts: { name: string; fixed?: boolean }): SetupContent {
-  const sharedZones = state.zoneOrder.map((id) => state.zones[id]).filter((z) => z && z.kind === 'shared');
+  // shared zones and each per-player group once (its first copy stands for the group)
+  const sharedZones = boardSlots(state.zoneOrder.map((id) => state.zones[id]).filter(Boolean));
   const keyOf = new Map(sharedZones.map((z, i) => [z.id, `z${i + 1}`]));
   const decks = Object.values(state.decks);
   const slotOf = new Map(decks.map((d, i) => [d.id, `s${i + 1}`]));
@@ -298,12 +309,19 @@ export function recordSetup(state: TableState, opts: { name: string; fixed?: boo
     return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   };
   const firstSlot = slots[0]?.id;
+  const seated = state.seats.filter((x) => x.playerId);
+  const hostAt = Math.max(0, seated.findIndex((x) => x.playerId === state.hostId));
+  const order = seated.slice(hostAt).concat(seated.slice(0, hostAt));
+  /** A per-player group's copies for the seated players, in deal order. */
+  const copiesFor = (z: Zone) => order.map((x) => state.zones[`${z.group}:${x.id}`]).filter(Boolean);
   const zones: SetupZone[] = sharedZones.map((z) => {
     const key = keyOf.get(z.id)!;
     const isHome = homeKeys.has(key);
-    const down = isHome ? 0 : z.cards.filter((c) => !state.cards[c].faceUp).length;
-    const up = isHome ? 0 : z.cards.length - down;
-    const slot = majoritySlot(z.cards);
+    // per-player: the deal of the copies (all equal), else of the first copy
+    const sample = z.kind === 'player' ? copiesFor(z)[0] ?? z : z;
+    const down = isHome ? 0 : sample.cards.filter((c) => !state.cards[c].faceUp).length;
+    const up = isHome ? 0 : sample.cards.length - down;
+    const slot = majoritySlot(z.kind === 'player' ? copiesFor(z).flatMap((c) => c.cards) : z.cards);
     return {
       key,
       name: z.name.slice(0, 40),
@@ -311,14 +329,12 @@ export function recordSetup(state: TableState, opts: { name: string; fixed?: boo
       ...(z.width ? { width: z.width } : {}),
       ...(z.newRow ? { newRow: true } : {}),
       color: z.color,
+      ...(z.kind === 'player' ? { perSeat: true } : {}),
       ...(slot && slot !== firstSlot ? { slot } : {}),
       down,
       up,
     };
   });
-  const seated = state.seats.filter((x) => x.playerId);
-  const hostAt = Math.max(0, seated.findIndex((x) => x.playerId === state.hostId));
-  const order = seated.slice(hostAt).concat(seated.slice(0, hostAt));
   const handCards = order.map((x) => state.zones[`hand:${x.id}`]?.cards ?? []);
   const sizes = new Set(handCards.map((h) => h.length));
   const all = handCards.flat();
@@ -346,7 +362,13 @@ export function recordSetup(state: TableState, opts: { name: string; fixed?: boo
       players: order.length,
       deckVersions: Object.fromEntries(decks.filter((d) => d.versionId).map((d) => [slotOf.get(d.id)!, d.versionId!])),
       // every zone, home piles included, so even the stock comes back in the recorded order
-      zones: Object.fromEntries(sharedZones.map((z) => [keyOf.get(z.id)!, z.cards.map(card)])),
+      zones: Object.fromEntries(
+        sharedZones.flatMap((z) =>
+          z.kind === 'player'
+            ? copiesFor(z).map((c, i) => [`${keyOf.get(z.id)!}#${i}`, c.cards.map(card)])
+            : [[keyOf.get(z.id)!, z.cards.map(card)]],
+        ),
+      ),
       hands: handCards.map((h) => h.map(card)),
     };
   }

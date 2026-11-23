@@ -14,7 +14,7 @@ import {
   type TakeRequest,
   type Zone,
 } from './table.js';
-import { canSee, handZoneId, isPublic, locate, playerName, seatOfPlayer, zoneOwner } from './visibility.js';
+import { boardSlots, canSee, handZoneId, isPublic, locate, perPlayerZoneId, playerName, seatOfPlayer, zoneOwner } from './visibility.js';
 import type { PlanTarget } from './setups.js';
 
 export interface Rng {
@@ -167,22 +167,70 @@ function addSeat(s: TableState): Seat {
     pos: {},
   };
   s.zoneOrder.push(zid);
+  // per-player-zones: a copy of every per-player zone for the new seat, after the group's last copy
+  for (const g of groupsOf(s)) {
+    const first = s.zones[g.ids[0]];
+    const copy: Zone = { ...structuredClone(first), id: perPlayerZoneId(g.group, seat.id), seatId: seat.id, cards: [], pos: {} };
+    s.zones[copy.id] = copy;
+    s.zoneOrder.splice(s.zoneOrder.indexOf(g.ids[g.ids.length - 1]) + 1, 0, copy.id);
+  }
   return seat;
+}
+
+/** Per-player groups in board order, each with its copies' ids in zoneOrder order. */
+function groupsOf(s: TableState): { group: string; ids: string[] }[] {
+  const m = new Map<string, string[]>();
+  for (const id of s.zoneOrder) {
+    const z = s.zones[id];
+    if (z?.kind !== 'player' || !z.group) continue;
+    if (!m.has(z.group)) m.set(z.group, []);
+    m.get(z.group)!.push(id);
+  }
+  return [...m.entries()].map(([group, ids]) => ({ group, ids }));
+}
+
+/** Copies of the per-player zone `z` belongs to (just `z` for any other zone). */
+function copiesOf(s: TableState, z: Zone): Zone[] {
+  if (z.kind !== 'player' || !z.group) return [z];
+  return s.zoneOrder.map((id) => s.zones[id]).filter((x) => x?.kind === 'player' && x.group === z.group);
+}
+
+/** Keeps each per-player group's copies together (at its first copy's place), in seat order. */
+export function normalizeOrder(s: TableState) {
+  const seatIdx = new Map(s.seats.map((x, i) => [x.id, i]));
+  const done = new Set<string>();
+  const out: string[] = [];
+  for (const id of s.zoneOrder) {
+    const z = s.zones[id];
+    if (z?.kind !== 'player' || !z.group) {
+      out.push(id);
+      continue;
+    }
+    if (done.has(z.group)) continue;
+    done.add(z.group);
+    out.push(
+      ...s.zoneOrder
+        .filter((x) => s.zones[x]?.kind === 'player' && s.zones[x].group === z.group)
+        .sort((a, b) => (seatIdx.get(s.zones[a].seatId!) ?? 0) - (seatIdx.get(s.zones[b].seatId!) ?? 0)),
+    );
+  }
+  s.zoneOrder = out;
 }
 
 function removeSeat(s: TableState, seatId: string) {
   const zid = handZoneId(seatId);
-  if (s.zones[zid]?.cards.length) fail('SEAT_HAS_CARDS', 'That seat still holds cards');
+  const own = Object.values(s.zones).filter((z) => z.seatId === seatId);
+  if (own.some((z) => z.cards.length)) fail('SEAT_HAS_CARDS', 'That seat still holds cards');
   s.seats = s.seats.filter((x) => x.id !== seatId);
-  delete s.zones[zid];
-  s.zoneOrder = s.zoneOrder.filter((z) => z !== zid);
+  for (const z of own) delete s.zones[z.id];
+  s.zoneOrder = s.zoneOrder.filter((z) => z !== zid && s.zones[z]);
   s.vacated = s.vacated.filter((v) => v.seatId !== seatId);
   if (s.turn.active === seatId) s.turn.active = null;
 }
 
 function addZone(
   s: TableState,
-  o: { name: string; layout: Zone['layout']; color?: string; x?: number; y?: number; width?: Zone['width']; newRow?: boolean },
+  o: { name: string; layout: Zone['layout']; color?: string; x?: number; y?: number; width?: Zone['width']; newRow?: boolean; perPlayer?: boolean },
   /** Where to put it in the order: the end (default), after a zone, or with the leading piles. */
   place: { after: string } | 'pileRow' | 'end' = 'end',
 ): Zone {
@@ -210,6 +258,15 @@ function addZone(
   } else if (place !== 'end') {
     const i = s.zoneOrder.indexOf(place.after);
     if (i >= 0) at = i + 1;
+  }
+  if (o.perPlayer) {
+    // per-player-zones: one copy per seat, adjacent in the order; `id` names the group
+    if (!s.seats.length) fail('NO_SEATS', 'Per-player zones need at least one seat');
+    delete s.zones[id];
+    const copies = s.seats.map((seat) => ({ ...structuredClone(z), id: perPlayerZoneId(id, seat.id), kind: 'player' as const, seatId: seat.id, group: id }));
+    for (const c of copies) s.zones[c.id] = c;
+    s.zoneOrder.splice(at, 0, ...copies.map((c) => c.id));
+    return copies[0];
   }
   s.zoneOrder.splice(at, 0, id);
   return z;
@@ -279,6 +336,12 @@ function privateDescs(
 }
 
 function zoneLabel(s: TableState, zone: Zone): string {
+  if (zone.kind === 'player') {
+    const owner = zoneOwner(s, zone);
+    if (owner) return `${playerName(s, owner)}'s ${zone.name}`;
+    const idx = s.seats.findIndex((x) => x.id === zone.seatId);
+    return `seat ${idx + 1}'s ${zone.name}`;
+  }
   if (zone.kind === 'hand') {
     const owner = zoneOwner(s, zone);
     if (owner) return `${playerName(s, owner)}'s hand`;
@@ -336,6 +399,20 @@ function isOthersHand(s: TableState, zone: Zone, actor: string | null) {
   if (zone.kind !== 'hand') return false;
   const owner = zoneOwner(s, zone);
   return owner !== null && owner !== actor;
+}
+
+/** A hand or per-player zone of another seated player: the hand rules for taking and handling apply. */
+function isOthersOwned(s: TableState, zone: Zone, actor: string | null) {
+  if (zone.kind === 'shared') return false;
+  const owner = zoneOwner(s, zone);
+  return owner !== null && owner !== actor;
+}
+
+/** "That card is in Sam's hand" / "That is Sam's Tableau" */
+function othersZoneError(s: TableState, z: Zone, card = false): never {
+  const owner = playerName(s, zoneOwner(s, z));
+  if (z.kind === 'hand') return fail('OTHERS_HAND', card ? `That card is in ${owner}'s hand` : "That is another player's hand");
+  return fail('OTHERS_HAND', card ? `That card is in ${owner}'s ${z.name}` : `That is ${owner}'s ${z.name}`);
 }
 
 function nextSeat(s: TableState, from: string | null, connected: ReadonlySet<string>, steps = 1): string | null {
@@ -527,7 +604,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       text = `${who} rearranged their hand`;
       priv = {};
     } else {
-      const v = verb ?? (fromOwnHand && to.kind === 'shared' ? 'played' : 'moved');
+      const v = verb ?? (fromOwnHand && to.kind !== 'hand' ? 'played' : 'moved');
       const src = fromZones.length === 1 && fromZones[0] ? ` from ${zoneLabel(s, fromZones[0])}` : '';
       text = `${who} ${v} ${desc}${fromOwnHand ? '' : src} to ${zoneLabel(s, to)}`;
       priv = privateDescs(s, ids, loc, (v2, names) =>
@@ -542,16 +619,16 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
     if (actor === null || s.settings.openHands) return null;
     for (const id of ids) {
       const z = s.zones[loc.get(id)!];
-      if (z && isOthersHand(s, z, actor)) return z;
+      if (z && isOthersOwned(s, z, actor)) return z;
     }
     return null;
   };
 
   const makeRequest = (ids: string[], hand: Zone, to: string) => {
     const req: TakeRequest = { id: nextId(s, 'r'), from: actor!, seatId: hand.seatId!, cards: ids, to, at: now };
+    if (hand.kind === 'player') req.zone = hand.id;
     s.requests.push(req);
-    const owner = playerName(s, zoneOwner(s, hand));
-    log(s, now, actor, `${who} asked to take ${plural(ids.length)} from ${owner}'s hand`, 'action', undefined, true);
+    log(s, now, actor, `${who} asked to take ${plural(ids.length)} from ${zoneLabel(s, hand)}`, 'action', undefined, true);
     res.request = req;
   };
 
@@ -573,8 +650,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const ids = resolveCards(s, action.cards);
       for (const id of ids) {
         const z = s.zones[loc.get(id)!];
-        if (isOthersHand(s, z, actor) && !s.settings.openHands)
-          fail('OTHERS_HAND', `That card is in ${playerName(s, zoneOwner(s, z))}'s hand`);
+        if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z, true);
       }
       for (const id of ids) {
         s.cards[id].faceUp = !s.cards[id].faceUp;
@@ -588,7 +664,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
     }
     case 'flipZone': {
       const z = getZone(s, action.zone);
-      if (isOthersHand(s, z, actor) && !s.settings.openHands) fail('OTHERS_HAND', 'That is another player\'s hand');
+      if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z);
       if (!z.cards.length) break;
       if (z.layout === 'pile' && !action.face) {
         // table-play "Card face state": turning a pile over reverses it and turns every card
@@ -612,7 +688,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
     }
     case 'shuffle': {
       const z = getZone(s, action.zone);
-      if (isOthersHand(s, z, actor) && !s.settings.openHands) fail('OTHERS_HAND', 'That is another player\'s hand');
+      if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z);
       const a = z.cards;
       for (let i = a.length - 1; i > 0; i--) {
         const j = ctx.rng.int(i + 1);
@@ -667,7 +743,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         picked = [];
         for (let i = 0; i < k; i++) picked.push(pool.splice(ctx.rng.int(pool.length), 1)[0]);
       }
-      if (isOthersHand(s, src, actor) && !s.settings.openHands && actor) {
+      if (isOthersOwned(s, src, actor) && !s.settings.openHands && actor) {
         makeRequest(picked, src, to.id);
         break;
       }
@@ -764,7 +840,8 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (!ids.length) fail('EMPTY', 'Nothing to peek at');
       for (const id of ids) {
         const z = s.zones[loc.get(id)!];
-        if (isOthersHand(s, z, actor) && !s.settings.openHands) fail('OTHERS_HAND', 'You cannot peek into another player\'s hand');
+        if (isOthersOwned(s, z, actor) && !s.settings.openHands)
+          fail('OTHERS_HAND', z.kind === 'hand' ? "You cannot peek into another player's hand" : `You cannot peek into ${zoneLabel(s, z)}`);
         const c = s.cards[id];
         if (actor && !c.peekedBy.includes(actor)) c.peekedBy.push(actor);
       }
@@ -812,7 +889,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         log(s, now, actor, `${who} declined ${requester}'s request`, 'action', undefined, true);
         break;
       }
-      const hand = handZoneId(req.seatId);
+      const hand = req.zone ?? handZoneId(req.seatId);
       const ids = req.cards.filter((c) => loc.get(c) === hand);
       const to = s.zones[req.to];
       if (!ids.length || !to) {
@@ -828,7 +905,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         s,
         now,
         actor,
-        `${requester} took ${publicDesc(s, ids, loc)} from ${who}'s hand${to.kind === 'shared' ? ` to ${to.name}` : ''}`,
+        `${requester} took ${publicDesc(s, ids, loc)} from ${req.zone ? `${who}'s ${s.zones[req.zone]?.name ?? 'zone'}` : `${who}'s hand`}${to.kind !== 'hand' ? ` to ${zoneLabel(s, to)}` : ''}`,
         'action',
         priv,
         true,
@@ -842,8 +919,10 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       break;
     }
     case 'zoneUpdate': {
-      const z = getZone(s, action.zone);
-      if (z.kind === 'hand' && (action.name || action.layout)) fail('HAND_ZONE', 'Hands cannot be renamed or relaid');
+      const target = getZone(s, action.zone);
+      if (target.kind === 'hand' && (action.name || action.layout)) fail('HAND_ZONE', 'Hands cannot be renamed or relaid');
+      // per-player-zones: an edit applies to every copy
+      for (const z of copiesOf(s, target)) {
       if (action.name) z.name = action.name;
       if (action.layout) {
         z.layout = action.layout;
@@ -861,40 +940,45 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
           else delete z.newRow;
         }
       }
+      }
       break;
     }
     case 'zoneMove': {
-      const z = getZone(s, action.zone);
-      if (z.kind === 'hand') fail('HAND_ZONE', 'Hands are not arranged on the board');
-      const shared = s.zoneOrder.filter((id) => s.zones[id]?.kind === 'shared');
+      const picked = getZone(s, action.zone);
+      if (picked.kind === 'hand') fail('HAND_ZONE', 'Hands are not arranged on the board');
+      // slots: shared zones and each per-player group once (as its first copy)
+      const slotIds = boardSlots(s.zoneOrder.map((id) => s.zones[id])).map((x) => x.id);
+      const z = s.zones[slotIds.find((id) => s.zones[id].id === picked.id || (picked.group && s.zones[id].group === picked.group))!];
+      const shared = [...slotIds];
       const from = shared.indexOf(z.id);
       const to = Math.min(action.index, shared.length - 1);
       if (from === to) break;
       shared.splice(from, 1);
       shared.splice(to, 0, z.id);
-      // write the shared zones back into their slots; hand zones keep theirs
+      // write the slots back into their places (other copies follow their group); hand zones keep theirs
+      const isSlot = new Set(slotIds);
       let k = 0;
-      s.zoneOrder = s.zoneOrder.map((id) => (s.zones[id]?.kind === 'shared' ? shared[k++] : id));
+      s.zoneOrder = s.zoneOrder.map((id) => (isSlot.has(id) ? shared[k++] : id));
+      normalizeOrder(s);
       log(s, now, actor, `${who} moved ${z.name}`, 'system');
       break;
     }
     case 'zoneRemove': {
       const z = getZone(s, action.zone);
       if (z.kind === 'hand') fail('HAND_ZONE', 'Hands are removed with their seat');
-      const homes = Object.values(s.decks).filter((d) => d.homeZoneId === z.id);
-      if (z.cards.length || homes.length) {
-        if (!action.moveTo) fail('ZONE_NOT_EMPTY', `${z.name} still has ${plural(z.cards.length)}: choose where to move them`);
+      // per-player-zones: removing the zone removes every copy
+      const all = copiesOf(s, z);
+      const ids = all.flatMap((c) => c.cards);
+      const homes = Object.values(s.decks).filter((d) => all.some((c) => c.id === d.homeZoneId));
+      if (ids.length || homes.length) {
+        if (!action.moveTo) fail('ZONE_NOT_EMPTY', `${z.name} still has ${plural(ids.length)}: choose where to move them`);
         const dest = getZone(s, action.moveTo!);
-        if (dest.id === z.id) fail('BAD_TARGET', 'Choose a different zone');
-        if (z.cards.length) {
-          const ids = [...z.cards];
-          const from = doMove(ids, dest, {});
-          void from;
-        }
+        if (all.some((c) => c.id === dest.id)) fail('BAD_TARGET', 'Choose a different zone');
+        if (ids.length) doMove(ids, dest, {});
         for (const d of homes) d.homeZoneId = dest.id;
       }
-      delete s.zones[z.id];
-      s.zoneOrder = s.zoneOrder.filter((x) => x !== z.id);
+      for (const c of all) delete s.zones[c.id];
+      s.zoneOrder = s.zoneOrder.filter((x) => s.zones[x]);
       log(s, now, actor, `${who} removed ${z.name}`, 'system');
       break;
     }
@@ -1020,9 +1104,12 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         log(s, now, actor, `${who} kept ${v.playerName}'s hand at the empty seat`, 'system');
         break;
       }
-      const hz = s.zones[handZoneId(seat.id)];
       const dest = getZone(s, action.returnTo);
-      if (hz.cards.length) doMove([...hz.cards], dest, { face: 'down' });
+      // the hand and the seat's per-player copies
+      const held = Object.values(s.zones)
+        .filter((z) => z.seatId === seat.id)
+        .flatMap((z) => z.cards);
+      if (held.length) doMove(held, dest, { face: 'down' });
       log(s, now, actor, `${who} returned ${v.playerName}'s hand to ${dest.name}`, 'system');
       if (s.settings.seatLimit === null && !seat.playerId) removeSeat(s, seat.id);
       break;
@@ -1059,7 +1146,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const dealOrder = seated.slice(hostAt).concat(seated.slice(0, hostAt));
       for (const id of Object.keys(s.cards)) touched.add(id);
       for (const z of Object.values(s.zones)) {
-        if (z.kind === 'shared') delete s.zones[z.id];
+        if (z.kind !== 'hand') delete s.zones[z.id];
         else {
           z.cards = [];
           z.pos = {};
@@ -1072,10 +1159,14 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       s.requests = [];
       const zoneOf: Record<string, string> = {};
       for (const pz of plan.zones) {
-        const z = addZone(s, { name: pz.name, layout: pz.layout, ...(pz.color ? { color: pz.color } : {}), ...(pz.width ? { width: pz.width } : {}), ...(pz.newRow ? { newRow: true } : {}) });
-        zoneOf[pz.key] = z.id;
+        const z = addZone(s, { name: pz.name, layout: pz.layout, ...(pz.color ? { color: pz.color } : {}), ...(pz.width ? { width: pz.width } : {}), ...(pz.newRow ? { newRow: true } : {}), ...(pz.perPlayer ? { perPlayer: true } : {}) });
+        zoneOf[pz.key] = z.group ?? z.id;
       }
       const target = (t: PlanTarget): Zone => {
+        if ('zone' in t && 'seat' in t) {
+          const seat = dealOrder[t.seat] ?? fail('SEATS_CHANGED', 'The players changed; apply the setup again');
+          return s.zones[perPlayerZoneId(zoneOf[t.zone], seat.id)] ?? fail('BAD_SETUP', 'The setup refers to a missing zone');
+        }
         if ('zone' in t) return s.zones[zoneOf[t.zone]] ?? fail('BAD_SETUP', 'The setup refers to a missing zone');
         const seat = dealOrder[t.hand] ?? fail('SEATS_CHANGED', 'The players changed; apply the setup again');
         return s.zones[handZoneId(seat.id)];
@@ -1217,10 +1308,11 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
           c.shownBy = null;
         }
       }
-      const hz = s.zones[handZoneId(seat.id)];
       const verb = action.reason === 'kicked' ? 'was removed from the table' : 'left';
       log(s, now, pid, `${name} ${verb}`, 'system');
-      if (hz.cards.length) s.vacated.push({ seatId: seat.id, playerId: pid, playerName: name });
+      // the seat is kept while its hand or any of its per-player copies hold cards
+      const held = Object.values(s.zones).some((z) => z.seatId === seat.id && z.cards.length);
+      if (held) s.vacated.push({ seatId: seat.id, playerId: pid, playerName: name });
       else if (s.settings.seatLimit === null) removeSeat(s, seat.id);
       if (wasActive && s.mode === 'turn') {
         s.turn.active = nextSeat(s, seat.id, ctx.connected);
@@ -1254,6 +1346,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       fail('BAD_ACTION', `Unknown action ${(never as any).type}`);
     }
   }
+  normalizeOrder(s); // per-player copies stay together whatever changed the order
   return res;
 }
 

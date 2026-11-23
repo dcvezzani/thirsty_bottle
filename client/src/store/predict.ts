@@ -24,7 +24,7 @@ export function predictMove(
   const placed = moving.map((c) => {
     const faceUp = face ? face === 'up' : c.faceUp;
     const n: CardView = { ...c, faceUp, shownTo: undefined, shownBy: undefined, peeked: undefined };
-    if (othersHand || (target.kind === 'shared' && !faceUp)) {
+    if (othersHand || (target.kind !== 'hand' && !faceUp)) {
       // will be hidden from me after the move
       return { h: c.h, faceUp, known: false, ...(c.back ? { back: c.back } : {}) } as CardView;
     }
@@ -47,8 +47,8 @@ export function predictFlip(v: TableView, handles: string[]): TableView {
             cards: z.cards.map((c) => {
               if (!set.has(c.h)) return c;
               const faceUp = !c.faceUp;
-              // flipping a shared face-up card face down hides it from me
-              if (z.kind === 'shared' && !faceUp && !c.shownTo && !c.peeked) return { h: c.h, faceUp, known: false, ...(c.back ? { back: c.back } : {}) };
+              // flipping a face-up card face down outside a hand hides it from me (shared and per-player zones)
+              if (z.kind !== 'hand' && !faceUp && !c.shownTo && !c.peeked) return { h: c.h, faceUp, known: false, ...(c.back ? { back: c.back } : {}) };
               return { ...c, faceUp };
             }),
           }

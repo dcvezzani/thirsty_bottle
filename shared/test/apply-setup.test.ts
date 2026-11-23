@@ -35,7 +35,11 @@ describe('applySetup (table-setups 2.1)', () => {
     const logBefore = s.log.length;
     const seatsBefore = structuredClone(s.seats);
     s = run(s, applyAction(s), ALEX.playerId).state;
-    expect(shared(s).map((z) => z.name)).toEqual(['Stock', 'P1', 'Alex pile', 'Sam pile']);
+    expect(shared(s).map((z) => z.name)).toEqual(['Stock', 'P1']);
+    // per-player-zones: the per-seat "{name} pile" is one per-player zone with a copy per seat
+    const piles = s.zoneOrder.map((id) => s.zones[id]).filter((z) => z.kind === 'player');
+    expect(piles.map((z) => [z.name, z.seatId])).toEqual(s.seats.filter((x) => x.playerId).map((x) => ['pile', x.id]));
+    for (const z of piles) expect(faces(s, z.id)).toEqual(['up']);
     expect(s.seats).toEqual(seatsBefore);
     expect(s.log.length).toBe(logBefore + 1);
     expect(s.log.at(-1)!.text).toBe('Alex applied Mini');
@@ -44,7 +48,6 @@ describe('applySetup (table-setups 2.1)', () => {
     expect(s.lastSetup).toEqual({ id: 'set1', versionId: 'v1', name: 'Mini' });
     // counts and faces as planned
     expect(faces(s, byName(s, 'P1').id)).toEqual(['down', 'down', 'up']);
-    expect(faces(s, byName(s, 'Alex pile').id)).toEqual(['up']);
     for (const seat of s.seats.filter((x) => x.playerId)) expect(s.zones[handZoneId(seat.id)].cards).toHaveLength(5);
     const total = Object.values(s.zones).reduce((t, z) => t + z.cards.length, 0);
     expect(total).toBe(52);

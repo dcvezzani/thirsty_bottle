@@ -24,7 +24,7 @@ export function SeatBar({ view }: { view: TableView }) {
             data-seat-zone={hand?.id}
             data-testid={`seat-${s.name || s.index + 1}`}
             onClick={() => setSheet({ kind: 'seat', seat: s.id })}
-            aria-label={`${s.playerId ? s.name : `Empty seat ${s.index + 1}`}${active ? ', their turn' : ''}${s.disconnected ? ', disconnected' : ''}: ${s.handCount} cards`}
+            aria-label={`${s.playerId ? s.name : `Empty seat ${s.index + 1}`}${active ? ', their turn' : ''}${s.disconnected ? ', disconnected' : ''}: ${s.handCount} cards${(s.zoneCounts ?? []).map((z) => `, ${z.name} ${z.count}`).join('')}`}
           >
             <span className="seat-name">
               {view.hostId === s.playerId && <span title="Host">👑 </span>}
@@ -38,6 +38,12 @@ export function SeatBar({ view }: { view: TableView }) {
               </span>
               <span className="seat-count">{s.handCount}</span>
             </span>
+            {/* per-player-zones: a count for each of the player's per-player zones */}
+            {(s.zoneCounts ?? []).map((z) => (
+              <span key={z.zone} className="seat-zone-count small-text">
+                {z.name} {z.count}
+              </span>
+            ))}
             {s.disconnected && <span className="seat-status">disconnected</span>}
             {!s.connected && !s.disconnected && s.playerId && <span className="seat-status">…</span>}
             {visible.length > 0 && (
