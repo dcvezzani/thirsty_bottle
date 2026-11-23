@@ -66,7 +66,10 @@ describe('deck-version-pruning 1.2', () => {
     // table still plays from its snapshot
     await c.req({ t: 'table.join', tableId });
     await until(() => !!c.table && c.zone('Prune B')?.cards.length === 1);
-    // the image used only by pruned versions is collected
+    // the image used only by pruned versions is collected once it leaves the uploader's library
+    srv.app.images.gc(0);
+    expect(srv.app.images.exists(onlyOld)).toBe(true);
+    expect((await A('DELETE', `/api/library/images/${onlyOld}`)).status).toBe(200);
     srv.app.images.gc(0);
     expect(srv.app.images.exists(onlyOld)).toBe(false);
     await c.req({ t: 'table.leave', tableId });

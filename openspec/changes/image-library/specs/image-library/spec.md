@@ -72,11 +72,15 @@ From the library in the deck editor, the owner SHALL be able to select several i
 - **THEN** each new card has 2 copies and the pinned back
 
 ### Requirement: Deleting library images
-A player SHALL be able to delete a library image only when no deck version, deck draft or loaded table uses it. For an image in use, the library SHALL show where it is used and SHALL NOT delete it. Deleting SHALL remove it from the library and allow automatic cleanup to remove the file.
+A player SHALL be able to delete a library image only when none of their own decks uses it (in its current version or unsaved draft). For an image in use, the library SHALL show where it is used and SHALL NOT delete it. Deleting SHALL remove it from the player's library. The stored file SHALL remain while any other library, deck version, draft or table still uses it, and SHALL otherwise be removed.
 
 #### Scenario: Unused image deleted
-- **WHEN** the player deletes a library image no deck uses
+- **WHEN** the player deletes a library image none of their decks uses
 - **THEN** it disappears from the library
+
+#### Scenario: Others keep their copy
+- **WHEN** the player deletes an image that another player's library or a clone of their deck also uses
+- **THEN** the other player's copy and the clone's artwork keep working
 
 #### Scenario: Used image protected
 - **WHEN** the player tries to delete an image used by 3 cards in 2 decks

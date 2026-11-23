@@ -163,7 +163,52 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (setup_id, reporter_id)
   );
   `,
+  // 4: per-player image library (image-library); backfilled by POST_MIGRATION[4]
+  `
+  CREATE TABLE library_images (
+    player_id TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    added_at INTEGER NOT NULL,
+    PRIMARY KEY (player_id, image_id)
+  );
+  CREATE INDEX library_images_image ON library_images(image_id);
+  `,
 ];
+
+/** Image ids a deck's content uses, each with a readable name: "<card> (front)", "<card> (back)" or "Deck back". */
+export function namedImagesOf(content: { backImageId?: string; cards?: { name?: string; frontImageId?: string; backImageId?: string }[] }) {
+  const out: { id: string; name: string }[] = [];
+  for (const c of content.cards ?? []) {
+    if (c.frontImageId) out.push({ id: c.frontImageId, name: `${c.name ?? 'Card'} (front)`.slice(0, 100) });
+    if (c.backImageId) out.push({ id: c.backImageId, name: `${c.name ?? 'Card'} (back)`.slice(0, 100) });
+  }
+  if (content.backImageId) out.push({ id: content.backImageId, name: 'Deck back' });
+  return out;
+}
+
+/** Adds the images a deck's content uses to a player's library (first name wins; existing entries are kept). */
+export function addContentToLibrary(db: DB, playerId: string, content: Parameters<typeof namedImagesOf>[0], at = Date.now()) {
+  const ins = db.prepare('INSERT INTO library_images (player_id, image_id, name, added_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING');
+  for (const { id, name } of namedImagesOf(content)) ins.run(playerId, id, name, at);
+}
+
+/** Data steps that run once, right after the numbered migration of the same version. Must be idempotent. */
+const POST_MIGRATION: Record<number, (db: DB) => void> = {
+  4: (db) => {
+    const decks = db.prepare(
+      `SELECT d.owner_id AS owner, v.content AS cur, dr.content AS draft FROM decks d
+       JOIN deck_versions v ON v.id = d.current_version_id
+       LEFT JOIN deck_drafts dr ON dr.deck_id = d.id
+       WHERE d.owner_id IS NOT NULL AND d.built_in = 0 ORDER BY d.created_at`,
+    ).all() as { owner: string; cur: string; draft: string | null }[];
+    for (const d of decks) for (const json of [d.cur, d.draft]) if (json) addContentToLibrary(db, d.owner, JSON.parse(json));
+    db.prepare(
+      `INSERT INTO library_images (player_id, image_id, name, added_at)
+       SELECT owner_id, id, 'Image', created_at FROM images WHERE owner_id IS NOT NULL ON CONFLICT DO NOTHING`,
+    ).run();
+  },
+};
 
 export function openDb(dataDir: string): DB {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -175,16 +220,18 @@ export function openDb(dataDir: string): DB {
   return db;
 }
 
-export function migrate(db: DB) {
+/** Applies pending migrations, optionally only up to `target` (tests use this to build older databases). */
+export function migrate(db: DB, target = MIGRATIONS.length) {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)');
   const done = new Set(
     (db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]).map((r) => r.version),
   );
   MIGRATIONS.forEach((sql, i) => {
     const v = i + 1;
-    if (done.has(v)) return;
+    if (done.has(v) || v > target) return;
     db.transaction(() => {
       db.exec(sql);
+      POST_MIGRATION[v]?.(db);
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(v, Date.now());
     })();
   });

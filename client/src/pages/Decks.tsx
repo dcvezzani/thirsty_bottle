@@ -89,6 +89,9 @@ export function DecksPage() {
           <button aria-label="Back to lobby">←</button>
         </Link>
         <h1>Decks</h1>
+        <Link to="/images">
+          <button>Images</button>
+        </Link>
         <label className="small-text" style={{ margin: 0 }}>
           <span className="sr-only">Import deck</span>
           <input type="file" accept=".zip,.json,application/zip,application/json" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} />

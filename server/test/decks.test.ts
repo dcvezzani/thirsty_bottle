@@ -134,6 +134,8 @@ describe('archive, restore, delete (4.3)', () => {
     expect(srv.app.images.exists(img.id)).toBe(true); // still referenced by the clone
     await S('POST', `/api/decks/${clone.id}/archive`);
     await S('DELETE', `/api/decks/${clone.id}`, { confirm: true });
+    expect(srv.app.images.exists(img.id)).toBe(true); // still in Alex's image library (image-library)
+    expect((await A('DELETE', `/api/library/images/${img.id}`)).status).toBe(200);
     expect(srv.app.images.exists(img.id)).toBe(false);
   });
 });

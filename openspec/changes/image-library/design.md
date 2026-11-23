@@ -34,9 +34,9 @@
 - `POST /api/images` gets an optional multipart `name` field, the client-sent filename stem trimmed to 100 characters. After ingest it upserts a library row. A re-import keeps the existing name and does not duplicate.
 - `GET /api/library/images` returns `[{ id, name, addedAt, uses: { cards, deckBacks, decks } }]` for the caller.
   - Usage is computed by scanning the caller's own deck drafts and current versions for the id. That is per player, so it stays a cheap scan.
-  - The response also carries `inUseAnywhere`, which checks all versions, drafts and table decks. That flag gates deletion.
+  - Deletion is blocked only by the caller's own decks (current version or draft). Removing a library row can never break anyone else's artwork, because cleanup keeps every file still referenced by a deck version, draft, table or other library.
 - `PATCH /api/library/images/:id` takes `{ name }` to rename.
-- `DELETE /api/library/images/:id` returns 409 `IN_USE` with the counts when the image is used anywhere. Otherwise it removes the row and runs `gc()` for that id.
+- `DELETE /api/library/images/:id` returns 409 `IN_USE` ("Used by 3 cards in 2 decks") when the caller's decks use it. Otherwise it removes the row, clears first-uploader ownership, and runs `gc(0, id)`.
 - Bulk import is a client-side queue of single `POST /api/images` calls, run two at a time. The multipart `files: 1` limit is kept, so per-file errors map directly to the queue.
 
 **D4. Backfill inside migration 4.**
@@ -59,7 +59,7 @@
 ## Risks / Trade-offs
 
 - [Libraries grow without bound] → Owners can delete images. Storage is already capped per upload. The image count is shown on the Images page.
-- [Usage scan cost for large accounts] → It scans only the caller's decks for counts. The global in-use check runs only on delete, using indexed lookups with `LIKE` the same way `canFetch` already does.
+- [Usage scan cost for large accounts] → Counts scan only the caller's decks.
 - [Backfill naming is approximate] → Names can be edited, and "Image" is a fallback.
 - [The uploader's filename may contain personal info] → Names are visible only to the owner, and are never added to deck content or exports.
 

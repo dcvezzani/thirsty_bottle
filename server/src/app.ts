@@ -13,6 +13,7 @@ import {
   PlayerColorSchema,
   RECONNECT_GRACE_MS,
   tableChannel,
+  imageNameFromFile,
 } from '@vct/shared';
 import { z } from 'zod';
 import { openDb, type DB } from './db.js';
@@ -23,6 +24,7 @@ import { Hub } from './hub.js';
 import { Decks } from './decks.js';
 import { Setups } from './setups.js';
 import { Images, MAX_UPLOAD_BYTES, UPLOAD_RULES } from './images.js';
+import { Library } from './library.js';
 import { DeckIO } from './deckio.js';
 import multipart from '@fastify/multipart';
 import { HttpError } from './util.js';
@@ -53,6 +55,7 @@ export class App {
   decks: Decks;
   setups: Setups;
   images: Images;
+  library: Library;
   deckio: DeckIO;
   http: FastifyInstance;
   /** Player id → the table they are seated at or watching. */
@@ -89,6 +92,7 @@ export class App {
     this.decks = new Decks(this);
     this.setups = new Setups(this);
     this.images = new Images(this);
+    this.library = new Library(this);
     this.deckio = new DeckIO(this);
     // trustProxy: in production the server sits behind the platform's TLS proxy (server-hosting spec),
     // so req.protocol / req.host / req.ip must come from the X-Forwarded-* headers.
@@ -240,7 +244,12 @@ export class App {
         throw new HttpError(413, 'TOO_LARGE', `Upload rejected: use ${UPLOAD_RULES}`);
       }
       if (file.file.truncated) throw new HttpError(413, 'TOO_LARGE', `Upload rejected: use ${UPLOAD_RULES}`);
-      return this.images.ingest(buf, me.id);
+      const img = await this.images.ingest(buf, me.id);
+      // Every upload joins the uploader's image library, named after the file (image-library).
+      const field = (file.fields as any)?.name;
+      const given = field && !Array.isArray(field) && typeof field.value === 'string' ? field.value.trim().slice(0, 100) : '';
+      this.library.add(me.id, img.id, given || imageNameFromFile(file.filename));
+      return img;
     });
     app.get('/api/images/:file', async (req, reply) => {
       const m = /^([a-f0-9]{64})(\.thumb)?\.webp$/.exec((req.params as any).file);
@@ -253,6 +262,7 @@ export class App {
     });
 
     await this.decks.routes(app);
+    await this.library.routes(app);
     await this.setups.routes(app);
     await this.deckio.routes();
 

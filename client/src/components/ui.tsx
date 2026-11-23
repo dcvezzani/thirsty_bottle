@@ -1,15 +1,21 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useApp } from '../store/app';
 
 export function Sheet({ title, onClose, children, label }: { title: string; onClose: () => void; children: ReactNode; label?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    // Escape closes only the topmost sheet (sheets can open over sheets, e.g. the image picker over the card form).
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const sheets = document.querySelectorAll('.sheet');
+      if (sheets[sheets.length - 1] === ref.current) onClose();
+    };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
   return (
     <div className="overlay" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-label={label ?? title}>
+      <div className="sheet" ref={ref} role="dialog" aria-label={label ?? title}>
         <div className="row">
           <h2 className="grow">{title}</h2>
           <button className="ghost" aria-label="Close" onClick={onClose}>

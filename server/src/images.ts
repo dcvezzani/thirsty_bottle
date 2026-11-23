@@ -70,13 +70,19 @@ export class Images {
     for (const r of this.app.db.prepare('SELECT content FROM deck_versions').iterate() as Iterable<any>) scan(r.content);
     for (const r of this.app.db.prepare('SELECT content FROM deck_drafts').iterate() as Iterable<any>) scan(r.content);
     for (const r of this.app.db.prepare('SELECT content FROM table_decks').iterate() as Iterable<any>) scan(r.content);
+    // Images kept in any player's library stay until they are removed from it (image-library).
+    for (const r of this.app.db.prepare('SELECT DISTINCT image_id FROM library_images').iterate() as Iterable<any>) ids.add(r.image_id);
     return ids;
   }
 
   /** Removes image files nothing references any more (uploads younger than `graceMs` are kept). */
-  gc(graceMs = 3600_000): number {
+  gc(graceMs = 3600_000, onlyId?: string): number {
     const keep = this.referenced();
-    const rows = this.app.db.prepare('SELECT id, created_at FROM images').all() as { id: string; created_at: number }[];
+    const rows = (
+      onlyId
+        ? this.app.db.prepare('SELECT id, created_at FROM images WHERE id = ?').all(onlyId)
+        : this.app.db.prepare('SELECT id, created_at FROM images').all()
+    ) as { id: string; created_at: number }[];
     let removed = 0;
     for (const r of rows) {
       if (keep.has(r.id) || Date.now() - r.created_at < graceMs) continue;
@@ -88,10 +94,11 @@ export class Images {
     return removed;
   }
 
-  /** Can this player fetch the image? Uploader, or it belongs to a deck they can view or a table they are at. */
+  /** Can this player fetch the image? Uploader, library holder, or it belongs to a deck they can view or a table they are at. */
   canFetch(id: string, playerId: string | null, shareToken?: string): boolean {
     const row = this.app.db.prepare('SELECT owner_id FROM images WHERE id = ?').get(id) as any;
     if (row && playerId && row.owner_id === playerId) return true;
+    if (playerId && this.app.library.holds(playerId, id)) return true;
     const needle = `%${id}%`;
     if (playerId) {
       const tid = this.app.playerTables.get(playerId);

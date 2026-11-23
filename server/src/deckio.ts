@@ -200,7 +200,9 @@ export class DeckIO {
       const errs = parsed.error.issues.map((i) => ({ card: typeof i.path[1] === 'number' ? i.path[1] : undefined, message: `${i.path.join('.')}: ${i.message}` }));
       throw Object.assign(new HttpError(400, 'BAD_MANIFEST', errs.map((e) => e.message).join('; ')), { errors: errs });
     }
-    return this.app.decks.create(playerId, parsed.data);
+    const deckId = this.app.decks.create(playerId, parsed.data);
+    this.app.library.addContent(playerId, parsed.data); // imported artwork joins the importer's library
+    return deckId;
   }
 
   // ------------------------------------------------------------------ built-in decks

@@ -9,6 +9,7 @@
   /* borders of fields and outlined buttons: at least 3:1 against panels (ui-readability) */
   --control-line: #8a8577;
   --accent: #c8102e;
+  --err: #b00020;
   --accent-ink: #fff;
   --good: #1f7a4d;
   --felt-line: rgba(255, 255, 255, 0.18);
@@ -31,6 +32,7 @@
     --line: #45463e;
     --control-line: #8b8b80;
     --accent: #e0263f;
+    --err: #ff8a8a;
     color-scheme: dark;
   }
 }
@@ -132,7 +134,7 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .chat-msg.system { color: var(--ink-2); font-style: italic; font-size: 13px; }
 .chat-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .empty { color: var(--ink-2); text-align: center; padding: 24px 8px; }
-.err { color: #b00020; font-size: 14px; }
+.err { color: var(--err); font-size: 14px; }
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .deck-tile { display: flex; gap: 10px; align-items: center; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; }
@@ -332,3 +334,12 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .setup-editor h3 { margin: 18px 0 6px; }
 .warn-text { color: #8a4b00; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn-text { color: #ffcf8a; } }
+
+/* ---------------------------------------------------------------- image library (image-library) */
+.img-grid { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+.img-tile { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; min-height: var(--tap); padding: 6px; border-radius: 10px; text-align: left; }
+.img-tile .card { display: block; }
+.img-tile.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.img-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.img-use { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.img-order { position: absolute; top: 4px; left: 4px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; display: grid; place-items: center; }

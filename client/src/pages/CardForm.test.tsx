@@ -122,3 +122,25 @@ describe('CardForm pins', () => {
     expect(copies().value).toBe('4');
   });
 });
+
+describe('ImagePicker library choice (2.3)', () => {
+  it('Choose from images sets the card front without uploading', async () => {
+    const lib = [{ id: 'f'.repeat(64), name: 'Goblin', addedAt: 1, uses: { cards: 0, deckBacks: 0, decks: 0 } }];
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(lib), { headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const spy = vi.fn();
+      mount({ spy });
+      fireEvent.change(name(), { target: { value: 'G' } });
+      fireEvent.click(screen.getAllByRole('button', { name: 'Choose from images…' })[0]);
+      fireEvent.click(await screen.findByRole('button', { name: 'Use Goblin' }));
+      expect(screen.queryByRole('dialog', { name: 'Choose from images' })).toBeNull();
+      expect((screen.getByAltText('front') as HTMLImageElement).src).toContain('f'.repeat(64));
+      fireEvent.click(screen.getByText('Done'));
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ frontImageId: 'f'.repeat(64) }));
+      expect(fetchMock.mock.calls.every((c: any[]) => !String(c[0]).startsWith('/api/images'))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

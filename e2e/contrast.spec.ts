@@ -1,5 +1,6 @@
 import { test, expect, devices, type Page } from '@playwright/test';
 import { onboard, createTable, draw } from './helpers';
+import sharp from 'sharp';
 import { lowContrast } from './contrast';
 
 const SIZES = [
@@ -33,6 +34,19 @@ for (const scheme of ['light', 'dark'] as const) {
       // deck editor with the card form open
       await page.getByRole('button', { name: 'Decks' }).click();
       await expectReadable(page, 'decks library');
+      // image-library: the Images page with an imported image, its details sheet
+      await page.getByRole('button', { name: 'Images' }).click();
+      const art = await sharp({ create: { width: 250, height: 350, channels: 3, background: '#336699' } }).png().toBuffer();
+      await page.getByLabel('Import images').setInputFiles([
+        { name: 'contrast-art.png', mimeType: 'image/png', buffer: art },
+        { name: 'bad.png', mimeType: 'image/png', buffer: Buffer.from('nope') },
+      ]);
+      await expect(page.getByText('Imported 1 image.')).toBeVisible();
+      await expectReadable(page, 'images page');
+      await page.getByRole('list', { name: 'Images' }).getByRole('button', { name: 'contrast-art' }).click();
+      await expectReadable(page, 'image details');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Back to decks' }).click();
       await page.getByLabel('New deck name').fill('Contrast deck');
       await page.getByRole('button', { name: 'Create' }).click();
       await page.getByRole('button', { name: '+ Add card' }).click();
@@ -45,7 +59,16 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Save & add another' }).click();
       await expect(page.getByText('Same name as the last card')).toBeVisible();
       await expectReadable(page, 'card form pinned');
+      await page.getByRole('button', { name: 'Choose from images…' }).first().click();
+      await expect(page.getByRole('dialog', { name: 'Choose from images' }).getByRole('button', { name: 'Use contrast-art' })).toBeVisible();
+      await expectReadable(page, 'image picker');
       await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Choose from images' })).toHaveCount(0);
+      await expect(page.getByRole('dialog', { name: 'New card' })).toBeVisible(); // Escape closes only the top sheet
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Images', exact: true }).click();
+      await page.getByRole('region', { name: 'Deck images' }).getByRole('button', { name: 'All' }).click();
+      await expectReadable(page, 'deck images');
 
       // table: zone sheet, draw sheet, counters, drawer, seat and card info
       await page.goto('/');

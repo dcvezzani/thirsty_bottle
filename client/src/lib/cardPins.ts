@@ -1,4 +1,4 @@
-import type { Ability, MetaType } from '@vct/shared';
+import type { Ability, MetaType, MetaValue } from '@vct/shared';
 
 /**
  * Remembered ("pinned") values for the deck editor's New card form.
@@ -91,4 +91,30 @@ export function prefill(p: CardPins, template: { key: string; type: MetaType }[]
     abilityPins: p.abilities.map(() => true),
     pinned: { name: isPinned(p, 'name'), count: isPinned(p, 'count'), description: isPinned(p, 'description'), front: isPinned(p, 'front'), back: isPinned(p, 'back') },
   };
+}
+
+/** Card metadata as editable rows. */
+export function toRows(md: Record<string, MetaValue>): MetaRow[] {
+  return Object.entries(md).map(([key, v]) => ({
+    key,
+    type: Array.isArray(v) ? 'list' : typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'text',
+    value: Array.isArray(v) ? v.join(', ') : String(v),
+  }));
+}
+
+/** Rows back to card metadata; the first invalid number is reported. */
+export function fromRows(rows: MetaRow[]): { md: Record<string, MetaValue>; err?: string } {
+  const md: Record<string, MetaValue> = {};
+  for (const r of rows) {
+    const k = r.key.trim();
+    if (!k) continue;
+    if (r.type === 'number') {
+      const n = Number(r.value);
+      if (r.value.trim() === '' || !Number.isFinite(n)) return { md, err: `"${k}" must be a number` };
+      md[k] = n;
+    } else if (r.type === 'boolean') md[k] = r.value === 'true';
+    else if (r.type === 'list') md[k] = r.value.split(',').map((s) => s.trim()).filter(Boolean);
+    else md[k] = r.value;
+  }
+  return { md };
 }

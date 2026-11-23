@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { Ability, CardDef, DeckContent, DeckDetail, DeckSummary, MetaType, MetaValue } from '@vct/shared';
+import type { Ability, CardDef, DeckContent, DeckDetail, DeckSummary, MetaType } from '@vct/shared';
 import { api, download, imageUrl } from '../lib/api';
 import { useApp } from '../store/app';
 import { Sheet } from '../components/ui';
+import { ImageLibrary } from '../components/ImageLibrary';
+import { cardsFromImages, type LibraryDeck } from '../lib/library';
 import { DefCard, TextFace } from '../components/Card';
-import { loadPins, prefill, savePins, snapshot, type FormSnapshot, type MetaRow, type ScalarPin } from '../lib/cardPins';
+import { fromRows, loadPins, prefill, savePins, snapshot, toRows, type FormSnapshot, type MetaRow, type ScalarPin } from '../lib/cardPins';
 
 const newId = () => 'c_' + Math.random().toString(36).slice(2, 10);
 
@@ -187,11 +189,13 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
   // "Save & add another" remounts the New card form with fresh pinned values.
   const [formKey, setFormKey] = useState(0);
   const [lastName, setLastName] = useState<string | undefined>(undefined);
+  const [showImages, setShowImages] = useState(false);
   const [settings, setSettings] = useState(false);
   const [copying, setCopying] = useState(false);
   const [bulk, setBulk] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const archived = deck.status === 'archived';
+  const libDeck = useMemo(() => ({ id: deck.id, content }), [deck.id, content]);
 
   const update = (f: (c: DeckContent) => DeckContent) => {
     setContent((prev) => {
@@ -309,6 +313,9 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
           <button disabled={archived || resumePrompt} onClick={() => setCopying(true)}>
             Copy cards from…
           </button>
+          <button aria-expanded={showImages} disabled={archived || resumePrompt} onClick={() => setShowImages(!showImages)}>
+            Images
+          </button>
           <span className="grow" />
           <button disabled={!dirty} onClick={discard}>
             Discard
@@ -317,6 +324,19 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
             Save
           </button>
         </div>
+        {showImages && !archived && !resumePrompt && (
+          <section className="card-tile" style={{ marginTop: 10 }} aria-label="Deck images">
+            <ImageLibrary
+              mode="manage"
+              deck={libDeck}
+              onCreateCards={(imgs) => {
+                const cards = cardsFromImages(imgs, loadPins(deck.id), content.propertyTemplate ?? [], newId);
+                update((c) => ({ ...c, cards: [...c.cards, ...cards] }));
+                toast(`Added ${cards.length} card${cards.length === 1 ? '' : 's'}`);
+              }}
+            />
+          </section>
+        )}
         {sel.length > 0 && (
           <div className="row wrap card-tile" style={{ marginTop: 10 }} aria-label="Selection actions">
             <strong>{sel.length} selected</strong>
@@ -395,6 +415,7 @@ function DeckEditor({ deck, reload }: { deck: DeckDetail; reload: () => void }) 
           card={editing === 'new' ? null : editing}
           template={content.propertyTemplate ?? []}
           deckId={deck.id}
+          libDeck={libDeck}
           lastName={editing === 'new' ? lastName : undefined}
           onClose={() => setEditing(null)}
           onSave={(card, next) => {
@@ -467,7 +488,7 @@ function DeckSettings({
       <label htmlFor="ddesc">Description</label>
       <textarea id="ddesc" value={content.description ?? ''} disabled={archived} onChange={(e) => onChange((c) => ({ ...c, description: e.target.value || undefined }))} />
       <label>Default card back</label>
-      <ImagePicker value={content.backImageId} disabled={archived} onChange={(id) => onChange((c) => ({ ...c, backImageId: id }))} />
+      <ImagePicker value={content.backImageId} disabled={archived} deck={{ id: deck.id, content }} onChange={(id) => onChange((c) => ({ ...c, backImageId: id }))} />
       <label>Suggested properties for every card</label>
       <div className="row wrap">
         {(content.propertyTemplate ?? []).map((t) => (
@@ -632,10 +653,24 @@ function CopyFrom({ exclude, onClose, onCopy }: { exclude: string; onClose: () =
 }
 
 /** Upload with a preview in the 2.5:3.5 card frame before it is used. */
-export function ImagePicker({ value, onChange, disabled, label = 'image' }: { value?: string; onChange: (id: string | undefined) => void; disabled?: boolean; label?: string }) {
+export function ImagePicker({
+  value,
+  onChange,
+  disabled,
+  label = 'image',
+  deck,
+}: {
+  value?: string;
+  onChange: (id: string | undefined) => void;
+  disabled?: boolean;
+  label?: string;
+  /** The open deck, for the library's "This deck" view and live use counts. */
+  deck?: LibraryDeck;
+}) {
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const pickFile = (f: File | undefined) => {
     setErr('');
     if (!f) return;
@@ -648,7 +683,7 @@ export function ImagePicker({ value, onChange, disabled, label = 'image' }: { va
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.append('file', preview.file);
+      fd.append('file', preview.file, preview.file.name); // joins the image library, named after the file
       const r = await api('POST', '/api/images', fd);
       onChange(r.id);
       setPreview(null);
@@ -685,6 +720,9 @@ export function ImagePicker({ value, onChange, disabled, label = 'image' }: { va
               Choose {label}…
               <input type="file" aria-label={`Upload ${label}`} accept="image/png,image/jpeg,image/webp" disabled={disabled} style={{ display: 'none' }} onChange={(e) => pickFile(e.target.files?.[0])} />
             </label>
+            <button className="small" disabled={disabled} onClick={() => setBrowsing(true)}>
+              Choose from images…
+            </button>
             {value && (
               <button className="small ghost" disabled={disabled} onClick={() => onChange(undefined)}>
                 Remove
@@ -695,34 +733,24 @@ export function ImagePicker({ value, onChange, disabled, label = 'image' }: { va
         {preview && <p className="small-text muted">Preview in the card frame (2.5 : 3.5). Images are fitted without distortion.</p>}
         {err && <p className="err">{err}</p>}
       </div>
+      {browsing && (
+        <Sheet title={`Choose ${label === 'image' ? 'an image' : `the ${label}`}`} label="Choose from images" onClose={() => setBrowsing(false)}>
+          <ImageLibrary
+            mode="pick"
+            deck={deck}
+            defaultView="all"
+            onPick={(img) => {
+              onChange(img.id);
+              setBrowsing(false);
+            }}
+          />
+        </Sheet>
+      )}
     </div>
   );
 }
 
 
-function toRows(md: Record<string, MetaValue>): MetaRow[] {
-  return Object.entries(md).map(([key, v]) => ({
-    key,
-    type: Array.isArray(v) ? 'list' : typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'text',
-    value: Array.isArray(v) ? v.join(', ') : String(v),
-  }));
-}
-
-function fromRows(rows: MetaRow[]): { md: Record<string, MetaValue>; err?: string } {
-  const md: Record<string, MetaValue> = {};
-  for (const r of rows) {
-    const k = r.key.trim();
-    if (!k) continue;
-    if (r.type === 'number') {
-      const n = Number(r.value);
-      if (r.value.trim() === '' || !Number.isFinite(n)) return { md, err: `"${k}" must be a number` };
-      md[k] = n;
-    } else if (r.type === 'boolean') md[k] = r.value === 'true';
-    else if (r.type === 'list') md[k] = r.value.split(',').map((s) => s.trim()).filter(Boolean);
-    else md[k] = r.value;
-  }
-  return { md };
-}
 
 function PinToggle({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
@@ -738,6 +766,7 @@ export function CardForm({
   card,
   template,
   deckId,
+  libDeck,
   lastName,
   onClose,
   onSave,
@@ -746,6 +775,7 @@ export function CardForm({
   card: CardDef | null;
   template: { key: string; type: MetaType }[];
   deckId: string;
+  libDeck?: LibraryDeck;
   /** Name of the card just saved with "Save & add another", for the same-name hint. */
   lastName?: string;
   onClose: () => void;
@@ -850,7 +880,7 @@ export function CardForm({
         <label>Front artwork</label>
         {pin('front', 'front artwork')}
       </div>
-      <ImagePicker value={front} onChange={setFront} label="front" />
+      <ImagePicker value={front} onChange={setFront} label="front" deck={libDeck} />
       {!front && (
         <div className="row small-text muted" style={{ marginTop: 4 }}>
           No artwork: a text face is generated.
@@ -863,7 +893,7 @@ export function CardForm({
         <label>Back artwork (optional, overrides the deck back)</label>
         {pin('back', 'back artwork')}
       </div>
-      <ImagePicker value={back} onChange={setBack} label="back" />
+      <ImagePicker value={back} onChange={setBack} label="back" deck={libDeck} />
       <label>Properties</label>
       {rows.map((r, i) => (
         <div key={i} className="row" style={{ marginBottom: 6 }} data-testid="meta-row">
