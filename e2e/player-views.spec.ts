@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { newPlayer, createTable, joinTable, handCards, closeAll, PHONE } from './helpers';
-import { touchPath, line, settle } from './table-helpers';
+import { touchPath, line, settle, stripCenters } from './table-helpers';
 
 const center = async (l: Locator) => {
   await l.scrollIntoViewIfNeeded();
@@ -49,7 +49,9 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await expect(alex.page.locator('.zone-name', { hasText: "Sam's Tableau" })).toBeVisible();
   const samTableau = alex.page.getByTestId('row-Tableau').locator('[data-h]');
   await expect(samTableau).toHaveCount(1);
-  await expect(alex.page.getByLabel("Sam's hand").locator('[data-h]')).toHaveCount(1);
+  // viewed-hand-priority: nothing shown to Alex, so Sam's hand is one slim line with a hidden stack
+  await expect(alex.page.getByLabel("Sam's hand", { exact: true })).toContainText("Sam's hand · 1 · none shown to you");
+  await expect(alex.page.getByLabel("Sam's hand", { exact: true }).locator('.hidden-count')).toHaveText('+1 hidden');
   await expect(alex.page.getByTestId('seat-Alex')).toContainText('(you)');
 
   // everyone can tell
@@ -107,4 +109,49 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await expect(lee.page.getByTestId('row-Tableau').locator('[data-h]')).toHaveCount(2);
   await expect(sam.page.locator('.viewing-pill')).toContainText('+1 watching');
   await closeAll(alex.ctx, sam.ctx, kim.ctx, lee.ctx);
+});
+
+test('viewed hand: empty names the owner, grows with shown cards (readable, hidden stack), my own hand is a strip', async ({ browser }) => {
+  const alex = await newPlayer(browser, 'Alex', PHONE);
+  const sam = await newPlayer(browser, 'Sam', PHONE);
+  await createTable(alex.page, 'Hands', { deck: 'builtin-standard-52' });
+  await joinTable(sam.page, 'Hands');
+  await drawInto(alex.page, 'Your hand');
+
+  // Alex views Sam's empty hand
+  await alex.page.getByTestId('seat-Sam').click();
+  await alex.page.getByRole('button', { name: 'View table' }).click();
+  const viewed = alex.page.getByLabel("Sam's hand", { exact: true });
+  await expect(viewed).toContainText("Sam's hand is empty");
+  await expect(alex.page.getByText('Your hand is empty')).toHaveCount(0);
+
+  // my own hand is a slim strip with small cards, still a drag source
+  const mine = alex.page.getByLabel('Your hand');
+  await expect(mine).toContainText('Your hand · 1');
+  const small = (await handCards(alex.page).first().boundingBox())!.width;
+  expect(small).toBeLessThanOrEqual(42);
+
+  // Sam draws 5 and shows two of them to Alex
+  for (let i = 0; i < 5; i++) await drawInto(sam.page, 'Your hand');
+  await expect(viewed).toContainText("Sam's hand · 5 · none shown to you");
+  const pts = await stripCenters(sam.page, 'row-hand');
+  await sam.page.touchscreen.tap(pts[0].x, pts[0].y);
+  await sam.page.touchscreen.tap(pts[1].x, pts[1].y);
+  await sam.page.getByRole('button', { name: 'Actions…' }).click();
+  await sam.page.getByRole('button', { name: 'Show to…' }).click();
+  await sam.page.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
+
+  // Alex's view: the viewed hand grows, shown cards first and face up at hand size, the rest one stack
+  await expect(viewed).toContainText("Sam's hand · 5 · 2 shown to you");
+  await expect(viewed.locator('.card-row [data-h]')).toHaveCount(2);
+  await expect(viewed.locator('.card-row .card.face')).toHaveCount(2);
+  await expect(viewed.locator('.hidden-count')).toHaveText('+3 hidden');
+  const big = (await viewed.locator('.card-row [data-h]').first().boundingBox())!.width;
+  expect(big).toBeGreaterThan(small * 1.4);
+
+  // back on my own table the hand is full size again
+  await alex.page.getByRole('button', { name: 'Mine' }).click();
+  await expect(alex.page.locator('.hand-strip')).toHaveCount(0);
+  expect((await handCards(alex.page).first().boundingBox())!.width).toBeGreaterThan(small * 1.4);
+  await closeAll(alex.ctx, sam.ctx);
 });

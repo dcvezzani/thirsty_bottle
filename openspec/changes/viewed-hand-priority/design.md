@@ -19,7 +19,7 @@
 
 **D1. One main hand slot, two modes.**
 - While viewing another seat, the bottom `.hand-area` shows the viewed hand with `arc`, at the normal card size.
-- The viewer's own hand moves into a slim strip above it (`.hand-strip`): a label "Your hand · N" and a one-row `CardRow` with cards of about 36 px, keeping `dropId` and drag so passing still works.
+- The viewer's own hand moves into a slim strip below it (`.hand-strip`, nearest the tabs): a label "Your hand · N" and a one-row `CardRow` with cards of about 36 px, keeping `dropId` and drag so passing still works.
 - Back on my own table, the layout is as today.
 
 **D2. The viewed hand's display list.**

@@ -10,6 +10,7 @@ import { JoinTable } from './Lobby';
 import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
+import { ViewedHand } from '../table/ViewedHand';
 import { useUI, findCard, boardZones, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
@@ -231,15 +232,15 @@ function TableScreen({ view }: { view: TableView }) {
         <OthersDrags view={view} />
       </div>
       <SelectionBar view={view} />
-      {seenHand && seenSeat && (
-        <div className="viewed-hand" aria-label={`${seenSeat.name}'s hand`} style={{ ['--card-w' as any]: `${Math.round(36 * zoom)}px` }}>
-          <span className="viewed-hand-label small-text">
-            {seenSeat.name}'s hand · {seenHand.cards.length}
-          </span>
-          <CardRow zone={seenHand} decks={view.decks} dropId={seenHand.id} onInfo={onInfo} testId="row-viewed-hand" />
+      {/* viewed-hand-priority: while viewing another table their hand takes the main hand slot, mine is a slim strip */}
+      {seenHand && seenSeat && <ViewedHand view={view} zone={seenHand} name={seenSeat.name} onInfo={onInfo} last={!myHand} />}
+      {myHand && viewingOther && (
+        <div className="hand-area hand-strip" aria-label="Your hand" style={{ ['--card-w' as any]: `${Math.round(36 * zoom)}px` }}>
+          <span className="viewed-hand-label small-text">Your hand · {myHand.cards.length}</span>
+          <CardRow zone={myHand} decks={view.decks} dropId={myHand.id} onInfo={onInfo} emptyText="Empty" />
         </div>
       )}
-      {myHand && (
+      {myHand && !viewingOther && (
         <div className="hand-area" aria-label="Your hand">
           <CardRow zone={myHand} decks={view.decks} arc dropId={myHand.id} onInfo={onInfo} />
         </div>

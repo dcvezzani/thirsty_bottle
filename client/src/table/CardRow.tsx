@@ -31,6 +31,7 @@ export function CardRow({
   dropId,
   onInfo,
   testId,
+  emptyText,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
@@ -43,6 +44,8 @@ export function CardRow({
   onInfo: (h: string) => void;
   /** Overrides the row's test id (the viewed player's hand while viewing their table). */
   testId?: string;
+  /** Message for an empty row; default "Your hand is empty" for hands, "Empty" otherwise. */
+  emptyText?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
@@ -242,7 +245,7 @@ export function CardRow({
       onPointerLeave={onPointerLeave}
       onContextMenu={onContextMenu}
     >
-      {shown.length === 0 && !drag && <div className="row-empty">{zone.kind === 'hand' ? 'Your hand is empty' : 'Empty'}</div>}
+      {shown.length === 0 && !drag && <div className="row-empty">{emptyText ?? (zone.kind === 'hand' ? 'Your hand is empty' : 'Empty')}</div>}
       {shown.map((c, i) => {
         const p = cardPos(L, i, gapAt);
         const m = magnify(L, i, focus >= 0 ? focus : null);
