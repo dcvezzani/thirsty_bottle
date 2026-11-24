@@ -10,7 +10,7 @@ import { JoinTable } from './Lobby';
 import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
-import { ViewedHand } from '../table/ViewedHand';
+import { HandDock } from '../table/HandDock';
 import { useUI, findCard, boardZones, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
 import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
@@ -130,6 +130,10 @@ function TableScreen({ view }: { view: TableView }) {
   const viewingOther = !!seen && seen !== view.me.seatId;
   const seenSeat = view.seats.find((s) => s.id === seen);
   const seenHand = viewingOther ? view.zones.find((z) => z.kind === 'hand' && z.seatId === seen) : undefined;
+  // shared-hand-dock: the focus returns to their hand whenever I look at a different table
+  useEffect(() => {
+    useUI.setState({ handFocus: 'viewed', dockSettleUntil: 0 });
+  }, [seen]);
   // announce whose table I'm looking at (live presence), once the rotation settles
   const lookingAt = viewingOther ? seen : null;
   useEffect(() => {
@@ -232,18 +236,15 @@ function TableScreen({ view }: { view: TableView }) {
         <OthersDrags view={view} />
       </div>
       <SelectionBar view={view} />
-      {/* viewed-hand-priority: while viewing another table their hand takes the main hand slot, mine is a slim strip */}
-      {seenHand && seenSeat && <ViewedHand view={view} zone={seenHand} name={seenSeat.name} onInfo={onInfo} last={!myHand} />}
-      {myHand && viewingOther && (
-        <div className="hand-area hand-strip" aria-label="Your hand" style={{ ['--card-w' as any]: `${Math.round(36 * zoom)}px` }}>
-          <span className="viewed-hand-label small-text">Your hand · {myHand.cards.length}</span>
-          <CardRow zone={myHand} decks={view.decks} dropId={myHand.id} onInfo={onInfo} emptyText="Empty" />
-        </div>
-      )}
-      {myHand && !viewingOther && (
-        <div className="hand-area" aria-label="Your hand">
-          <CardRow zone={myHand} decks={view.decks} arc dropId={myHand.id} onInfo={onInfo} />
-        </div>
+      {/* shared-hand-dock: while viewing another table one constant-height dock holds their hand and mine */}
+      {seenHand && seenSeat ? (
+        <HandDock view={view} viewed={seenHand} mine={myHand} name={seenSeat.name} onInfo={onInfo} />
+      ) : (
+        myHand && (
+          <div className="hand-area" aria-label="Your hand">
+            <CardRow zone={myHand} decks={view.decks} arc dropId={myHand.id} onInfo={onInfo} />
+          </div>
+        )
       )}
       {view.me.spectator && <div className="banner">You are watching. Hands stay hidden.</div>}
       <nav className="drawer-tabs" aria-label="Panels">

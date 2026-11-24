@@ -32,6 +32,7 @@ export function CardRow({
   onInfo,
   testId,
   emptyText,
+  onScrubStart,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
@@ -46,6 +47,8 @@ export function CardRow({
   testId?: string;
   /** Message for an empty row; default "Your hand is empty" for hands, "Empty" otherwise. */
   emptyText?: string;
+  /** shared-hand-dock: a sideways slide started on this row (the dock focuses a narrow column). */
+  onScrubStart?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
@@ -96,13 +99,17 @@ export function CardRow({
   }, [dropId, Lfull]);
 
   // gesture recognizer (kept across renders; reads fresh state through refs)
-  const live = useRef({ cards, zone, onInfo, draggable, interactive });
-  live.current = { cards, zone, onInfo, draggable, interactive };
+  const live = useRef({ cards, zone, onInfo, draggable, interactive, onScrubStart });
+  live.current = { cards, zone, onInfo, draggable, interactive, onScrubStart };
+  // the row can resize mid-gesture (hand dock columns): the gesture must survive it, so it reads width through a ref
+  const widthRef = useRef(width);
+  widthRef.current = width;
+  const pendingScrub = useRef<{ i: number; timer: ReturnType<typeof setTimeout> | null }>({ i: -1, timer: null });
   const paint = useRef<'preview' | 'select' | 'deselect'>('preview');
   const lastScrub = useRef<string | null>(null);
   const gesture = useMemo(() => {
     const hit = (x: number, y: number) =>
-      hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? width, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06 }), x, y, arc ? cardW * 0.3 : 0);
+      hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06 }), x, y, arc ? cardW * 0.3 : 0);
     const h = (i: number) => live.current.cards[i]?.h;
     const setPreview = (i: number) => {
       const hh = h(i);
@@ -136,15 +143,31 @@ export function CardRow({
           live.current.onInfo(h(i)!);
         },
         onScrubStart: (i) => {
+          live.current.onScrubStart?.();
           const st = useUI.getState();
           const sel = new Set(st.selZone === live.current.zone.id ? st.selected : []);
           paint.current = live.current.interactive ? paintMode(sel, h(i)!) : 'preview';
           lastScrub.current = null;
           setPreview(i);
         },
-        onScrub: (i) => setPreview(i),
+        onScrub: (i) => {
+          // shared-hand-dock: while the columns resize, hold the latest index and apply it when they settle
+          const wait = useUI.getState().dockSettleUntil - performance.now();
+          if (wait > 0) {
+            pendingScrub.current.i = i;
+            if (!pendingScrub.current.timer)
+              pendingScrub.current.timer = setTimeout(() => {
+                pendingScrub.current.timer = null;
+                if (pendingScrub.current.i >= 0) setPreview(pendingScrub.current.i);
+              }, wait);
+            return;
+          }
+          setPreview(i);
+        },
         onScrubEnd: () => {
           lastScrub.current = null;
+          if (pendingScrub.current.timer) clearTimeout(pendingScrub.current.timer);
+          pendingScrub.current = { i: -1, timer: null };
           useUI.setState({ preview: null });
         },
         onDragStart: (i, s) => {
@@ -163,7 +186,7 @@ export function CardRow({
         onCancel: () => cancelDrag(),
       }),
     };
-  }, [cardW, arc, width]);
+  }, [cardW, arc]);
 
   useEffect(() => {
     const t = setInterval(() => gesture.g.tick(performance.now()), 50);

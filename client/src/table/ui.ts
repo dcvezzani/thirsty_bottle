@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CardView, TableView, ZoneView } from '@vct/shared';
 import { boardSlots } from '@vct/shared';
+import { FOCUS_SETTLE_MS, type HandColumn } from './handFocus';
 
 export type Sheet =
   | { kind: 'cards' }
@@ -42,6 +43,11 @@ interface UIState {
   arranging: boolean;
   /** player-views: the seat whose table is shown; null = my own. */
   viewSeat: string | null;
+  /** shared-hand-dock: the wide column of the hand dock while viewing another table. */
+  handFocus: HandColumn;
+  /** Until this time (performance.now) scrub steps wait for the columns to finish resizing. */
+  dockSettleUntil: number;
+  focusHand(col: HandColumn): void;
   recent: string[];
   select(zone: string, handles: string[]): void;
   toggle(zone: string, h: string): void;
@@ -63,6 +69,13 @@ export const useUI = create<UIState>((set, get) => ({
   zoom: 1,
   arranging: false,
   viewSeat: null,
+  handFocus: 'viewed',
+  dockSettleUntil: 0,
+  focusHand(col) {
+    if (get().handFocus === col) return;
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    set({ handFocus: col, dockSettleUntil: reduce ? 0 : performance.now() + FOCUS_SETTLE_MS });
+  },
   recent: (() => {
     try {
       return JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? '[]');

@@ -49,9 +49,10 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await expect(alex.page.locator('.zone-name', { hasText: "Sam's Tableau" })).toBeVisible();
   const samTableau = alex.page.getByTestId('row-Tableau').locator('[data-h]');
   await expect(samTableau).toHaveCount(1);
-  // viewed-hand-priority: nothing shown to Alex, so Sam's hand is one slim line with a hidden stack
-  await expect(alex.page.getByLabel("Sam's hand", { exact: true })).toContainText("Sam's hand · 1 · none shown to you");
-  await expect(alex.page.getByLabel("Sam's hand", { exact: true }).locator('.hidden-count')).toHaveText('+1 hidden');
+  // shared-hand-dock: nothing shown to Alex, so Sam's column shows a badge and the hidden stack
+  const samCol = alex.page.getByTestId('viewed-col');
+  await expect(samCol).toContainText('Sam · 1 · none shown');
+  await expect(samCol.locator('.hidden-count')).toHaveText('+1 hidden');
   await expect(alex.page.getByTestId('seat-Alex')).toContainText('(you)');
 
   // everyone can tell
@@ -111,47 +112,100 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await closeAll(alex.ctx, sam.ctx, kim.ctx, lee.ctx);
 });
 
-test('viewed hand: empty names the owner, grows with shown cards (readable, hidden stack), my own hand is a strip', async ({ browser }) => {
+test('hand dock: constant height, their hand focused by default, sliding focuses and it sticks, shown cards, carry, rotate, spectator', async ({ browser }) => {
   const alex = await newPlayer(browser, 'Alex', PHONE);
   const sam = await newPlayer(browser, 'Sam', PHONE);
-  await createTable(alex.page, 'Hands', { deck: 'builtin-standard-52' });
-  await joinTable(sam.page, 'Hands');
-  await drawInto(alex.page, 'Your hand');
+  const kim = await newPlayer(browser, 'Kim', PHONE);
+  await createTable(alex.page, 'Dock', { deck: 'builtin-standard-52' });
+  await joinTable(sam.page, 'Dock');
+  await joinTable(kim.page, 'Dock');
+  for (let i = 0; i < 5; i++) await drawInto(alex.page, 'Your hand');
+  const ownH = (await alex.page.locator('.hand-area').boundingBox())!.height;
 
-  // Alex views Sam's empty hand
+  // Alex views Sam's empty hand: the dock is as tall as my own hand area; their hand is the wide column
   await alex.page.getByTestId('seat-Sam').click();
   await alex.page.getByRole('button', { name: 'View table' }).click();
-  const viewed = alex.page.getByLabel("Sam's hand", { exact: true });
-  await expect(viewed).toContainText("Sam's hand is empty");
+  const dock = alex.page.getByTestId('hand-dock');
+  const samCol = alex.page.getByTestId('viewed-col');
+  const myCol = alex.page.getByTestId('mine-col');
+  const width = async (l: Locator) => (await l.boundingBox())!.width;
+  const boardH = async () => (await alex.page.locator('.board').boundingBox())!.height;
+  await expect(samCol).toContainText("Sam's hand is empty");
+  await expect(samCol).toContainText('Sam · empty');
   await expect(alex.page.getByText('Your hand is empty')).toHaveCount(0);
+  await expect(myCol).toContainText('You · 5');
+  expect(Math.abs((await dock.boundingBox())!.height - ownH)).toBeLessThanOrEqual(1);
+  await expect(samCol).toHaveClass(/focused/);
+  expect(await width(samCol)).toBeGreaterThan((await width(myCol)) * 1.5);
+  const board0 = await boardH();
 
-  // my own hand is a slim strip with small cards, still a drag source
-  const mine = alex.page.getByLabel('Your hand');
-  await expect(mine).toContainText('Your hand · 1');
-  const small = (await handCards(alex.page).first().boundingBox())!.width;
-  expect(small).toBeLessThanOrEqual(42);
-
-  // Sam draws 5 and shows two of them to Alex
+  // Sam draws 5 and shows two to Alex: shown cards first, face up; the rest one stack; same dock height, board unmoved
   for (let i = 0; i < 5; i++) await drawInto(sam.page, 'Your hand');
-  await expect(viewed).toContainText("Sam's hand · 5 · none shown to you");
-  const pts = await stripCenters(sam.page, 'row-hand');
-  await sam.page.touchscreen.tap(pts[0].x, pts[0].y);
-  await sam.page.touchscreen.tap(pts[1].x, pts[1].y);
-  await sam.page.getByRole('button', { name: 'Actions…' }).click();
-  await sam.page.getByRole('button', { name: 'Show to…' }).click();
-  await sam.page.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
+  await expect(samCol).toContainText('Sam · 5 · none shown');
+  const show = async (i: number) => {
+    const pts = await stripCenters(sam.page, 'row-hand');
+    await sam.page.touchscreen.tap(pts[i].x, pts[i].y);
+    await sam.page.getByRole('button', { name: 'Actions…' }).click();
+    await sam.page.getByRole('button', { name: 'Show to…' }).click();
+    await sam.page.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
+  };
+  await show(0);
+  await show(1);
+  await expect(samCol).toContainText('Sam · 5 · 2 shown');
+  await expect(samCol.locator('.card-row .card.face')).toHaveCount(2);
+  await expect(samCol.locator('.hidden-count')).toHaveText('+3 hidden');
+  expect(Math.abs((await dock.boundingBox())!.height - ownH)).toBeLessThanOrEqual(1);
+  expect(await boardH()).toBe(board0);
 
-  // Alex's view: the viewed hand grows, shown cards first and face up at hand size, the rest one stack
-  await expect(viewed).toContainText("Sam's hand · 5 · 2 shown to you");
-  await expect(viewed.locator('.card-row [data-h]')).toHaveCount(2);
-  await expect(viewed.locator('.card-row .card.face')).toHaveCount(2);
-  await expect(viewed.locator('.hidden-count')).toHaveText('+3 hidden');
-  const big = (await viewed.locator('.card-row [data-h]').first().boundingBox())!.width;
-  expect(big).toBeGreaterThan(small * 1.4);
+  // sliding along my narrow hand focuses it, and it stays after release
+  const slide = async (testId: string) => {
+    const b = (await alex.page.getByTestId(testId).boundingBox())!;
+    const y = b.y + b.height * 0.55;
+    await touchPath(alex.page, line({ x: b.x + 18, y }, { x: b.x + Math.min(b.width - 8, 70), y }, 8));
+    await settle(alex.page);
+  };
+  await slide('row-hand');
+  await expect(myCol).toHaveClass(/focused/);
+  await expect(samCol).toHaveClass(/narrow/);
+  expect(await width(myCol)).toBeGreaterThan((await width(samCol)) * 1.5);
+  await alex.page.waitForTimeout(400);
+  await expect(myCol).toHaveClass(/focused/);
 
-  // back on my own table the hand is full size again
-  await alex.page.getByRole('button', { name: 'Mine' }).click();
-  await expect(alex.page.locator('.hand-strip')).toHaveCount(0);
-  expect((await handCards(alex.page).first().boundingBox())!.width).toBeGreaterThan(small * 1.4);
-  await closeAll(alex.ctx, sam.ctx);
+  // a tap on a card in the narrow column selects it and leaves the focus alone
+  const shown = samCol.locator('.card-row .card.face').first();
+  const sb = (await shown.boundingBox())!;
+  await alex.page.touchscreen.tap(sb.x + sb.width / 2, sb.y + sb.height / 2);
+  await expect(alex.page.getByTestId('selection-count')).toBeVisible();
+  await expect(myCol).toHaveClass(/focused/);
+  await alex.page.getByRole('button', { name: 'Clear' }).click();
+
+  // a card shown while my hand is focused: Sam's narrow column pulses and counts it, focus unchanged
+  await show(2);
+  await expect(samCol).toHaveClass(/pulse/);
+  await expect(samCol).toContainText('Sam · 5 · 3 shown');
+  await expect(myCol).toHaveClass(/focused/);
+
+  // carrying a card from my hand over Sam's narrow column focuses it; dropping passes the card
+  const a = await center(handCards(alex.page).first());
+  const b = await center(samCol);
+  await touchPath(alex.page, [a, { x: a.x, y: a.y - 15 }, ...line({ x: a.x, y: a.y - 15 }, b, 12)]);
+  await settle(alex.page);
+  await expect(samCol).toHaveClass(/focused/);
+  await expect(samCol).toContainText('Sam · 6 · 3 shown');
+  await expect(myCol).toContainText('You · 4');
+
+  // sliding back over my column, then rotating to Kim resets the focus to their hand
+  await slide('row-hand');
+  await expect(myCol).toHaveClass(/focused/);
+  await alex.page.getByRole('region', { name: 'Viewing another table' }).getByRole('button', { name: 'Next table' }).click();
+  await expect(alex.page.getByRole('region', { name: 'Viewing another table' })).toContainText("Viewing Kim's table");
+  await expect(alex.page.getByTestId('viewed-col')).toHaveClass(/focused/);
+  expect(Math.abs((await alex.page.getByTestId('hand-dock').boundingBox())!.height - ownH)).toBeLessThanOrEqual(1);
+
+  // a spectator gets one full-width column
+  const lee = await newPlayer(browser, 'Lee', PHONE);
+  await joinTable(lee.page, 'Dock', { spectate: true });
+  await expect(lee.page.getByTestId('viewed-col')).toHaveClass(/solo/);
+  await expect(lee.page.getByTestId('mine-col')).toHaveCount(0);
+  await closeAll(alex.ctx, sam.ctx, kim.ctx, lee.ctx);
 });

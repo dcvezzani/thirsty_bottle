@@ -157,19 +157,19 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'View table' }).click();
       await expect(page.getByRole('region', { name: 'Viewing another table' })).toBeVisible();
       await expectReadable(page, 'viewing another table');
-      // viewed-hand-priority: an empty and a none-shown slim line, then the enlarged hand with a shown card
+      // shared-hand-dock: the dock with an empty, a none-shown and a shown-card viewed hand, and the badges
       await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText("Sam's hand is empty");
-      await expectReadable(page, 'viewed hand empty, own hand strip');
+      await expectReadable(page, 'hand dock, empty viewed hand');
       await draw(samPage, 'Standard 52', 3);
-      await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText('none shown to you');
-      await expectReadable(page, 'viewed hand none shown');
+      await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText('none shown');
+      await expectReadable(page, 'hand dock, none shown');
       const samCards = await stripCenters(samPage, 'row-hand');
       await samPage.mouse.click(samCards[0].x, samCards[0].y);
       await samPage.getByRole('button', { name: 'Actions…' }).click();
       await samPage.getByRole('button', { name: 'Show to…' }).click();
       await samPage.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
-      await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText('1 shown to you');
-      await expectReadable(page, 'viewed hand with a shown card');
+      await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText('1 shown');
+      await expectReadable(page, 'hand dock, a shown card');
       await expect(samPage.locator('.viewing-pill')).toContainText('Alex');
       await expect(samPage.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing you/);
       await expectReadable(samPage, 'eye pill');

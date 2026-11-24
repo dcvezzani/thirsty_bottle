@@ -350,23 +350,26 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 /* ---------------------------------------------------------------- player views (player-views) */
 .view-banner { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel); color: var(--ink); border-bottom: 1px solid var(--line); font-size: 14px; }
 .view-banner button.small { min-width: 44px; min-height: var(--tap); }
-/* viewed-hand-priority */
-.viewed-hand { flex: none; padding: 4px 8px 0; color: #fff; }
-.viewed-hand.hand-area { padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
-.viewed-hand.slim { display: flex; align-items: center; gap: 10px; min-height: var(--tap); }
-.viewed-hand-line { flex: 1; font-size: 14px; opacity: 0.95; }
-.viewed-hand-label { display: block; color: #fff; opacity: 0.9; margin-bottom: 2px; }
-.viewed-hand.full { animation: viewed-hand-in 180ms ease-out; }
-.viewed-hand-body { display: flex; align-items: center; gap: 8px; }
-.viewed-hand-cards { flex: 1; min-width: 0; }
+/* shared-hand-dock: one constant-height dock, the same box a lone hand has (1.75 card widths of fan + 8px, 4px + safe area below) */
+.hand-dock {
+  flex: none; display: flex; gap: 4px; box-sizing: border-box; color: #fff;
+  height: calc(var(--card-w) * 1.75 + 12px + env(safe-area-inset-bottom));
+  padding: 0 4px calc(4px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0,0,0,0.25));
+}
+.hand-col { position: relative; min-width: 0; height: 100%; transition: flex-basis 150ms ease-out; border-radius: 8px; }
+.hand-col.focused { flex: 0 0 calc(66% - 2px); }
+.hand-col.narrow { flex: 1 1 0; background: rgba(0,0,0,0.18); }
+.hand-col.solo { flex: 1 1 100%; }
+.hand-col .card-row { width: 100%; }
+.hand-col-body { display: flex; align-items: center; gap: 4px; height: 100%; }
+.hand-col-cards { flex: 1; min-width: 0; }
+.hand-badge { position: absolute; top: 0; left: 4px; z-index: 5; max-width: calc(100% - 8px); padding: 1px 7px; border-radius: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .hidden-stack { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: var(--tap); min-width: var(--tap); padding: 2px 4px; color: #fff; }
 .hidden-stack .card { --card-w: 40px; }
-.viewed-hand.slim .hidden-stack { flex-direction: row; gap: 6px; }
-.viewed-hand.slim .hidden-stack .card { --card-w: 22px; }
+.hand-col.narrow .hidden-stack .card { --card-w: 28px; }
 .hidden-count { font-size: 12px; white-space: nowrap; }
-.hand-strip { display: flex; align-items: center; gap: 8px; padding-top: 2px; }
-.hand-strip .viewed-hand-label { flex: none; margin: 0; }
-.hand-strip .card-row { flex: 1; min-width: 0; }
-@keyframes viewed-hand-in { from { opacity: 0.4; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .viewed-hand.full { animation: none; } }
+.hand-col.pulse { animation: hand-pulse 600ms ease-out; }
+@keyframes hand-pulse { 0% { box-shadow: 0 0 0 0 rgba(244,197,66,0.95); } 100% { box-shadow: 0 0 0 14px rgba(244,197,66,0); } }
+@media (prefers-reduced-motion: reduce) { .hand-col { transition: none; } .hand-col.pulse { animation: none; box-shadow: 0 0 0 3px #f4c542; } }
 .viewing-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
