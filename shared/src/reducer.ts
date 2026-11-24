@@ -861,22 +861,27 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const to = getZone(s, action.to);
       const zones =
         action.zones === 'all' ? s.zoneOrder.filter((z) => z !== to.id) : action.zones.filter((z) => z !== to.id);
+      // gather-by-deck: with `deck`, only that deck's cards are gathered, turned and un-revealed
+      const deck = action.deck ? (s.decks[action.deck] ?? fail('NO_DECK', 'That deck is no longer on the table')) : null;
+      const inScope = (id: string) => !deck || s.cards[id].deckId === deck.id;
       const ids: string[] = [];
       for (const zid of zones) {
         const z = getZone(s, zid);
-        ids.push(...z.cards);
+        ids.push(...z.cards.filter(inScope));
       }
       const from = ids.length ? detach(s, ids, loc) : new Map<string, string>();
       for (const id of ids) touched.add(id);
-      for (const id of to.cards) touched.add(id);
+      for (const id of to.cards) if (inScope(id)) touched.add(id);
       to.cards.push(...ids);
-      to.pos = {};
+      if (deck) for (const id of ids) delete to.pos[id];
+      else to.pos = {};
       for (const id of ids) loc.set(id, to.id);
-      for (const id of to.cards) s.cards[id].faceUp = false;
-      // Gathering ends every show and peek on the table.
-      for (const c of Object.values(s.cards)) clearReveal(c);
+      for (const id of to.cards) if (inScope(id)) s.cards[id].faceUp = false;
+      // Gathering ends every show and peek on the table (on the gathered deck only, for a deck gather).
+      for (const c of Object.values(s.cards)) if (inScope(c.id)) clearReveal(c);
       if (ids.length) anims.push({ kind: 'move', actor, items: ids.map((card) => ({ card, from: from.get(card)!, to: to.id })) });
-      log(s, now, actor, `${who} gathered ${plural(ids.length)} into ${zoneLabel(s, to)}`, 'action', undefined, true);
+      const what = deck ? `${ids.length} ${deck.name} card${ids.length === 1 ? '' : 's'}` : plural(ids.length);
+      log(s, now, actor, `${who} gathered ${what} into ${zoneLabel(s, to)}`, 'action', undefined, true);
       break;
     }
     case 'respondTake': {

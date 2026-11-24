@@ -212,6 +212,14 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
           {mine && n > 1 && <button onClick={() => act({ type: 'cut', zone: zone.id, mode: 'complete' })}>Cut (random)</button>}
           {mine && n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'deal', zone: zone.id })}>Deal…</button>}
           {mine && <button onClick={() => act({ type: 'gather', zones: 'all', to: zone.id })}>Gather all here</button>}
+          {/* gather-by-deck: with 2+ decks loaded, gather just one deck's cards */}
+          {mine &&
+            view.decks.length > 1 &&
+            view.decks.map((d) => (
+              <button key={d.id} onClick={() => act({ type: 'gather', zones: 'all', to: zone.id, deck: d.id })}>
+                Gather {d.name} here
+              </button>
+            ))}
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id })}>Flip all</button>}
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'up' })}>All face up</button>}
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}

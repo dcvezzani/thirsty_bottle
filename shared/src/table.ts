@@ -216,7 +216,8 @@ export const ActionSchema = z.discriminatedUnion('type', [
     count: z.number().int().min(1).max(500).optional(),
   }),
   z.object({ type: z.literal('unpeek'), cards: cardList.optional() }),
-  z.object({ type: z.literal('gather'), zones: z.union([z.literal('all'), z.array(id).min(1)]), to: id }),
+  /** `deck` (gather-by-deck): only that loaded deck's cards are gathered. */
+  z.object({ type: z.literal('gather'), zones: z.union([z.literal('all'), z.array(id).min(1)]), to: id, deck: id.optional() }),
   z.object({ type: z.literal('respondTake'), requestId: id, approve: z.boolean() }),
   // --- zones
   z.object({
