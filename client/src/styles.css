@@ -193,21 +193,21 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .turn-bar button { color: #fff; background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.4); }
 .seat-bar { display: flex; gap: 6px; padding: 6px 8px; overflow-x: auto; flex: none; scrollbar-width: none; }
 .seat {
-  flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  /* compact-seat-chips: always one line */
+  flex: none; display: flex; flex-direction: row; align-items: center; gap: 8px; white-space: nowrap;
+  min-height: var(--tap); max-width: 60vw;
   background: rgba(0,0,0,0.25); color: #fff; border: 2px solid transparent; border-left: 5px solid var(--seat-color);
-  padding: 4px 8px; min-width: 92px; border-radius: 10px; text-align: left;
+  padding: 2px 10px; border-radius: 10px; text-align: left;
 }
 .seat.active { border-color: #f4c542; box-shadow: 0 0 0 2px #f4c54255; }
-.seat.away { opacity: 0.55; }
+.seat.away { opacity: 0.75; border-left-style: dotted; }
 .seat.empty { opacity: 0.7; border-left-style: dashed; }
 .seat.drop-over { background: rgba(255,255,255,0.3); }
-.seat-name { font-weight: 600; font-size: 13px; white-space: nowrap; }
-.seat-hand { display: flex; align-items: center; gap: 4px; }
+.seat-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.seat-hand { flex: none; display: flex; align-items: center; gap: 4px; }
 .mini-backs { display: inline-flex; }
-.mini-back { width: 9px; height: 13px; background: #a52a2a; border: 1px solid #fff; border-radius: 2px; margin-left: -3px; }
+.mini-back { width: 9px; height: 13px; background: #a52a2a; border: 1px solid #fff; border-radius: 2px; }
 .seat-count { font-size: 12px; }
-.seat-status { font-size: 11px; color: #ffd4d4; }
-.seat-shown { display: flex; gap: 2px; }
 .board { flex: 1; overflow: auto; padding: 6px 6px 12px; position: relative; touch-action: pan-x pan-y; }
 .zone { background: rgba(0,0,0,0.12); border: 1px dashed var(--felt-line); border-left: 4px solid var(--zone-color); border-radius: 10px; padding: 4px 6px 6px; margin-bottom: 8px; }
 .zone.drop-over { background: rgba(255,255,255,0.18); border-style: solid; }
@@ -345,7 +345,6 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .img-order { position: absolute; top: 4px; left: 4px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; display: grid; place-items: center; }
 
 /* ---------------------------------------------------------------- per-player zones (per-player-zones) */
-.seat-zone-count { display: block; color: inherit; opacity: 0.85; white-space: nowrap; }
 .seat-zone-card { padding: 0; min-height: var(--tap); min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 
 /* ---------------------------------------------------------------- player views (player-views) */
@@ -354,4 +353,3 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .viewed-hand { padding: 4px 12px 0; }
 .viewed-hand-label { display: block; color: #fff; opacity: 0.9; margin-bottom: 2px; }
 .viewing-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
-.seat-viewing { display: block; white-space: nowrap; opacity: 0.9; }

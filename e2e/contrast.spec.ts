@@ -141,14 +141,14 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectReadable(page, 'add per-player zone');
       await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
       await page.keyboard.press('Escape');
-      await expect(page.locator('.zone-name', { hasText: 'Your Mine' })).toBeVisible();
+      await expect(page.locator('.zone-name', { hasText: /^Mine$/ })).toBeVisible();
       await expectReadable(page, 'per-player zone');
       const samCtx = await browser.newContext({ ...size.use, colorScheme: scheme });
       const samPage = await samCtx.newPage();
       await onboard(samPage, 'Sam');
       await joinTable(samPage, `Contrast ${scheme} ${size.name}`);
-      await expect(page.getByTestId('seat-Sam')).toContainText('Mine 0');
-      await expectReadable(page, 'seat bar counts');
+      await expect(page.getByTestId('seat-Sam')).toBeVisible();
+      await expectReadable(page, 'seat bar');
       await page.getByTestId('seat-Sam').click();
       await expect(page.getByRole('region', { name: "Sam's Mine" })).toBeVisible();
       await expectReadable(page, 'seat sheet with per-player zone');
@@ -157,10 +157,17 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('region', { name: 'Viewing another table' })).toBeVisible();
       await expectReadable(page, 'viewing another table');
       await expect(samPage.locator('.viewing-pill')).toContainText('Alex');
-      await expect(samPage.getByTestId('seat-Alex')).toContainText('viewing you');
-      await expectReadable(samPage, 'eye pill and viewing seat chip');
+      await expect(samPage.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing you/);
+      await expectReadable(samPage, 'eye pill');
+      await samPage.getByTestId('seat-Alex').click();
+      await expect(samPage.getByTestId('seat-status')).toContainText('viewing you');
+      await expectReadable(samPage, 'seat sheet status line');
+      await samPage.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Mine', exact: true }).click();
       await samCtx.close();
+      // compact-seat-chips: a disconnected player's chip is dimmed, still readable
+      await expect(page.getByTestId('seat-Sam')).toHaveAttribute('aria-label', /disconnected/, { timeout: 15_000 });
+      await expectReadable(page, 'away seat chip');
 
       // table-setups: the Apply setup sheet, the Setups page and the setup editor
       await page.evaluate(async () => {

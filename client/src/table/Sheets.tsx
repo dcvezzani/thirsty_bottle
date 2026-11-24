@@ -6,7 +6,7 @@ import { useTable } from '../store/table';
 import { getSocket, useApp } from '../store/app';
 import { api, imageUrl } from '../lib/api';
 import { MetaList } from '../pages/DeckEditor';
-import { boardZones, findCard, isOthersZone, orderedSelection, useUI, zoneLabel } from './ui';
+import { boardZones, findCard, isOthersZone, orderedSelection, useUI, viewingOf, zoneLabel } from './ui';
 import { moveCards } from './drag';
 import { flipCards, flipSelection } from './flip';
 import { playAgain } from './SetupSheets';
@@ -512,10 +512,35 @@ export function SeatSheet({ view, seatId, onClose }: { view: TableView; seatId: 
   };
   return (
     <Sheet title={seat.playerId ? seat.name : `Empty seat ${seat.index + 1}`} onClose={onClose}>
-      <p className="small-text muted">
-        {seat.handCount} cards in hand{seat.disconnected ? ' · disconnected' : ''}
-        {view.hostId === seat.playerId ? ' · host' : ''}
+      {/* compact-seat-chips: the details the seat chip no longer shows */}
+      {(() => {
+        const status = [
+          view.hostId === seat.playerId && seat.playerId ? 'host' : '',
+          seat.disconnected ? 'disconnected' : seat.playerId && !seat.connected ? 'reconnecting' : '',
+          viewingOf(view, seat.playerId) ?? '',
+        ].filter(Boolean);
+        return status.length ? (
+          <p className="small-text" data-testid="seat-status" style={{ margin: '0 0 4px' }}>
+            {status.join(' · ')}
+          </p>
+        ) : null;
+      })()}
+      <p className="small-text muted" style={{ margin: '0 0 4px' }}>
+        {seat.handCount} card{seat.handCount === 1 ? '' : 's'} in hand
       </p>
+      {(() => {
+        const shown = view.zones.find((z) => z.kind === 'hand' && z.seatId === seat.id)?.cards.filter((c) => c.known) ?? [];
+        return shown.length && seat.id !== view.me.seatId ? (
+          <section aria-label="Shown to you">
+            <h4 style={{ margin: '8px 0 4px' }}>Shown to you</h4>
+            <div className="row" style={{ gap: 4, overflowX: 'auto' }}>
+              {shown.map((c) => (
+                <CardFace key={c.h} card={c} decks={view.decks} style={{ ['--card-w' as any]: '44px' }} />
+              ))}
+            </div>
+          </section>
+        ) : null;
+      })()}
       {/* per-player-zones: this player's per-player zones; face-up cards visible, face-down as backs */}
       {view.zones
         .filter((z) => z.kind === 'player' && z.seatId === seat.id)

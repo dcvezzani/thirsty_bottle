@@ -37,7 +37,7 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await alex.page.getByLabel('One per player (each player gets their own copy)').check();
   await alex.page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
   await alex.page.keyboard.press('Escape');
-  await drawInto(sam.page, 'Your Tableau', true);
+  await drawInto(sam.page, 'Tableau', true);
   await drawInto(sam.page, 'Your hand');
   await drawInto(alex.page, 'Your hand');
 
@@ -54,8 +54,13 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
 
   // everyone can tell
   await expect(sam.page.locator('.viewing-pill')).toContainText('Alex');
-  await expect(kim.page.getByTestId('seat-Alex')).toContainText('viewing Sam');
-  await expect(sam.page.getByTestId('seat-Alex')).toContainText('viewing you');
+  // compact-seat-chips: "viewing" is in the chip's accessible name and the seat sheet, not its text
+  await expect(kim.page.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing Sam/);
+  await expect(kim.page.getByTestId('seat-Alex')).not.toContainText('viewing');
+  await kim.page.getByTestId('seat-Alex').click();
+  await expect(kim.page.getByTestId('seat-status')).toContainText('viewing Sam');
+  await kim.page.keyboard.press('Escape');
+  await expect(sam.page.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing you/);
 
   // permissions: no shuffling Sam's Tableau
   await alex.page.getByRole('button', { name: 'Tableau actions' }).click();
@@ -81,9 +86,9 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   await expect(sam.page.locator('.viewing-pill')).toHaveCount(0);
   await banner.getByRole('button', { name: 'Next table' }).click();
   await expect(banner).toHaveCount(0);
-  await expect(alex.page.locator('.zone-name', { hasText: 'Your Tableau' })).toBeVisible();
+  await expect(alex.page.locator('.zone-name', { hasText: /^Tableau$/ })).toBeVisible();
   await expect(kim.page.locator('.viewing-pill')).toHaveCount(0);
-  await expect(sam.page.getByTestId('seat-Alex')).not.toContainText('viewing');
+  await expect(sam.page.getByTestId('seat-Alex')).not.toHaveAttribute('aria-label', /viewing/);
 
   // Mine returns from any view
   await alex.page.getByTestId('seat-Kim').click();

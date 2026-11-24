@@ -115,7 +115,8 @@ export function findCard(view: TableView, h: string): { card: CardView; zone: Zo
 
 export function zoneLabel(view: TableView, z: ZoneView): string {
   if (z.kind === 'player') {
-    if (z.seatId === view.me.seatId) return `Your ${z.name}`;
+    // compact-seat-chips: my own copy is labelled with just the zone name (narrow zones keep it readable)
+    if (z.seatId === view.me.seatId) return z.name;
     const seat = view.seats.find((s) => s.id === z.seatId);
     return seat?.playerId ? `${seat.name}'s ${z.name}` : `Seat ${(seat?.index ?? 0) + 1} ${z.name}`;
   }
@@ -141,6 +142,15 @@ export function boardZones(view: TableView, forArrange = false, seat: string | n
     }
   }
   return out;
+}
+
+/** player-views: "viewing Sam" / "viewing you" for a participant looking at another table, else null. */
+export function viewingOf(view: TableView, playerId: string | null): string | null {
+  const v = playerId ? (view.viewers ?? []).find((x) => x.playerId === playerId) : undefined;
+  if (!v) return null;
+  if (v.seat === view.me.seatId) return 'viewing you';
+  const target = view.seats.find((x) => x.id === v.seat);
+  return target ? `viewing ${target.name}` : null;
 }
 
 /** A hand or per-player zone of another player. */

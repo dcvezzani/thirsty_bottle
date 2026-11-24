@@ -16,14 +16,14 @@ test('per-player zones: one definition, own copy on each board, face rules, take
   await alex.page.keyboard.press('Escape');
   for (const p of [alex.page, sam.page]) {
     await expect(p.getByRole('button', { name: 'Tableau actions' })).toHaveCount(1); // only my own copy on my board
-    await expect(p.locator('.zone-name', { hasText: 'Your Tableau' })).toBeVisible();
+    await expect(p.locator('.zone-name', { hasText: /^Tableau$/ })).toBeVisible(); // my own copy: just the zone name
   }
 
   // Alex draws a card into their Tableau and turns it face up, then a face-down one
   const drawToTableau = async () => {
     await alex.page.getByTestId('pile-Standard 52').click();
     await alex.page.getByRole('button', { name: 'Draw…' }).click();
-    await alex.page.locator('#dto').selectOption({ label: 'Your Tableau' });
+    await alex.page.locator('#dto').selectOption({ label: 'Tableau' });
     await alex.page.getByRole('button', { name: 'Draw 1' }).click();
   };
   await drawToTableau();
@@ -35,11 +35,12 @@ test('per-player zones: one definition, own copy on each board, face rules, take
   await expect(alexRow).toHaveCount(2);
   expect(await lastLog(alex.page)).toMatch(/Alex drew 1 card from the top of Standard 52 to Alex's Tableau/);
 
-  // Sam: counts in the seat bar; the seat sheet shows the face-up card and a back
-  await expect(sam.page.getByTestId('seat-Alex')).toContainText('Tableau 2');
+  // Sam: the seat chip shows only name and hand count; the seat sheet shows the count, the face-up card and a back
+  await expect(sam.page.getByTestId('seat-Alex')).not.toContainText('Tableau');
   await expect(sam.page.getByTestId('row-Tableau').locator('[data-h]')).toHaveCount(0); // Sam's own copy is empty
   await sam.page.getByTestId('seat-Alex').click();
   const sheet = sam.page.getByRole('region', { name: "Alex's Tableau" });
+  await expect(sheet.getByRole('heading')).toHaveText('Tableau · 2');
   await expect(sheet.getByRole('button', { name: /^Ask to take (?!face-down)/ })).toHaveCount(1);
   await expect(sheet.getByRole('button', { name: 'Ask to take face-down card 2' })).toBeVisible();
 
@@ -55,13 +56,13 @@ test('per-player zones: one definition, own copy on each board, face rules, take
   await sam.page.getByTestId('seat-Alex').click();
   await sam.page.getByRole('button', { name: 'Pass 1 selected to Tableau' }).click();
   await expect(alexRow).toHaveCount(2);
-  await expect(sam.page.getByTestId('seat-Alex')).toContainText('Tableau 2');
 
   // a late joiner gets an empty copy
   const kim = await newPlayer(browser, 'Kim');
   await joinTable(kim.page, 'Personal areas');
-  await expect(kim.page.locator('.zone-name', { hasText: 'Your Tableau' })).toBeVisible();
+  await expect(kim.page.locator('.zone-name', { hasText: /^Tableau$/ })).toBeVisible();
   await expect(kim.page.getByTestId('row-Tableau').locator('[data-h]')).toHaveCount(0);
-  await expect(kim.page.getByTestId('seat-Alex')).toContainText('Tableau 2');
+  await kim.page.getByTestId('seat-Alex').click();
+  await expect(kim.page.getByRole('region', { name: "Alex's Tableau" }).getByRole('heading')).toHaveText('Tableau · 2');
   await closeAll(alex.ctx, sam.ctx, kim.ctx);
 });

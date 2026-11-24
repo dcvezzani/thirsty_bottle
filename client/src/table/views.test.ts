@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TableView } from '@vct/shared';
-import { boardZones, rotateSeat, shownSeat, viewRotation } from './ui';
+import { boardZones, rotateSeat, shownSeat, viewRotation, zoneLabel } from './ui';
 
 const z = (id: string, kind: string, seatId: string | null = null, group?: string) => ({ id, name: id, kind, seatId, group, layout: 'spread', cards: [] }) as any;
 const view = (me: string | null) =>
@@ -34,5 +34,15 @@ describe('player views (2.2)', () => {
     expect(shownSeat(view(null), null)).toBe('s1');
     expect(shownSeat(view('s3'), 's2')).toBe('s3'); // s2 is empty
     expect(shownSeat(view('s3'), 's4')).toBe('s4');
+  });
+});
+
+describe('per-player labels (compact-seat-chips 1.3)', () => {
+  it('my own copy is just the zone name; others carry the owner; empty seats their number', () => {
+    const v = view('s1');
+    const byId = (id: string) => v.zones.find((x) => x.id === id)!;
+    expect(zoneLabel(v, byId('g:s1'))).toBe('g:s1');
+    expect(zoneLabel(v, byId('g:s3'))).toBe("Sam's g:s3");
+    expect(zoneLabel(v, byId('g:s2'))).toBe('Seat 2 g:s2');
   });
 });

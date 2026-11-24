@@ -34,9 +34,15 @@ test('action sheet: pass and show with correct faces; recent destinations and Se
   await alex.getByRole('button', { name: 'Actions…' }).click();
   await alex.getByRole('button', { name: 'Show to…' }).click();
   await alex.getByRole('dialog').getByRole('button', { name: 'Sam' }).click();
-  await expect(sam.getByTestId('seat-Alex').locator('[data-h]')).toHaveCount(1);
-  await expect(sam.getByTestId('seat-Alex').locator('[data-h]')).toHaveAttribute('aria-label', mine[1]!);
-  await expect(kim.getByTestId('seat-Alex').locator('[data-h]')).toHaveCount(0);
+  // compact-seat-chips: cards shown to you are in the seat sheet, not on the chip
+  await sam.getByTestId('seat-Alex').click();
+  const shown = sam.getByRole('region', { name: 'Shown to you' }).locator('[data-h]');
+  await expect(shown).toHaveCount(1);
+  await expect(shown).toHaveAttribute('aria-label', mine[1]!);
+  await sam.keyboard.press('Escape');
+  await kim.getByTestId('seat-Alex').click();
+  await expect(kim.getByRole('region', { name: 'Shown to you' })).toHaveCount(0);
+  await kim.keyboard.press('Escape');
   await sam.getByRole('button', { name: 'Log', exact: true }).click();
   await expect(sam.getByLabel('Table log').locator('li').first()).toContainText(`Alex showed you ${mine[1]}`);
   await kim.getByRole('button', { name: 'Log', exact: true }).click();
