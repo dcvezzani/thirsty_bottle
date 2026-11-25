@@ -242,7 +242,10 @@ test('second finger: a quick tap on the loupe switches card and details while th
   await expect(page.getByTestId('loupe-details')).toHaveCount(0);
   await page.waitForTimeout(450);
   await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  // the chosen card view is kept: on the next card a pause does not bring the details back
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[3])] });
+  await page.waitForTimeout(450);
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
 
   // a quick tap of the second finger: details, and the next card scrubbed shows details too
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });

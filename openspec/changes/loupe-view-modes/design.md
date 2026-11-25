@@ -20,7 +20,8 @@
 - The table settings sheet gets an "On this device" group (shown to every player, not only the host) with a two-option radio, "Card loupe".
 
 **D2. Two views, one choice.**
-- `useUI.loupeFace: 'card' | 'details'` (session, not stored) is the chosen view; `loupe.peek` is the old transient pause state. The loupe shows details when `face === 'details' || peek`; moving on clears `peek` only.
+- `useUI.loupeFace: 'auto' | 'card' | 'details'` is the view. `'auto'` is the state before any choice: the large card, with a pause peeking at details (`loupe.details`, cleared when the finger moves on). A tap, or the Card/Details buttons, sets `'card'` or `'details'`; from then on a pause no longer changes the view. The loupe shows details when `face === 'details' || (face === 'auto' && peek)`.
+- A tap toggles what is on screen (a peek counts as details) and makes it the choice. The choice is kept in `sessionStorage`, so it lasts for the browser tab's session, including a reload.
 
 **D3. Second-finger tap (mode "second-finger").**
 - While a scrub is active the loupe takes touches (`pointer-events: auto` on the box, only then). A pointer that goes down on it and comes up within 250 ms and 10 px flips `loupeFace`; one that holds longer or moves does nothing. The scrubbing finger keeps its pointer capture, so the scrub carries on.

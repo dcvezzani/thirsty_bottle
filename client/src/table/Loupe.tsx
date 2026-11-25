@@ -58,10 +58,10 @@ export function Loupe({ view }: { view: TableView }) {
     >
       {stay && (
         <div className="loupe-controls" role="group" aria-label="Loupe view">
-          <button className={`small${!showDetails ? ' primary' : ''}`} aria-pressed={!showDetails} onClick={() => useUI.setState({ loupeFace: 'card' })}>
+          <button className={`small${!showDetails ? ' primary' : ''}`} aria-pressed={!showDetails} onClick={() => useUI.getState().chooseFace('card')}>
             Card
           </button>
-          <button className={`small${showDetails ? ' primary' : ''}`} aria-pressed={showDetails} onClick={() => useUI.setState({ loupeFace: 'details' })}>
+          <button className={`small${showDetails ? ' primary' : ''}`} aria-pressed={showDetails} onClick={() => useUI.getState().chooseFace('details')}>
             Details
           </button>
           <span className="grow" />

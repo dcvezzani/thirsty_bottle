@@ -18,7 +18,7 @@ Pressing and sliding along a fanned hand or spread SHALL show the card under the
 ## ADDED Requirements
 
 ### Requirement: Switch the loupe between card and details
-The loupe SHALL have two views of a card: the large card and the card's details. The chosen view applies to every card scrubbed after the choice for the rest of the session. While the large card is chosen, holding still on a card still shows its details until the finger moves on.
+The loupe SHALL have two views of a card: the large card and the card's details. Until the player has chosen a view, the large card shows and holding still on a card peeks at its details until the finger moves on. A choice, made by tapping the loupe (or its buttons), SHALL apply to every card shown in the loupe for the rest of the browser session until it is changed, and a pause SHALL NOT change a chosen view.
 
 #### Scenario: Choose details while scrubbing
 - **WHEN** a player scrubs with one finger and taps the loupe with a second finger, and then slides on to the next card
@@ -27,6 +27,14 @@ The loupe SHALL have two views of a card: the large card and the card's details.
 #### Scenario: Go back to the card
 - **WHEN** the player taps the loupe with the second finger again
 - **THEN** the loupe shows the large card again
+
+#### Scenario: A chosen card view wins over a pause
+- **WHEN** a pause is peeking at a card's details, the player taps the loupe to go back to the large card, scrubs to another card and pauses on it
+- **THEN** the loupe keeps showing the large card
+
+#### Scenario: The choice lasts the session
+- **WHEN** a player has chosen the details view, lifts, and scrubs another card later, even after reloading the page
+- **THEN** the loupe shows that card's details
 
 ### Requirement: Loupe mode preference
 A player SHALL be able to choose, for the device they are using, between "Second finger" and "Stay open" for the card loupe, from the table settings. The default is "Second finger" on a touch device that supports two or more touch points and "Stay open" otherwise. The choice SHALL be kept in the browser and SHALL NOT be shared with other players.

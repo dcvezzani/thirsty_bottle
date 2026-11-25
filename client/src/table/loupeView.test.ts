@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultLoupeMode, getLoupeMode, setLoupeMode } from '../lib/loupePrefs';
-import { endsViewing, flipFace, isQuickTap, showsDetails, toggleView, type ViewingEvent } from './loupeView';
+import { defaultLoupeMode, getLoupeFace, getLoupeMode, setLoupeFace, setLoupeMode } from '../lib/loupePrefs';
+import { endsViewing, isQuickTap, showsDetails, toggleView, type ViewingEvent } from './loupeView';
 
 afterEach(() => {
   localStorage.clear();
@@ -36,12 +36,11 @@ describe('loupe mode preference (1.1)', () => {
 });
 
 describe('loupe views (1.1)', () => {
-  it('details show when chosen or while a pause peeks at them', () => {
-    expect(showsDetails('card', false)).toBe(false);
-    expect(showsDetails('card', true)).toBe(true);
+  it('before any choice a pause peeks at details; once a view is chosen a pause no longer changes it', () => {
+    expect(showsDetails('auto', false)).toBe(false);
+    expect(showsDetails('auto', true)).toBe(true);
+    expect(showsDetails('card', true)).toBe(false);
     expect(showsDetails('details', false)).toBe(true);
-    expect(flipFace('card')).toBe('details');
-    expect(flipFace('details')).toBe('card');
   });
   it('every way of ending a stay-open view ends it; panning and scrolling do not', () => {
     const ends: ViewingEvent[] = ['close', 'escape', 'scrubStart', 'dragStart', 'select', 'tapViewed', 'felt', 'sheet'];
@@ -56,15 +55,26 @@ describe('loupe views (1.1)', () => {
   });
 });
 
-describe('tapping the loupe switches what is on screen (2.1)', () => {
+describe('tapping the loupe chooses a view (2.1)', () => {
   it('from the card to details', () => {
+    expect(toggleView('auto', false)).toEqual({ face: 'details', peek: false });
     expect(toggleView('card', false)).toEqual({ face: 'details', peek: false });
   });
   it('from chosen details back to the card', () => {
     expect(toggleView('details', false)).toEqual({ face: 'card', peek: false });
   });
-  it('from a pause that is peeking at details back to the card, dropping the peek', () => {
-    expect(toggleView('card', true)).toEqual({ face: 'card', peek: false });
-    expect(showsDetails('card', false)).toBe(false);
+  it('from a pause that is peeking at details to the card, and the pause no longer peeks', () => {
+    const t = toggleView('auto', true);
+    expect(t).toEqual({ face: 'card', peek: false });
+    expect(showsDetails(t.face, true)).toBe(false);
+  });
+  it('the chosen view is kept for the session', () => {
+    expect(getLoupeFace()).toBe('auto');
+    setLoupeFace('card');
+    expect(getLoupeFace()).toBe('card');
+    setLoupeFace('details');
+    expect(getLoupeFace()).toBe('details');
+    sessionStorage.clear();
+    setLoupeFace('auto');
   });
 });

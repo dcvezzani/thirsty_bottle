@@ -1,14 +1,16 @@
 /** loupe-view-modes: the loupe's two views and when a stay-open view ends. Pure. */
-export type LoupeFace = 'card' | 'details';
+/**
+ * The loupe's view. 'auto' until the player first chooses: the large card, with a pause peeking at the details.
+ * Once 'card' or 'details' is chosen it stays chosen for the browser session and a pause no longer changes it.
+ */
+export type LoupeFace = 'auto' | 'card' | 'details';
 
-/** Details show when chosen, or while a pause is peeking at them. */
-export const showsDetails = (face: LoupeFace, peek: boolean) => face === 'details' || peek;
-
-export const flipFace = (f: LoupeFace): LoupeFace => (f === 'card' ? 'details' : 'card');
+/** Details show when chosen, or (only before any choice) while a pause is peeking at them. */
+export const showsDetails = (face: LoupeFace, peek: boolean) => face === 'details' || (face === 'auto' && peek);
 
 /**
- * A tap on the loupe switches what is on screen: if details show (chosen, or peeked at during a pause) it goes back to the
- * large card and the peek is dropped; otherwise it shows details. A pause only peeks again after the finger has moved on.
+ * A tap on the loupe switches what is on screen and makes that the chosen view: details (chosen, or a peek)
+ * go back to the large card; the large card goes to details.
  */
 export function toggleView(face: LoupeFace, peek: boolean): { face: LoupeFace; peek: boolean } {
   return showsDetails(face, peek) ? { face: 'card', peek: false } : { face: 'details', peek: false };

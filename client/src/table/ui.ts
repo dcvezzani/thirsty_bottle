@@ -3,6 +3,7 @@ import type { CardView, TableView, ZoneView } from '@vct/shared';
 import { boardSlots } from '@vct/shared';
 import { FOCUS_SETTLE_MS, type HandColumn } from './handFocus';
 import { toggleView, type LoupeFace } from './loupeView';
+import { getLoupeFace, setLoupeFace } from '../lib/loupePrefs';
 
 export type Sheet =
   | { kind: 'cards' }
@@ -44,6 +45,8 @@ interface UIState {
   loupeFace: LoupeFace;
   viewed: { h: string; zone: string } | null;
   flipLoupe(): void;
+  /** Choose the loupe's view (and keep it for the session). */
+  chooseFace(f: 'card' | 'details'): void;
   sheet: Sheet;
   faceDown: boolean;
   drawer: DrawerTab | null;
@@ -73,11 +76,16 @@ export const useUI = create<UIState>((set, get) => ({
   preview: null,
   drag: null,
   loupe: null,
-  loupeFace: 'card',
+  loupeFace: getLoupeFace(),
   viewed: null,
+  chooseFace(f) {
+    setLoupeFace(f);
+    set({ loupeFace: f });
+  },
   flipLoupe() {
     const { loupeFace, loupe } = get();
     const next = toggleView(loupeFace, !!loupe?.details);
+    setLoupeFace(next.face);
     set({ loupeFace: next.face, ...(loupe ? { loupe: { ...loupe, details: next.peek } } : {}) });
   },
   openZone: null,

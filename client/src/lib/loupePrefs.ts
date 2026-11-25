@@ -23,6 +23,30 @@ export function getLoupeMode(): LoupeMode {
   return raw === 'second-finger' || raw === 'stay' ? raw : (memory ?? defaultLoupeMode());
 }
 
+/** The chosen loupe view lasts for the browser tab's session (a reload keeps it); 'auto' means nothing chosen yet. */
+export type StoredFace = 'auto' | 'card' | 'details';
+const FACE_KEY = 'vct.loupeFace';
+let faceMemory: StoredFace = 'auto';
+
+export function getLoupeFace(): StoredFace {
+  try {
+    const v = sessionStorage.getItem(FACE_KEY);
+    if (v === 'card' || v === 'details' || v === 'auto') return v;
+  } catch {
+    /* in-memory only */
+  }
+  return faceMemory;
+}
+
+export function setLoupeFace(f: StoredFace) {
+  faceMemory = f;
+  try {
+    sessionStorage.setItem(FACE_KEY, f);
+  } catch {
+    /* in-memory only */
+  }
+}
+
 export function setLoupeMode(m: LoupeMode) {
   memory = m;
   try {
