@@ -98,6 +98,23 @@ export class ZoneGesture {
     if (this.secondPress) this.cb.onSecondPress?.(this.startIndex!);
   }
 
+  /**
+   * header-scrub: start already scrubbing from a point, on the card at `index` (the finger came down from a zone header).
+   * The recognizer then follows the finger like any scrub, including pulling out into a drag.
+   */
+  beginScrub(s: Sample, index: number) {
+    this.state = 'scrub';
+    this.start = s;
+    this.startIndex = index;
+    this.scrubIndex = index;
+    this.rest = s;
+    this.restFired = false;
+    this.last = s;
+    this.lastTap = null;
+    this.secondPress = false;
+    this.cb.onScrubStart?.(index);
+  }
+
   /** Call periodically (or from a timer) so a still hold can become a long press. */
   tick(t: number) {
     if ((this.state === 'scrub' || this.state === 'drag') && this.rest && this.last && !this.restFired && t - this.rest.t >= this.cfg.dwellMs) {

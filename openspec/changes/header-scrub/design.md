@@ -21,9 +21,9 @@
 - States: `pressed` → after 8 px of mostly-sideways movement, `scrub`; a still hold of 500 ms by the host, `arrange` (unchanged); release below slop, a tap. A slide cancels the hold timer and marks the following click as consumed, as `consumeFired` does now.
 - The pointer is captured by the header for the stroke.
 
-**D2. The header strip reuses `StripRun`.**
-- `StripRun` takes the set of handles to walk (the card strip, or the header strip). The header strip is built from every zone on the board with cards, in reading order, with the same row wrap and `shift` rule; entries are the zones' sections, so a finger over a header maps to the zone whose box it is over.
-- For the header strip a handle's `extent` is the zone's whole width, `indexAt` is always 0 (one stop per zone), and `show` previews the zone's focus card.
+**D2. The header strip is its own run, `HeaderStripRun`.**
+- It groups the board's zones that have cards into their rows. Within a row the finger picks the header under it (`zoneAtX`: the nearest zone over a gap or beside the row), so there is no running-off-the-end rule to get wrong. The strip handle's `show` previews the zone's focus card.
+- Wrapping a row by sliding past its end does not work for headers: a zone at the end of a row sits almost at the screen edge, so a finger that has crossed it has nowhere left to slide. Instead, holding the finger within 14 px of the left or right edge for 0.35 s steps to the next or previous row (and again every 0.35 s while it keeps pushing); the run is ticked from the clock so a still finger works. After a step the finger picks the header under it in the new row. Rows with nothing to show are passed over.
 - `zoneFocusCard(zone)` (pure): a pile's top card, a column's last card, otherwise the first card.
 - The loupe side is chosen at the press as for card scrubs (the header is inside the zone's box), and a row label is shown as in `scrub-loupe`.
 
@@ -32,7 +32,7 @@
 - Sliding down onto a column therefore scrubs it vertically from the header, and onto a row it scrubs sideways; nothing is picked up because pickup needs a pull-out or a sideways move on a column, which only a new press can start.
 - Piles and free zones have no scrub; sliding down into them keeps the header scrub's loupe on their focus card.
 
-**D4. Press area.** The label gets an invisible `::before` extending 9 px above and below, so the pressable height is at least 44 px at the default sizes, with no layout change. It stays inside the zone's box so it never covers a neighbouring zone's header.
+**D4. Press area.** The label gets an invisible `::before` extending 8 px above (into the zone's own padding and the gap between rows) and 4 px below, so the pressable height is 34 to 42 px, with no layout change. It does not reach further, so it never covers a neighbouring zone's header or more than a sliver of the cards below; 44 px would have needed to overlap them.
 
 **D5. Hand-over from spreads is untouched.** The card strip and the header strip are separate runs; neither is started by the other.
 

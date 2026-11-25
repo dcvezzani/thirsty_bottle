@@ -1,15 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: Scrub along zone headers
-Pressing a zone's header and sliding sideways SHALL travel from zone to zone along the board in reading order, wrapping at the end of a row to the next row and back, for every kind of zone. Zones with no cards are passed over. The device SHALL tick at each crossing, and releasing SHALL change nothing.
+Pressing a zone's header and sliding sideways SHALL travel from zone to zone along the headers of a row, for every kind of zone, and holding the finger against the left or right edge of the screen for about 0.35 s SHALL step to the next or previous row, again every 0.35 s while it keeps pushing. Zones with no cards are passed over. The device SHALL tick at each crossing, and releasing SHALL change nothing.
 
 #### Scenario: Slide along the headers
 - **WHEN** a player presses the Draw pile's header and slides right across the headers of Discard and Table
 - **THEN** the loupe shows the top card of Draw, then of Discard, then the first card of Table, each with its zone name and count, and releasing leaves the table unchanged
 
-#### Scenario: Wrap to the next row
-- **WHEN** the player slides past the last header in a row
-- **THEN** the scrub continues at the first header of the next row, and sliding back returns to the row above
+#### Scenario: Step to the next row
+- **WHEN** the player slides to the right edge of the screen and holds the finger there
+- **THEN** after about 0.35 s the scrub moves to the next row of zones, and holding against the left edge steps back to the row above
 
 #### Scenario: Column zone
 - **WHEN** the scrub reaches a column
@@ -46,7 +46,7 @@ Sliding down from a header into the same zone's cards during a header scrub SHAL
 - **THEN** arrange mode does not start and the zone's actions do not open
 
 ### Requirement: Zone header press area
-A zone header SHALL be pressable from an area at least 44 px tall without changing the zone's layout.
+A zone header SHALL be pressable from an area taller than its text, extending a few pixels above and below it, without changing the zone's layout.
 
 #### Scenario: Press just above a header
 - **WHEN** a player presses a few pixels above a header, in the zone's top margin

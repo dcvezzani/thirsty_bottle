@@ -8,8 +8,18 @@ import { useUI, zoneLabel } from './ui';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import type { FlowItem } from './flow';
-import { useArrangeLongPress } from './Arrange';
+import { useZoneHeader } from './headerScrub';
+import { registerHeader } from './scrubStrip';
+import { zoneFocusCard } from './focusCard';
 import { quickFlip } from './flip';
+
+function vibrate(ms: number) {
+  try {
+    navigator.vibrate?.(ms);
+  } catch {
+    /* unsupported */
+  }
+}
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
 export function Pile({
@@ -299,9 +309,32 @@ export function ZoneBox({
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
   const opened = useUI((s) => s.openZone?.id === zone.id);
   const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
-  const longPress = useArrangeLongPress(view.me.isHost);
+  const sectionRef = useRef<HTMLElement>(null);
+  const header = useZoneHeader({ zoneId: zone.id, sectionRef, host: view.me.isHost, onTap: () => setSheet({ kind: 'zone', zone: zone.id }) });
+  // header-scrub: this zone's header can be reached by a slide along the headers
+  const focus = zoneFocusCard(zone);
+  const headerName = `${zone.kind === 'player' ? zoneLabel(view, zone) : zone.name} · ${zone.cards.length}`;
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || !focus) return;
+    return registerHeader(zone.id, {
+      el,
+      name: headerName,
+      extent: () => ({ left: 0, right: el.getBoundingClientRect().width }),
+      indexAt: () => 0,
+      show: () => {
+        const cur = useUI.getState().preview;
+        if (cur?.h !== focus.h) vibrate(5);
+        const l = useUI.getState().loupe;
+        useUI.setState({ preview: { h: focus.h, zone: zone.id }, ...(l?.details ? { loupe: { ...l, details: false } } : {}) });
+      },
+    });
+  }, [zone.id, focus?.h, headerName]);
   return (
     <section
+      ref={sectionRef}
+      data-header-zone={zone.id}
+      data-count={zone.cards.length}
       className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''} ${opened ? 'is-open' : ''}`}
       style={{
         ['--zone-color' as any]: zone.color,
@@ -312,9 +345,8 @@ export function ZoneBox({
     >
       <button
         className="zone-label"
-        onClick={() => !longPress.consumeFired() && setSheet({ kind: 'zone', zone: zone.id })}
         aria-label={`${zone.name} actions`}
-        {...longPress.handlers}
+        {...header.handlers}
       >
         {/* table-play "Zone card count": the name shortens, the count never does */}
         <span className="zone-name">{zone.kind === 'player' ? zoneLabel(view, zone) : zone.name}</span>

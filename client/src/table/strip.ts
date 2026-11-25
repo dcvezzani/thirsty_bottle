@@ -35,3 +35,41 @@ export function neighbour(strip: StripEntry[], id: string, dir: 1 | -1): StripEn
 export function stripLabel(e: StripEntry, name: string): string {
   return e.rows > 1 ? `Row ${e.row} of ${e.rows} · ${name}` : name;
 }
+
+/**
+ * header-scrub: which zone's header is under a finger at x, among the zones of one row (left to right).
+ * A finger beside the row, or over a gap, picks the nearest zone.
+ */
+export function zoneAtX(zones: { id: string; left: number; right: number }[], x: number): string | null {
+  if (zones.length === 0) return null;
+  let best = zones[0];
+  let bestD = Infinity;
+  for (const z of zones) {
+    const d = x < z.left ? z.left - x : x > z.right ? x - z.right : 0;
+    if (d < bestD) {
+      best = z;
+      bestD = d;
+    }
+  }
+  return best.id;
+}
+
+/** The finger counts as pushing against a side of the screen within this many px of it. */
+export const EDGE_PX = 14;
+/** Pushing for this long steps to the next row (and again every period while it keeps pushing). */
+export const EDGE_MS = 350;
+
+/** Which way a finger at x on a screen `width` wide is pushing: -1 left edge, 1 right edge, 0 neither. */
+export function edgePush(x: number, width: number): -1 | 0 | 1 {
+  if (x >= width - EDGE_PX) return 1;
+  if (x <= EDGE_PX) return -1;
+  return 0;
+}
+
+/** Step the push timer: returns the row step (-1, 0, 1) due now and the new timer state. */
+export function edgeStep(state: { dir: -1 | 0 | 1; since: number }, dir: -1 | 0 | 1, now: number): { step: -1 | 0 | 1; state: { dir: -1 | 0 | 1; since: number } } {
+  if (dir === 0) return { step: 0, state: { dir: 0, since: now } };
+  if (state.dir !== dir) return { step: 0, state: { dir, since: now } };
+  if (now - state.since >= EDGE_MS) return { step: dir, state: { dir, since: now } };
+  return { step: 0, state };
+}

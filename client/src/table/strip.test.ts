@@ -38,3 +38,45 @@ describe('scrub strip (1.1)', () => {
     expect(stripLabel(buildStrip(zones)[2], 'Discard')).toBe('Row 2 of 3 · Discard');
   });
 });
+
+import { edgePush, edgeStep, zoneAtX, EDGE_MS } from './strip';
+
+describe('header strip helpers (2.1)', () => {
+  const row = [
+    { id: 'a', left: 10, right: 90 },
+    { id: 'b', left: 94, right: 200 },
+    { id: 'c', left: 204, right: 360 },
+  ];
+  it('picks the zone under the finger, and the nearest over a gap or beside the row', () => {
+    expect(zoneAtX(row, 50)).toBe('a');
+    expect(zoneAtX(row, 150)).toBe('b');
+    expect(zoneAtX(row, 92)).toBe('a');
+    expect(zoneAtX(row, 202)).toBe('b');
+    expect(zoneAtX(row, 2)).toBe('a');
+    expect(zoneAtX(row, 374)).toBe('c');
+    expect(zoneAtX([], 10)).toBeNull();
+  });
+  it('knows which edge of the screen the finger pushes against', () => {
+    expect(edgePush(372, 375)).toBe(1);
+    expect(edgePush(5, 375)).toBe(-1);
+    expect(edgePush(180, 375)).toBe(0);
+  });
+  it('steps a row after a push of EDGE_MS, and again every period, but not when the finger moves away', () => {
+    let st = { dir: 0 as -1 | 0 | 1, since: 0 };
+    let r = edgeStep(st, 1, 100);
+    expect(r.step).toBe(0);
+    st = r.state;
+    r = edgeStep(st, 1, 100 + EDGE_MS - 10);
+    expect(r.step).toBe(0);
+    r = edgeStep(r.state, 1, 100 + EDGE_MS + 5);
+    expect(r.step).toBe(1);
+    st = r.state;
+    r = edgeStep(st, 1, 100 + EDGE_MS + 5 + EDGE_MS + 1);
+    expect(r.step).toBe(1);
+    r = edgeStep(r.state, 0, 2000);
+    expect(r.step).toBe(0);
+    r = edgeStep(r.state, -1, 2100);
+    r = edgeStep(r.state, -1, 2100 + EDGE_MS);
+    expect(r.step).toBe(-1);
+  });
+});

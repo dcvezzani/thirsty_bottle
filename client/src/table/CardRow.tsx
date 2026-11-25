@@ -8,7 +8,7 @@ import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
 import { pickLoupe } from './loupe';
-import { registerStrip, StripRun } from './scrubStrip';
+import { enterRegistry, registerStrip, StripRun } from './scrubStrip';
 import { getLoupeMode } from '../lib/loupePrefs';
 
 function vibrate(ms: number) {
@@ -291,6 +291,32 @@ export function CardRow({
       handle.current = null;
     };
   }, [strip, zone.id, zone.name, cardW, arc]);
+
+  // header-scrub: a finger that slid down from this zone's header continues as a scrub of these cards
+  useEffect(() => {
+    if (!strip) return;
+    const enter = (cx: number, cy: number, pointerId: number) => {
+      const el = ref.current;
+      if (!el || !live.current.cards.length) return false;
+      const r = el.getBoundingClientRect();
+      gesture.origin({ x: r.left, y: r.top });
+      try {
+        el.setPointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      pointer.current = 'touch';
+      const l = fanLayout(live.current.cards.length, el.clientWidth || widthRef.current, cardWRef.current, { arc, maxSpacing: arc ? undefined : cardWRef.current * 1.06 });
+      const x = cx - r.left;
+      const i = hitIndex(l, x) ?? (x < l.left ? 0 : live.current.cards.length - 1);
+      gesture.g.beginScrub({ x, y: cy - r.top, t: performance.now() }, i);
+      return true;
+    };
+    enterRegistry.set(zone.id, enter);
+    return () => {
+      if (enterRegistry.get(zone.id) === enter) enterRegistry.delete(zone.id);
+    };
+  }, [strip, zone.id, gesture, arc]);
 
   useEffect(() => {
     const t = setInterval(() => gesture.g.tick(performance.now()), 50);

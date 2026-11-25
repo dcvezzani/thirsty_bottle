@@ -5,6 +5,7 @@ import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
 import { columnHit, columnLayout, columnMagnify } from './column';
 import { useUI } from './ui';
 import { finishScrub, placeLoupe, tapEndsViewing } from './CardRow';
+import { enterRegistry } from './scrubStrip';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
@@ -125,6 +126,30 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
       ),
     };
   }, []);
+
+  // header-scrub: a finger that slid down from this zone's header continues as a vertical scrub of the column
+  useEffect(() => {
+    const enter = (cx: number, cy: number, pointerId: number) => {
+      const el = ref.current;
+      if (!el || !live.current.cards.length) return false;
+      const r = el.getBoundingClientRect();
+      gesture.origin({ x: r.left, y: r.top });
+      try {
+        el.setPointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      pointer.current = 'touch';
+      const y = cy - r.top;
+      const i = columnHit(live.current.Lfull, y) ?? (y < 0 ? 0 : live.current.cards.length - 1);
+      gesture.g.beginScrub({ x: cx - r.left, y, t: performance.now() }, i);
+      return true;
+    };
+    enterRegistry.set(zone.id, enter);
+    return () => {
+      if (enterRegistry.get(zone.id) === enter) enterRegistry.delete(zone.id);
+    };
+  }, [zone.id, gesture]);
 
   useEffect(() => {
     const t = setInterval(() => gesture.g.tick(performance.now()), 50);
