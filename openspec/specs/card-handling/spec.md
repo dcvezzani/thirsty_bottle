@@ -183,7 +183,7 @@ A column SHALL keep its height bounded. Face-down cards SHALL show as thin slive
 - **THEN** every face-up card's rank corner is still visible, and the column is only as tall as that requires
 
 ### Requirement: Scrubbing a column
-Pressing and sliding along a column SHALL temporarily open up the cards below the finger's card so they can be read; the finger's card and every card above it stay where they are, and cards further away stay compressed. The card under the finger SHALL always be the card shown in the loupe and previewed in the column. On release the column SHALL return to its compressed form, with nothing changed. Paint selection SHALL work during a column scrub as it does in rows. With a mouse, hovering over a column SHALL open up the cards under the pointer in the same way.
+Pressing and sliding along a column SHALL temporarily open up the cards below the finger's card so they can be read; the finger's card and every card above it stay where they are. The card under the finger SHALL always be the card shown in the loupe and previewed in the column. On release the column SHALL return to its compressed form, with nothing changed. Paint selection SHALL work during a column scrub as it does in rows.
 
 #### Scenario: Read a compressed card
 - **WHEN** a player slides a finger down a compressed column and stops on the 4th card
@@ -200,6 +200,13 @@ Pressing and sliding along a column SHALL temporarily open up the cards below th
 #### Scenario: Nothing moves under the finger
 - **WHEN** the scrub moves onto another card
 - **THEN** the cards above the new card are where they were in the compressed column
+
+### Requirement: Hovering a column
+With a mouse, hovering over a column SHALL open up the cards below the pointer's card in the same way, and preview the card under the pointer.
+
+#### Scenario: Hover a compressed card
+- **WHEN** a player moves a mouse pointer down a compressed column
+- **THEN** the card under the pointer is previewed and the cards below it open up, and moving the pointer away compresses the column again
 
 ### Requirement: Picking up from a column
 Picking up a card in a column SHALL pick up that card together with every card below it, in order. If the card is selected, the current selection SHALL be picked up instead.
