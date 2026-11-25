@@ -134,7 +134,7 @@ function TableScreen({ view }: { view: TableView }) {
       const oz = useUI.getState().openZone;
       if (!oz?.pinned) return;
       const t = e.target as Element | null;
-      if (t?.closest(`[data-drop-zone="${CSS.escape(oz.id)}"]`)) return;
+      if (t?.closest(`[data-drop-zone="${CSS.escape(oz.id)}"], .loupe`)) return; // a second finger on the loupe is not "somewhere else"
       useUI.setState({ openZone: null });
     };
     document.addEventListener('pointerdown', onDown, true);

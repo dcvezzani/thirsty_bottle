@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { CardView, TableView, ZoneView } from '@vct/shared';
 import { boardSlots } from '@vct/shared';
 import { FOCUS_SETTLE_MS, type HandColumn } from './handFocus';
-import { flipFace, type LoupeFace } from './loupeView';
+import { toggleView, type LoupeFace } from './loupeView';
 
 export type Sheet =
   | { kind: 'cards' }
@@ -76,7 +76,9 @@ export const useUI = create<UIState>((set, get) => ({
   loupeFace: 'card',
   viewed: null,
   flipLoupe() {
-    set({ loupeFace: flipFace(get().loupeFace) });
+    const { loupeFace, loupe } = get();
+    const next = toggleView(loupeFace, !!loupe?.details);
+    set({ loupeFace: next.face, ...(loupe ? { loupe: { ...loupe, details: next.peek } } : {}) });
   },
   openZone: null,
   sheet: null,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultLoupeMode, getLoupeMode, setLoupeMode } from '../lib/loupePrefs';
-import { endsViewing, flipFace, isQuickTap, showsDetails, type ViewingEvent } from './loupeView';
+import { endsViewing, flipFace, isQuickTap, showsDetails, toggleView, type ViewingEvent } from './loupeView';
 
 afterEach(() => {
   localStorage.clear();
@@ -53,5 +53,18 @@ describe('loupe views (1.1)', () => {
     expect(isQuickTap({ t: 0, x: 10, y: 10 }, { t: 120, x: 12, y: 11 })).toBe(true);
     expect(isQuickTap({ t: 0, x: 10, y: 10 }, { t: 400, x: 10, y: 10 })).toBe(false);
     expect(isQuickTap({ t: 0, x: 10, y: 10 }, { t: 100, x: 40, y: 10 })).toBe(false);
+  });
+});
+
+describe('tapping the loupe switches what is on screen (2.1)', () => {
+  it('from the card to details', () => {
+    expect(toggleView('card', false)).toEqual({ face: 'details', peek: false });
+  });
+  it('from chosen details back to the card', () => {
+    expect(toggleView('details', false)).toEqual({ face: 'card', peek: false });
+  });
+  it('from a pause that is peeking at details back to the card, dropping the peek', () => {
+    expect(toggleView('card', true)).toEqual({ face: 'card', peek: false });
+    expect(showsDetails('card', false)).toBe(false);
   });
 });

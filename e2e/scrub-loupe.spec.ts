@@ -233,6 +233,17 @@ test('second finger: a quick tap on the loupe switches card and details while th
   const at = center((await loupe.boundingBox())!);
   const f2 = { ...at, id: 2 };
 
+  // holding still shows details as a peek; a tap of the second finger then goes back to the card, and a pause does not peek again until the finger moves
+  await page.waitForTimeout(450);
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });
+  await page.waitForTimeout(60);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await page.waitForTimeout(450);
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[3])] });
+
   // a quick tap of the second finger: details, and the next card scrubbed shows details too
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });
   await page.waitForTimeout(60);
@@ -364,3 +375,28 @@ for (const scheme of ['light', 'dark'] as const) {
     await ctx.close();
   });
 }
+
+test('second finger on a board zone: hold pins the zone, a tap on the loupe still switches the view and leaves the zone open (2.1)', async ({ browser }) => {
+  const { ctx, page } = await startHand(browser, `Board tap ${Date.now() % 100000}`, 1);
+  await twoSpreads(page);
+  await settle(page);
+  const b = await stripCenters(page, 'row-B');
+  const cdp = await page.context().newCDPSession(page);
+  const f1 = (p: { x: number; y: number }) => ({ ...p, id: 1 });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(b[0])] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1({ x: b[0].x + 10, y: b[0].y })] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(b[1])] });
+  await page.waitForTimeout(450); // the pause: details peek, and the zone is pinned open
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await expect(page.locator('section.zone[aria-label="B"]')).toHaveClass(/is-open/);
+  const at = center((await page.getByTestId('loupe').boundingBox())!);
+  const f2 = { ...at, id: 2 };
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(b[1]), f2] });
+  await page.waitForTimeout(60);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await expect(page.locator('section.zone[aria-label="B"]')).toHaveClass(/is-open/);
+  await expect(page.locator('.card.selected')).toHaveCount(0);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f1(b[1])] });
+  await ctx.close();
+});

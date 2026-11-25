@@ -6,6 +6,14 @@ export const showsDetails = (face: LoupeFace, peek: boolean) => face === 'detail
 
 export const flipFace = (f: LoupeFace): LoupeFace => (f === 'card' ? 'details' : 'card');
 
+/**
+ * A tap on the loupe switches what is on screen: if details show (chosen, or peeked at during a pause) it goes back to the
+ * large card and the peek is dropped; otherwise it shows details. A pause only peeks again after the finger has moved on.
+ */
+export function toggleView(face: LoupeFace, peek: boolean): { face: LoupeFace; peek: boolean } {
+  return showsDetails(face, peek) ? { face: 'card', peek: false } : { face: 'details', peek: false };
+}
+
 export type ViewingEvent =
   | 'close' // the close button
   | 'escape'
