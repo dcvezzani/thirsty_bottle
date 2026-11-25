@@ -100,10 +100,11 @@ test('paint selection: tap + scrub selects 5; scrubbing from a selected card des
   const p3 = await stripCenters(page, 'row-hand');
   await scrub(page, [p3[1], p3[2], p3[3]]);
   await expect(page.getByTestId('selection-count')).toHaveText('2 selected');
-  // Select all / Clear
-  await page.getByRole('button', { name: 'Select all' }).click();
+  // Select all (in the Actions sheet) / Clear (the toolbar's ✕)
+  await page.getByRole('button', { name: 'Actions…' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Select all' }).click();
   await expect(page.getByTestId('selection-count')).toHaveText('9 selected');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
   await expect(page.getByTestId('selection-count')).toHaveCount(0);
   await ctx.close();
 });

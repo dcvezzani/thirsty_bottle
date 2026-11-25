@@ -52,6 +52,7 @@ test('double tap on a selected card flips the whole selection and clears it; out
   const { ctx, page } = await newPlayer(browser, 'Alex', PHONE);
   await createTable(page, uniq('Quick sel'), { deck: 'builtin-standard-52' });
   await toTable(page, 6);
+  const n0 = await logCount(page); // before selecting: the selection toolbar takes the tabs' row while cards are selected
   // select cards 0, 1, 2 by tapping (waiting out the double-tap window between taps)
   for (const i of [0, 1, 2]) {
     const p = await strip(page, i);
@@ -59,7 +60,6 @@ test('double tap on a selected card flips the whole selection and clears it; out
     await page.waitForTimeout(400);
   }
   await expect(page.locator('.card.selected')).toHaveCount(3);
-  const n0 = await logCount(page);
   await doubleTap(page, await strip(page, 1));
   await expect.poll(() => faces(page)).toEqual(['up', 'up', 'up', 'down', 'down', 'down']);
   await expect(page.locator('.card.selected')).toHaveCount(0);
@@ -98,12 +98,12 @@ test('selection bar Flip flips the selection in one action and clears it (2.2)',
   const { ctx, page } = await newPlayer(browser, 'Alex', PHONE);
   await createTable(page, uniq('Quick bar'), { deck: 'builtin-standard-52' });
   await toTable(page, 4);
+  const n0 = await logCount(page); // before selecting: the selection toolbar takes the tabs' row
   for (const i of [0, 1, 2]) {
     const p = await strip(page, i);
     await page.touchscreen.tap(p.x, p.y);
     await page.waitForTimeout(400);
   }
-  const n0 = await logCount(page);
   await page.locator('.selection-bar').getByRole('button', { name: 'Flip', exact: true }).click();
   await expect.poll(() => faces(page)).toEqual(['up', 'up', 'up', 'down']);
   await expect(page.locator('.card.selected')).toHaveCount(0);

@@ -177,7 +177,7 @@ test('hand dock: constant height, their hand focused by default, sliding focuses
   await alex.page.touchscreen.tap(sb.x + sb.width / 2, sb.y + sb.height / 2);
   await expect(alex.page.getByTestId('selection-count')).toBeVisible();
   await expect(myCol).toHaveClass(/focused/);
-  await alex.page.getByRole('button', { name: 'Clear' }).click();
+  await alex.page.getByRole('button', { name: 'Clear selection' }).click();
 
   // a card shown while my hand is focused: Sam's narrow column pulses and counts it, focus unchanged
   await show(2);

@@ -35,7 +35,11 @@ function destinations(view: TableView, exclude: string | null) {
 
 // ---------------------------------------------------------------------------------------------- selection
 
-export function SelectionBar({ view }: { view: TableView }) {
+/**
+ * stable-selection-bar: the selection controls on one line, in the row that otherwise holds the panel tabs
+ * (same box, same height), so selecting and deselecting never move or cover the board.
+ */
+export function SelectionBar({ view, unread = 0 }: { view: TableView; unread?: number }) {
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
   const faceDown = useUI((s) => s.faceDown);
@@ -44,30 +48,27 @@ export function SelectionBar({ view }: { view: TableView }) {
   if (!handles.length || view.me.spectator) return null;
   const last = recent.find((r) => r !== selZone && view.zones.some((z) => z.id === r));
   const lastZone = view.zones.find((z) => z.id === last);
-  const zone = view.zones.find((z) => z.id === selZone)!;
   return (
     <div className="selection-bar" role="toolbar" aria-label="Selected cards">
-      <strong data-testid="selection-count">{handles.length} selected</strong>
-      <button className="small" onClick={() => useUI.getState().select(selZone!, zone.cards.map((c) => c.h))}>
-        Select all
+      <strong className="selection-count" data-testid="selection-count">
+        {handles.length} selected
+      </strong>
+      <button className="small icon" aria-label="Clear selection" onClick={() => useUI.getState().clear()}>
+        ✕
       </button>
-      <button className="small" onClick={() => useUI.getState().clear()}>
-        Clear
-      </button>
-      {lastZone && (
-        <button className="small primary" onClick={() => moveCards(handles, selZone!, lastZone.id)} title={`Send to ${zoneLabel(view, lastZone)}`}>
-          Send again → {zoneLabel(view, lastZone)}
-        </button>
-      )}
-      <label className="row small-text" style={{ margin: 0 }}>
-        <input type="checkbox" style={{ width: 18, minHeight: 18 }} checked={faceDown} onChange={(e) => useUI.setState({ faceDown: e.target.checked })} />
-        Face down
-      </label>
       <button className="small" onClick={() => flipSelection()}>
         Flip
       </button>
-      <button className="small" onClick={() => useUI.getState().setSheet({ kind: 'cards' })}>
-        Actions…
+      {lastZone && (
+        <button className="small primary send-again" onClick={() => moveCards(handles, selZone!, lastZone.id)} title={`Send to ${zoneLabel(view, lastZone)}`} aria-label={`Send again to ${zoneLabel(view, lastZone)}`}>
+          → {zoneLabel(view, lastZone)}
+        </button>
+      )}
+      {faceDown && <span className="face-down-tag">face down</span>}
+      <span className="grow" />
+      {unread > 0 && <span className="unread-dot" role="status" aria-label="Unread chat" />}
+      <button className="small icon" aria-label="Actions…" onClick={() => useUI.getState().setSheet({ kind: 'cards' })}>
+        ⋯
       </button>
     </div>
   );
@@ -76,6 +77,7 @@ export function SelectionBar({ view }: { view: TableView }) {
 export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => void }) {
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
+  const faceDown = useUI((s) => s.faceDown);
   const handles = orderedSelection(view, selZone, selected);
   const zone = view.zones.find((z) => z.id === selZone);
   const [mode, setMode] = useState<'main' | 'move' | 'show'>('main');
@@ -144,6 +146,10 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
           <CardFace key={c.h} card={c} decks={view.decks} style={{ ['--card-w' as any]: '44px' }} />
         ))}
       </div>
+      <label className="row" style={{ margin: '6px 0', color: 'var(--ink)' }}>
+        <input type="checkbox" style={{ width: 20 }} checked={faceDown} onChange={(e) => useUI.setState({ faceDown: e.target.checked })} />
+        Face down (for moves and drags)
+      </label>
       <div className="actions">
         {inOthersHand ? (
           <button className="primary" disabled={!view.me.seatId} onClick={() => (moveCards(handles, zone.id, `hand:${view.me.seatId}`), done())}>
@@ -153,6 +159,9 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
           <>
             <button onClick={() => setMode('move')}>Move to…</button>
             <button onClick={() => (useUI.getState().clear(), flipCards(handles), done())}>Flip</button>
+            {/* stable-selection-bar: the controls the one-line toolbar no longer carries */}
+            <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>
+            <button onClick={() => (useUI.getState().clear(), onClose())}>Clear</button>
             {players.length > 0 && zone.kind === 'hand' && (
               <>
                 {players.map((p) => (

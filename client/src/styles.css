@@ -228,10 +228,14 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .sel-count { position: absolute; top: -4px; right: 4px; background: #f4c542; color: #222; font-weight: 700; border-radius: 10px; padding: 0 7px; font-size: 12px; z-index: 300; }
 .free-zone { position: relative; height: calc(var(--card-w) * 3); touch-action: none; }
 .hand-area { flex: none; padding: 0 4px calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0,0,0,0.25)); }
-.selection-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.45); flex: none; }
-.selection-bar button { color: #fff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); }
+.selection-bar { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; padding: 2px 4px; background: var(--bg-2); flex: none; overflow-x: auto; scrollbar-width: none; box-sizing: border-box; min-height: calc(var(--tap) + 4px); color: #fff; }
+.selection-bar button { color: #fff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); flex: none; min-height: var(--tap); }
 .selection-bar button.primary { background: var(--accent); }
-.selection-bar label { color: #fff; }
+.selection-bar button.send-again { flex: 0 1 auto; min-width: 0; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selection-bar button.icon { min-width: var(--tap); padding: 0; font-size: 18px; }
+.selection-count { flex: none; font-size: 14px; white-space: nowrap; }
+.face-down-tag { flex: none; padding: 1px 8px; border-radius: 8px; background: rgba(255,255,255,0.18); font-size: 12px; white-space: nowrap; }
+.unread-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #f4c542; }
 .drawer-tabs { display: flex; gap: 2px; padding: 2px 4px; background: var(--bg-2); flex: none; }
 .drawer-tabs button { flex: 1; min-width: 0; background: transparent; color: #fff; border: 0; font-size: 14px; padding: 0 4px; }
 .drawer-tabs button[aria-pressed='true'] { background: rgba(255,255,255,0.15); }

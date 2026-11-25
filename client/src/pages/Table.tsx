@@ -11,7 +11,8 @@ import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
 import { HandDock } from '../table/HandDock';
-import { useUI, findCard, boardZones, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
+import { useUI, findCard, boardZones, orderedSelection, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
+import { useSelectionDrawer } from '../table/useSelectionDrawer';
 import { setBoardElement } from '../table/drag';
 import { useBoardPan } from '../table/useBoardPan';
 import { CardInfoSheet, CardsSheet, DealSheet, DecksSheet, DrawSheet, FanOutSheet, Prompts, SeatSheet, SelectionBar, SettingsSheet, ZoneSheet } from '../table/Sheets';
@@ -97,6 +98,10 @@ function TableScreen({ view }: { view: TableView }) {
   const sheet = useUI((s) => s.sheet);
   const setSheet = useUI((s) => s.setSheet);
   const drawer = useUI((s) => s.drawer);
+  const selZone = useUI((s) => s.selZone);
+  const selectedHandles = useUI((s) => s.selected);
+  const selecting = !view.me.spectator && orderedSelection(view, selZone, selectedHandles).length > 0;
+  useSelectionDrawer(selecting);
   const zoom = useUI((s) => s.zoom);
   const unreadLobby = useApp((s) => s.unread.lobby ?? 0);
   const unreadRoom = useApp((s) => s.unread[`table:${view.id}`] ?? 0);
@@ -235,7 +240,6 @@ function TableScreen({ view }: { view: TableView }) {
         <CountersPanel view={view} />
         <OthersDrags view={view} />
       </div>
-      <SelectionBar view={view} />
       {/* shared-hand-dock: while viewing another table one constant-height dock holds their hand and mine */}
       {seenHand && seenSeat ? (
         <HandDock view={view} viewed={seenHand} mine={myHand} name={seenSeat.name} onInfo={onInfo} />
@@ -247,6 +251,10 @@ function TableScreen({ view }: { view: TableView }) {
         )
       )}
       {view.me.spectator && <div className="banner">You are watching. Hands stay hidden.</div>}
+      {/* stable-selection-bar: while cards are selected the toolbar takes this row (same box), then the tabs return */}
+      {selecting ? (
+        <SelectionBar view={view} unread={unreadRoom + unreadLobby} />
+      ) : (
       <nav className="drawer-tabs" aria-label="Panels">
         {(
           [
@@ -268,6 +276,7 @@ function TableScreen({ view }: { view: TableView }) {
           +
         </button>
       </nav>
+      )}
       {drawer && <Drawer view={view} tab={drawer} />}
       <DragGhost view={view} />
       {sheet?.kind === 'cards' && <CardsSheet view={view} onClose={closeSheet} />}

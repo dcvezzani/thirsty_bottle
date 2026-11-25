@@ -54,7 +54,7 @@ test('20 cards in a 375px hand all stay tappable (9.2)', async ({ browser }) => 
   await expect(page.getByTestId('selection-count')).toHaveText('20 selected');
   expect(box!.width).toBeLessThanOrEqual(375);
   // desktop-style reorder by dragging within the hand: pull the first card to the end
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
   const before = await handles(page, 'row-hand');
   const p0 = pts[0];
   const end = pts[19];

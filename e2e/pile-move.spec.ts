@@ -63,11 +63,11 @@ test('select a pile and drag it onto Discard: all cards on top in order, one log
   expect(await pileCount(deck(page))).toBe(51);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(() => pileCount(deck(page))).toBe(52);
-  // select the whole deck
+  // select the whole deck (the log is counted first: the selection toolbar takes the tabs' row while selecting)
+  const n0 = await logCount(page);
   await zoneAction(page, deck(page), 'Select all');
   await expect(deck(page).getByTestId('sel-count')).toHaveText('52');
   await expect(page.locator('.selection-bar')).toContainText('52');
-  const n0 = await logCount(page);
   await touchDrag(page, await center(deck(page)), () => center(discard(page)));
   await expect.poll(() => pileCount(discard(page))).toBe(52);
   await expect(deck(page).locator('.pile-count')).toHaveText('0');

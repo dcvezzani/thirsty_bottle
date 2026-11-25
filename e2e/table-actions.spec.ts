@@ -55,7 +55,7 @@ test('action sheet: pass and show with correct faces; recent destinations and Se
   await alex.getByRole('dialog').getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(alex.getByTestId('pile-Discard').locator('[data-h]')).toHaveAttribute('aria-label', mine[2]!);
   await selectHandCard(alex, 1);
-  await alex.getByRole('button', { name: /Send again → Discard/ }).click();
+  await alex.getByRole('button', { name: 'Send again to Discard' }).click();
   await expect(alex.getByTestId('pile-Discard').locator('[data-h]')).toHaveAttribute('aria-label', mine[3]!);
   await expect(kim.getByTestId('pile-Discard').locator('[data-h]')).toHaveAttribute('aria-label', mine[3]!);
   // recent destinations come first in Move to…

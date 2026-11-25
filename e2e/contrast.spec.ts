@@ -85,12 +85,22 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectReadable(page, 'draw sheet');
       await page.keyboard.press('Escape');
       await draw(page, 'Standard 52', 3);
-      // selection bar (Select all, Clear, Flip, Actions…)
+      // selection toolbar (clear, Flip, send again, Actions…)
       await page.getByTestId('row-hand').locator('[data-h]').first().click({ position: { x: 8, y: 30 } });
       await expect(page.locator('.selection-bar')).toBeVisible();
       await expect(page.locator('.selection-bar').getByRole('button', { name: 'Flip', exact: true })).toBeVisible();
       await expectReadable(page, 'selection bar');
-      await page.locator('.selection-bar').getByRole('button', { name: 'Clear' }).click();
+      // stable-selection-bar: the Actions sheet with Select all / Clear / Face down, then the toolbar's face down tag
+      await page.getByRole('button', { name: 'Actions…' }).click();
+      await expectReadable(page, 'actions sheet with selection controls');
+      await page.getByRole('dialog').getByLabel(/Face down/).check();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.face-down-tag')).toBeVisible();
+      await expectReadable(page, 'selection bar with face down tag');
+      await page.getByRole('button', { name: 'Actions…' }).click();
+      await page.getByRole('dialog').getByLabel(/Face down/).uncheck();
+      await page.keyboard.press('Escape');
+      await page.locator('.selection-bar').getByRole('button', { name: 'Clear selection' }).click();
       await page.getByRole('button', { name: '+ Counter' }).click();
       await expectReadable(page, 'counters empty');
       await page.getByLabel('New counter').fill('Matt');
