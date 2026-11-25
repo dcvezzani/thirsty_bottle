@@ -35,6 +35,10 @@ interface UIState {
   /** Handle being previewed (scrub / hover) and its zone. */
   preview: { h: string; zone: string } | null;
   drag: DragState | null;
+  /** scrub-loupe: set while a touch scrub shows the loupe; `details` after a pause, `row` names the strip row. */
+  /** scrub-loupe: the zone widened in place (while carrying cards, or pinned open after a pause). */
+  openZone: { id: string; pinned: boolean } | null;
+  loupe: { y: number; h: number; side: 'top' | 'bottom'; details: boolean; row: string | null } | null;
   sheet: Sheet;
   faceDown: boolean;
   drawer: DrawerTab | null;
@@ -63,6 +67,8 @@ export const useUI = create<UIState>((set, get) => ({
   selected: [],
   preview: null,
   drag: null,
+  loupe: null,
+  openZone: null,
   sheet: null,
   faceDown: false,
   drawer: null,
@@ -93,7 +99,8 @@ export const useUI = create<UIState>((set, get) => ({
     set({ selZone: selected.length ? zone : null, selected });
   },
   clear() {
-    set({ selZone: null, selected: [] });
+    const oz = get().openZone;
+    set({ selZone: null, selected: [], ...(oz?.pinned ? { openZone: null } : {}) });
   },
   setSheet(sheet) {
     set({ sheet });

@@ -27,11 +27,11 @@
 - The same event opens a zone while dragging and pins it while scrubbing or selecting (D5, D6).
 
 **D3. The strip is a pure ordering of the board's zones.**
-- A new `strip.ts` builds the reading order from the board layout: rows top to bottom, zones left to right, skipping empty zones, and maps a card to `(zone, index)` and back. Wrapping is just the next or previous element in this list.
+- A new `strip.ts` builds the reading order from the board layout: rows top to bottom, zones left to right, only card-row (spread) zones that are not empty, and maps a card to `(zone, index)` and back. Wrapping is just the next or previous element in this list.
 - A scrub that reaches the end of the current zone's cards hands over to the next strip entry. One recognizer per zone is kept; the active scrub moves to a board-level coordinator that owns the gesture from the first press to release, asks the strip which card is under the finger (hit-testing the zone under the pointer, then the card), and drives `preview`.
 - The loupe names the zone and row ("Row 2 of 3 · Discard"). A haptic tick fires at each crossing, in addition to the per-card tick.
 
-**D4. Selection across zones.** Paint selection keeps the same policy; the coordinator applies it to cards of any zone it passes over.
+**D4. Selection stays in one zone.** The table's selection belongs to a single zone, so a stroke that paints a selection keeps painting only in the zone where it began; in other zones of the strip the scrub previews cards and the loupe follows, without selecting. A pull-out into a drag is not offered while the scrub is in another zone.
 
 **D5. Zones widen in place; the layout is locked for the gesture.**
 - A zone's open state is a per-zone width override in the row layout: the open zone takes the width it needs to fan its cards (up to the row width) and its neighbours shrink through the existing row-fitting rules.

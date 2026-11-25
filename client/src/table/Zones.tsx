@@ -297,11 +297,12 @@ export function ZoneBox({
   const canAct = !view.me.spectator;
   const over = useUI((s) => s.drag?.over);
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
+  const opened = useUI((s) => s.openZone?.id === zone.id);
   const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
   const longPress = useArrangeLongPress(view.me.isHost);
   return (
     <section
-      className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''}`}
+      className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''} ${opened ? 'is-open' : ''}`}
       style={{
         ['--zone-color' as any]: zone.color,
         ...(flow ? { width: flow.w, ['--card-w' as any]: `${flow.cardW}px` } : {}),
@@ -328,7 +329,7 @@ export function ZoneBox({
         <>
           {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />}
           {zone.layout === 'spread' && (
-            <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} />
+            <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} strip />
           )}
           {zone.layout === 'column' && <ColumnZone zone={zone} decks={view.decks} interactive={canAct} onInfo={onInfo} />}
           {zone.layout === 'free' && (

@@ -321,3 +321,54 @@ describe('tap, then drag (pile-move 1.1)', () => {
     expect(far.ev).toEqual(['tap:0', 'dragStart:0', 'dragMove']);
   });
 });
+
+describe('dwell (1.1)', () => {
+  function dwellRec() {
+    const ev: string[] = [];
+    const g = new ZoneGesture({
+      hit: (x) => hit(x),
+      onScrubStart: (i) => ev.push(`scrubStart:${i}`),
+      onScrub: (i) => ev.push(`scrub:${i}`),
+      onDwell: (i) => ev.push(`dwell:${i}`),
+      onDragStart: () => ev.push('dragStart'),
+    });
+    return { g, ev };
+  }
+  const at = (x: number, t: number) => ({ x, y: 20, t });
+  it('fires once after 300 ms of stillness during a scrub, and again after moving on', () => {
+    const { g, ev } = dwellRec();
+    g.down(at(xOf(2), 0));
+    g.move(at(xOf(3), 20));
+    g.move(at(xOf(4), 40));
+    g.tick(200);
+    expect(ev.filter((e) => e.startsWith('dwell'))).toEqual([]);
+    g.tick(400);
+    g.tick(500);
+    expect(ev.filter((e) => e.startsWith('dwell'))).toEqual(['dwell:4']);
+    g.move(at(xOf(6), 600));
+    g.tick(950);
+    expect(ev.filter((e) => e.startsWith('dwell'))).toEqual(['dwell:4', 'dwell:6']);
+  });
+  it('small jitter does not count as moving', () => {
+    const { g, ev } = dwellRec();
+    g.down(at(xOf(2), 0));
+    g.move(at(xOf(4), 20));
+    g.move(at(xOf(4) + 3, 150));
+    g.move(at(xOf(4) - 2, 250));
+    g.tick(340);
+    expect(ev).toContain('dwell:4');
+  });
+  it('fires with no card index while dragging', () => {
+    const { g, ev } = dwellRec();
+    g.down(at(xOf(2), 0));
+    g.move({ x: xOf(2), y: -40, t: 20 });
+    g.tick(400);
+    expect(ev).toContain('dwell:null');
+  });
+  it('does not fire for a press that never moved (that is the long press)', () => {
+    const { g, ev } = dwellRec();
+    g.down(at(xOf(2), 0));
+    g.tick(600);
+    expect(ev.some((e) => e.startsWith('dwell'))).toBe(false);
+  });
+});

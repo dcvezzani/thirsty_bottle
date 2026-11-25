@@ -82,8 +82,44 @@ function edgeStop() {
   edge.reset();
 }
 
+// --- scrub-loupe: a held drag opens the zone under the cards so a slot can be aimed at ---
+export const OPEN_DWELL_MS = 300;
+const OPEN_EXIT_MARGIN = 16;
+let rest = { x: 0, y: 0, t: 0 };
+let dwellTimer: ReturnType<typeof setInterval> | null = null;
+
+/** A zone can open in place only when it is a spread with room to give (a fit-width card row on the board). */
+function openable(id: string) {
+  return !!document.querySelector(`.zone.zone-spread.w-fit[data-drop-zone="${CSS.escape(id)}"]`);
+}
+
+function dwellTick() {
+  const d = useUI.getState().drag;
+  if (!d) return stopDwell();
+  const now = performance.now();
+  if (Math.hypot(d.x - rest.x, d.y - rest.y) > 8) rest = { x: d.x, y: d.y, t: now };
+  const open = useUI.getState().openZone;
+  if (open) {
+    // stays open until the finger has clearly left the zone, so shifting neighbours cannot make it flicker
+    const el = document.querySelector(`[data-drop-zone="${CSS.escape(open.id)}"]`);
+    const r = el?.getBoundingClientRect();
+    const inside = !!r && d.x >= r.left - OPEN_EXIT_MARGIN && d.x <= r.right + OPEN_EXIT_MARGIN && d.y >= r.top - OPEN_EXIT_MARGIN && d.y <= r.bottom + OPEN_EXIT_MARGIN;
+    if (!inside && !open.pinned) useUI.setState({ openZone: null });
+  }
+  if (now - rest.t >= OPEN_DWELL_MS && d.over?.kind === 'zone' && d.over.zone !== open?.id && openable(d.over.zone)) {
+    useUI.setState({ openZone: { id: d.over.zone, pinned: false } });
+  }
+}
+function stopDwell() {
+  if (dwellTimer) clearInterval(dwellTimer);
+  dwellTimer = null;
+}
+
 export function startDrag(handles: string[], fromZone: string, x: number, y: number) {
-  useUI.setState({ drag: { handles, fromZone, x, y, over: null }, preview: null });
+  useUI.setState({ drag: { handles, fromZone, x, y, over: null }, preview: null, loupe: null });
+  rest = { x, y, t: performance.now() };
+  stopDwell();
+  dwellTimer = setInterval(dwellTick, 60);
   broadcast(x, y);
   edgeWatch(y);
 }
@@ -96,8 +132,16 @@ export function moveDrag(x: number, y: number) {
   edgeWatch(y);
 }
 
+/** A drop (or a cancel) closes a zone that the drag opened; a pinned one stays only if the cards went back into it. */
+function closeAfterDrag(droppedInto: string | null) {
+  stopDwell();
+  const open = useUI.getState().openZone;
+  if (open && !(open.pinned && open.id === droppedInto)) useUI.setState({ openZone: null });
+}
+
 export function cancelDrag() {
   edgeStop();
+  closeAfterDrag(null);
   const d = useUI.getState().drag;
   if (d) broadcast(d.x, d.y, true);
   useUI.setState({ drag: null });
@@ -137,6 +181,7 @@ export async function endDrag(x: number, y: number) {
   const over = targetAt(x, y);
   broadcast(x, y, true);
   useUI.setState({ drag: null });
+  closeAfterDrag(over?.kind === 'zone' ? over.zone : null);
   const view = useTable.getState().view;
   if (!view) return;
   const to = destZone(view, over);

@@ -27,6 +27,8 @@ export interface GestureCallbacks {
   onScrubStart?(index: number): void;
   onScrub?(index: number): void;
   onScrubEnd?(): void;
+  /** scrub-loupe: the finger has stayed still for `dwellMs` during a scrub or a drag (once per resting place). */
+  onDwell?(index: number | null, s: Sample): void;
   onDragStart?(index: number, s: Sample): void;
   onDragMove?(s: Sample): void;
   onDragEnd?(s: Sample): void;
@@ -46,11 +48,13 @@ export interface GestureConfig {
   doubleTapPx: number;
   /** Scrub axis: 'x' for hands and spreads, 'y' for columns (where sideways movement picks up). */
   axis: 'x' | 'y';
+  /** scrub-loupe: how long a still finger waits before onDwell. */
+  dwellMs: number;
   /** Column width, for the 'y' axis: leaving the column sideways by pullOut turns a scrub into a drag. */
   crossSize?: () => number;
 }
 
-export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true, axis: 'x', doubleTapMs: 300, doubleTapPx: 12 };
+export const DEFAULTS: GestureConfig = { slop: 8, longPressMs: 450, tapMs: 250, pullOut: 24, scrub: true, axis: 'x', doubleTapMs: 300, doubleTapPx: 12, dwellMs: 300 };
 
 export type GestureState = 'idle' | 'pressed' | 'scrub' | 'drag' | 'longPress';
 
@@ -64,6 +68,10 @@ export class ZoneGesture {
   /** The current press follows a tap on the same card within the double-tap window. */
   private secondPress = false;
   private cfg: GestureConfig;
+  /** scrub-loupe: where the finger last moved more than the slop, and whether that rest was already reported. */
+  private rest: Sample | null = null;
+  private restFired = false;
+  private last: Sample | null = null;
 
   constructor(
     private cb: GestureCallbacks,
@@ -75,6 +83,9 @@ export class ZoneGesture {
   down(s: Sample) {
     this.state = 'pressed';
     this.start = s;
+    this.rest = s;
+    this.restFired = false;
+    this.last = s;
     this.startIndex = this.cb.hit(s.x, s.y);
     this.scrubIndex = null;
     const prev = this.lastTap;
@@ -89,6 +100,11 @@ export class ZoneGesture {
 
   /** Call periodically (or from a timer) so a still hold can become a long press. */
   tick(t: number) {
+    if ((this.state === 'scrub' || this.state === 'drag') && this.rest && this.last && !this.restFired && t - this.rest.t >= this.cfg.dwellMs) {
+      this.restFired = true;
+      this.cb.onDwell?.(this.state === 'scrub' ? this.scrubIndex : null, this.last);
+      return;
+    }
     if (this.state !== 'pressed' || !this.start) return;
     if (t - this.start.t >= this.cfg.longPressMs && this.startIndex !== null) {
       this.state = 'longPress';
@@ -99,6 +115,11 @@ export class ZoneGesture {
 
   move(s: Sample) {
     if (!this.start) return;
+    this.last = s;
+    if (!this.rest || Math.hypot(s.x - this.rest.x, s.y - this.rest.y) > this.cfg.slop) {
+      this.rest = s;
+      this.restFired = false;
+    }
     const dx = s.x - this.start.x;
     const dy = s.y - this.start.y;
     switch (this.state) {

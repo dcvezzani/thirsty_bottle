@@ -34,7 +34,8 @@ function fitInner(layout: ZoneLayout, cardW: number): number {
 }
 const fitOuter = (layout: ZoneLayout, cardW: number) => fitInner(layout, cardW) + FIT_CHROME;
 
-export function flowRows(zones: FlowZone[], boardW: number, baseCardW: number): FlowItem[][] {
+/** scrub-loupe: a zone opened wider so its cards can be aimed at; the rest of its row makes room. */
+export function flowRows(zones: FlowZone[], boardW: number, baseCardW: number, openId?: string): FlowItem[][] {
   const half = Math.floor((boardW - GAP) / 2);
   const rows: FlowZone[][] = [];
   let cur: FlowZone[] | null = null;
@@ -51,7 +52,21 @@ export function flowRows(zones: FlowZone[], boardW: number, baseCardW: number): 
       rows.push(cur);
     } else cur.push(z);
   }
-  return rows.map((row) => sizeRow(row, boardW, baseCardW, half));
+  return rows.map((row) => (openId && row.some((z) => z.id === openId && z.width === 'fit') ? openRow(row, boardW, baseCardW, half, openId) : sizeRow(row, boardW, baseCardW, half)));
+}
+
+/** A row with one fit zone opened: it takes all the room the others do not need; fit neighbours shrink to the smallest cards. */
+function openRow(row: FlowZone[], boardW: number, baseCardW: number, half: number, openId: string): FlowItem[] {
+  const others = row.filter((z) => z.id !== openId && z.width === 'fit');
+  const halves = row.filter((z) => z.width === 'half').length;
+  const used = halves * half + others.reduce((t, z) => t + fitOuter(z.layout, MIN_CARD_W), 0) + GAP * (row.length - 1);
+  const natural = sizeRow(row, boardW, baseCardW, half).find((i) => i.id === openId)!;
+  const w = Math.max(natural.w, boardW - used);
+  return row.map((z) => {
+    if (z.id === openId) return { id: z.id, w, cardW: baseCardW, width: 'fit' as const };
+    if (z.width === 'half') return { id: z.id, w: half, cardW: baseCardW, width: 'half' as const };
+    return { id: z.id, w: Math.floor(fitOuter(z.layout, MIN_CARD_W)), cardW: MIN_CARD_W, width: 'fit' as const };
+  });
 }
 
 function sizeRow(row: FlowZone[], boardW: number, baseCardW: number, half: number): FlowItem[] {

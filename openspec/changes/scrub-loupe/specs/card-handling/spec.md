@@ -36,7 +36,7 @@ While scrubbing, holding still over a card for about 300 ms SHALL show that card
 - **THEN** the loupe shows only the back image and the holder's name
 
 ### Requirement: Scrub across zones
-A sideways scrub SHALL continue into the next zone in the row and, past the end of a row, into the first zone of the next row; sliding back past the start goes to the row above. The loupe SHALL name the zone and the row, and the device SHALL tick at each zone crossing. A selection being painted is kept across zones.
+A sideways scrub over a row of cards SHALL continue into the next card-row zone in the row and, past the end of a row, into the first one of the next row; sliding back past the start goes to the row above. The loupe SHALL name the zone and the row, and the device SHALL tick at each zone crossing. Piles, columns and free zones are not part of the strip. A selection painted from the starting zone stays in that zone.
 
 #### Scenario: Slide into the neighbouring zone
 - **WHEN** a player scrubs to the last card of the Discard zone and keeps sliding right

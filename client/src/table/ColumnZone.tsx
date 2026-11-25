@@ -4,6 +4,7 @@ import { CardFace } from '../components/Card';
 import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
 import { columnHit, columnLayout, columnMagnify } from './column';
 import { useUI } from './ui';
+import { placeLoupe } from './CardRow';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
@@ -56,6 +57,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
   const live = useRef({ cards, zone, onInfo, interactive, Lfull });
   live.current = { cards, zone, onInfo, interactive, Lfull };
   const paint = useRef<'preview' | 'select' | 'deselect'>('preview');
+  const pointer = useRef<string>('touch');
   const gesture = useMemo(() => {
     const h = (i: number) => live.current.cards[i]?.h;
     const setPreview = (i: number) => {
@@ -89,10 +91,17 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
             const st = useUI.getState();
             const sel = new Set(st.selZone === live.current.zone.id ? st.selected : []);
             paint.current = live.current.interactive ? paintMode(sel, h(i)!) : 'preview';
+            placeLoupe(ref.current, pointer.current);
             setPreview(i);
           },
-          onScrub: (i) => setPreview(i),
-          onScrubEnd: () => useUI.setState({ preview: null }),
+          onDwell: () => {
+            if (useUI.getState().loupe) useUI.setState({ loupe: { ...useUI.getState().loupe!, details: true } });
+          },
+          onScrub: (i) => {
+            if (useUI.getState().loupe?.details) useUI.setState({ loupe: { ...useUI.getState().loupe!, details: false } });
+            setPreview(i);
+          },
+          onScrubEnd: () => useUI.setState({ preview: null, loupe: null }),
           onDragStart: (i, s) => {
             if (!live.current.interactive) return;
             const st = useUI.getState();
@@ -145,6 +154,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
         } catch {
           /* ignore */
         }
+        pointer.current = e.pointerType;
         gesture.g.down(local(e));
       }}
       onPointerMove={(e) => {

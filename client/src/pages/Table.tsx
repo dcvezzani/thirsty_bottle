@@ -21,6 +21,7 @@ import { useFlip, inkOn } from '../table/anim';
 import { flowRows } from '../table/flow';
 import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
+import { Loupe } from '../table/Loupe';
 
 export function TablePage() {
   const { id } = useParams();
@@ -126,7 +127,30 @@ function TableScreen({ view }: { view: TableView }) {
     if (keep.length !== st.selected.length) st.select(st.selZone, keep);
   }, [view]);
 
-  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, selZone: null, selected: [], arranging: false, viewSeat: null }), []);
+  // scrub-loupe: a zone pinned open closes on a press anywhere else (that press still does its own thing),
+  // when a sheet or drawer opens, and when its cards leave; scrolling and the selection do not close it
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const oz = useUI.getState().openZone;
+      if (!oz?.pinned) return;
+      const t = e.target as Element | null;
+      if (t?.closest(`[data-drop-zone="${CSS.escape(oz.id)}"]`)) return;
+      useUI.setState({ openZone: null });
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, []);
+  const sheetOpen = useUI((s) => s.sheet !== null);
+  const drawerOpen = useUI((s) => s.drawer !== null);
+  useEffect(() => {
+    if ((sheetOpen || drawerOpen) && useUI.getState().openZone?.pinned) useUI.setState({ openZone: null });
+  }, [sheetOpen, drawerOpen]);
+  useEffect(() => {
+    const oz = useUI.getState().openZone;
+    if (oz && !view.zones.some((z) => z.id === oz.id && z.cards.length > 0)) useUI.setState({ openZone: null });
+  }, [view]);
+
+  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, loupe: null, openZone: null, selZone: null, selected: [], arranging: false, viewSeat: null }), []);
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
   // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
@@ -150,7 +174,8 @@ function TableScreen({ view }: { view: TableView }) {
   const shared = boardZones(view, false, seen);
   const boardSize = useBoardSize(boardRef, zoom);
   const arranging = useUI((s) => s.arranging) && view.me.isHost;
-  const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW) : [];
+  const openZone = useUI((s) => s.openZone);
+  const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW, openZone?.id) : [];
   const zoneById = new Map(shared.map((z) => [z.id, z]));
   const active = view.seats.find((s) => s.id === view.turn.active);
   const myTurn = view.mode === 'turn' && view.turn.active === view.me.seatId;
@@ -283,6 +308,7 @@ function TableScreen({ view }: { view: TableView }) {
       )}
       {drawer && <Drawer view={view} tab={drawer} />}
       <DragGhost view={view} />
+      <Loupe view={view} />
       {sheet?.kind === 'cards' && <CardsSheet view={view} onClose={closeSheet} />}
       {sheet?.kind === 'zone' && <ZoneSheet view={view} zoneId={sheet.zone} onClose={closeSheet} />}
       {sheet?.kind === 'draw' && <DrawSheet view={view} zoneId={sheet.zone} onClose={closeSheet} />}

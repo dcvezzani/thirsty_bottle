@@ -69,3 +69,25 @@ describe('arrangeRows (zone-arrangement 4.2)', () => {
     for (const r of rows) expect(rowW(r)).toBeLessThanOrEqual(363);
   });
 });
+
+describe('opened zone (4.1)', () => {
+  const z = (id: string, layout: 'spread' | 'pile', width: 'fit' | 'half' = 'fit') => ({ id, layout, width, newRow: false }) as any;
+  it('the opened zone takes the room the others do not need, and they shrink to the smallest cards', () => {
+    const rows = flowRows([z('a', 'pile'), z('b', 'spread'), z('c', 'pile')], 375, 64, 'b');
+    const [a, b, c] = rows[0];
+    expect(a.cardW).toBe(40);
+    expect(c.cardW).toBe(40);
+    expect(b.w).toBeGreaterThan(375 / 2);
+    expect(a.w + b.w + c.w + 8).toBeLessThanOrEqual(375);
+    expect(b.cardW).toBe(64);
+  });
+  it('a row without the opened zone is unchanged', () => {
+    const plain = flowRows([z('a', 'pile'), z('b', 'spread')], 375, 64);
+    const withOther = flowRows([z('a', 'pile'), z('b', 'spread')], 375, 64, 'nope');
+    expect(withOther).toEqual(plain);
+  });
+  it('a half or full zone opens as it is', () => {
+    const plain = flowRows([z('a', 'pile'), z('b', 'spread', 'half')], 375, 64);
+    expect(flowRows([z('a', 'pile'), z('b', 'spread', 'half')], 375, 64, 'b')).toEqual(plain);
+  });
+});
