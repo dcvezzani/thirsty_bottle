@@ -51,13 +51,18 @@ function fromSteps(step: number[], cardH: number): ColumnLayout {
   return { y, step, height: (y.at(-1) ?? 0) + cardH, cardH };
 }
 
-/** The column with the cards around `focus` opened up for reading (scrub / hover). */
+/**
+ * The column with the cards below `focus` opened up for reading (scrub / hover). Only the steps from the focused card downwards
+ * open, so the focused card and every card above it stay exactly where they are in the compressed column: nothing moves under
+ * the finger, and the card found at a position is the card drawn there (column-scrub-hit).
+ */
 export function columnMagnify(l: ColumnLayout, focus: number | null): ColumnLayout {
   if (focus === null || !l.y.length) return l;
-  const open = [0.75, 0.35, 0.2]; // by distance from the focused card
+  const open = [0.75, 0.35, 0.2]; // by distance below the focused card
   const step = l.step.map((s, i) => {
     if (i === l.step.length - 1) return 0;
-    const d = i >= focus ? i - focus : focus - i - 1; // the gap after the focus card opens most; the one above it next
+    if (i < focus) return s;
+    const d = i - focus;
     return d < open.length ? Math.max(s, open[d] * l.cardH) : s;
   });
   return fromSteps(step, l.cardH);

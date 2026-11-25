@@ -25,12 +25,12 @@ describe('column layout (zone-arrangement 3.1)', () => {
     expect(l.step[2]).toBeCloseTo(0.22 * H);
   });
 
-  it('the fisheye opens the focused card and its neighbours, and springs back', () => {
+  it('the fisheye opens the cards from the focused card downwards, and springs back', () => {
     const l = columnLayout(faces(6, 6), H);
     const m = columnMagnify(l, 7);
     expect(m.step[7]).toBeCloseTo(0.75 * H); // the focused card is readable
-    expect(m.step[6]).toBeGreaterThanOrEqual(0.35 * H - 0.01); // the card above opens partway
-    expect(m.step[8]).toBeGreaterThanOrEqual(0.35 * H - 0.01);
+    expect(m.step[8]).toBeGreaterThanOrEqual(0.35 * H - 0.01); // the card below opens partway
+    expect(m.step[6]).toBe(l.step[6]); // the card above does not open
     expect(m.step[0]).toBe(l.step[0]); // far cards stay compressed
     expect(columnMagnify(l, null)).toBe(l);
     // compressed layout itself is unchanged (the opened view is drawn as an overlay)
@@ -42,5 +42,54 @@ describe('column layout (zone-arrangement 3.1)', () => {
     expect(columnHit(l, l.y[3] + 2)).toBe(3);
     expect(columnHit(l, l.y[4] + H - 1)).toBe(4);
     expect(columnHit(l, l.height + 5)).toBeNull();
+  });
+});
+
+describe('the card under the finger is the card shown (1.1)', () => {
+  const mixed = [false, false, true, false, false, false, true, true, false, false, true, false];
+  const l = columnLayout(mixed, H);
+
+  it('the focused card and every card above it are where they are in the compressed column', () => {
+    for (let f = 0; f < mixed.length; f++) {
+      const m = columnMagnify(l, f);
+      for (let i = 0; i <= f; i++) expect(m.y[i]).toBeCloseTo(l.y[i], 6);
+      expect(columnHit(m, l.y[f] + 1)).toBe(f);
+    }
+  });
+
+  // a finger path over the column, the focus fed back after every move (what a scrub does)
+  function run(path: number[], start: number) {
+    let focus: number | null = start;
+    const seen: number[] = [];
+    for (const y of path) {
+      const hit = columnHit(columnMagnify(l, focus), y);
+      if (hit === null) continue;
+      focus = hit;
+      seen.push(hit);
+      // after the layout redraws around the new focus the card at the finger is still the focus
+      expect(columnHit(columnMagnify(l, focus), y)).toBe(focus);
+    }
+    return seen;
+  }
+  it('scrubbing down never skips a card and never runs ahead of the finger', () => {
+    const path = Array.from({ length: 120 }, (_, k) => 2 + k * 1.5);
+    const seen = run(path, columnHit(l, 2)!);
+    for (let k = 1; k < seen.length; k++) expect(seen[k] - seen[k - 1]).toBeLessThanOrEqual(1);
+    expect(seen.at(-1)).toBeGreaterThan(5);
+  });
+  it('scrubbing back up does not skip a card either, and ends on the card it passes', () => {
+    const down = Array.from({ length: 140 }, (_, k) => 2 + k * 1.5);
+    const up = [...down].reverse();
+    const seen = run([...down, ...up], columnHit(l, 2)!);
+    for (let k = 1; k < seen.length; k++) expect(Math.abs(seen[k] - seen[k - 1])).toBeLessThanOrEqual(1);
+    expect(seen.at(-1)).toBe(0);
+  });
+  it('a still finger does not drift: refocusing on the card it shows leaves the same card under it', () => {
+    for (let f = 1; f < mixed.length; f++) {
+      const y = l.y[f] + 1;
+      let focus: number | null = columnHit(l, y);
+      for (let k = 0; k < 4; k++) focus = columnHit(columnMagnify(l, focus), y);
+      expect(focus).toBe(f);
+    }
   });
 });

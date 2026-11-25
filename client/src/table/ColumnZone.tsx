@@ -2,13 +2,23 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TableDeckView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
 import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
-import { columnHit, columnLayout, columnMagnify } from './column';
+import { columnHit, columnLayout, columnMagnify, type ColumnLayout } from './column';
 import { useUI } from './ui';
 import { finishScrub, placeLoupe, tapEndsViewing } from './CardRow';
 import { enterRegistry } from './scrubStrip';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
+
+/**
+ * The card at y in the layout that is drawn: the compressed column with the previewed card (if it is in this column) opened,
+ * so the card found under the finger is the card the loupe and the column show (column-scrub-hit).
+ */
+function drawnHit(l: ColumnLayout, cards: { h: string }[], zoneId: string, y: number): number | null {
+  const p = useUI.getState().preview;
+  const f = p && p.zone === zoneId ? cards.findIndex((c) => c.h === p.h) : -1;
+  return columnHit(columnMagnify(l, f >= 0 ? f : null), y);
+}
 
 /**
  * A column zone (zone-arrangement): cards cascade downward and compress. Gestures mirror a row with
@@ -77,7 +87,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
       origin: (o: { x: number; y: number }) => (origin = o),
       g: new ZoneGesture(
         {
-          hit: (_x, y) => columnHit(live.current.Lfull, y),
+          hit: (_x, y) => drawnHit(live.current.Lfull, live.current.cards, live.current.zone.id, y),
           onTap: (i) => {
             if (i === null || !live.current.interactive) return;
             if (tapEndsViewing(h(i))) return;
@@ -188,7 +198,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
         if (gesture.g.state === 'idle') {
           // desktop hover opens the cards under the pointer
           if (e.pointerType === 'mouse' && e.buttons === 0 && !drag) {
-            const i = columnHit(Lfull, local(e).y);
+            const i = drawnHit(Lfull, cards, zone.id, local(e).y);
             const hh = i === null ? null : cards[i]?.h;
             const cur = useUI.getState().preview;
             if (hh && (cur?.h !== hh || cur.zone !== zone.id)) useUI.setState({ preview: { h: hh, zone: zone.id } });
