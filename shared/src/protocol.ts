@@ -111,6 +111,8 @@ export interface RequestView {
   kind: 'take' | 'see';
   /** 'incoming' = someone wants cards from my hand. */
   dir: 'incoming' | 'outgoing';
+  /** request-expiry: milliseconds until the request lapses, by the server's clock. */
+  msLeft: number;
 }
 
 export interface TableView {
@@ -286,6 +288,7 @@ export type ServerMessage =
   | { t: 'table.ack'; tableId: string; seq: number; ok: boolean; code?: string; error?: string; notice?: string }
   | { t: 'table.drag'; tableId: string; playerId: string; color: string; handles: string[]; x: number; y: number; end?: boolean }
   | { t: 'table.viewers'; tableId: string; viewers: ViewerPresence[] }
+  | { t: 'table.notice'; tableId: string; text: string }
   | { t: 'table.left'; tableId: string; reason: 'left' | 'kicked' | 'closed' | 'expired' }
   | { t: 'chat.history'; channel: string; messages: ChatMessage[] }
   | { t: 'chat.msg'; message: ChatMessage }

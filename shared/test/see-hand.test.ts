@@ -119,3 +119,27 @@ describe('ask to see a hand: rules (1.1)', () => {
     expect(hand(eng.state, ALEX.playerId).cards).toEqual([]);
   });
 });
+
+describe('request-expiry rules (1.1)', () => {
+  it('requestExpire removes a see request and logs it; a missing id is a quiet no-op', () => {
+    const { eng, alexSeat } = table();
+    eng.dispatch({ type: 'seeAsk', seat: alexSeat }, SAM.playerId, ctx());
+    const id = reqId(eng.state);
+    eng.dispatch({ type: 'requestExpire', id }, null, ctx());
+    expect(eng.state.seeRequests).toEqual([]);
+    expect(eng.state.log.at(-1)!.text).toBe("Sam's request to see Alex's hand expired");
+    const n = eng.state.log.length;
+    eng.dispatch({ type: 'requestExpire', id }, null, ctx());
+    expect(eng.state.log.length).toBe(n);
+  });
+
+  it('an expiry does not end the undo window, and undo does not bring an expired request back', () => {
+    const { eng, alexSeat, cards, deckZone } = table();
+    eng.dispatch({ type: 'seeAsk', seat: alexSeat }, SAM.playerId, ctx());
+    eng.dispatch({ type: 'move', cards: [cards[0]], to: deckZone }, ALEX.playerId, ctx());
+    eng.dispatch({ type: 'requestExpire', id: reqId(eng.state) }, null, ctx());
+    expect(eng.canUndo(ALEX.playerId, 1000)).toBe(true);
+    eng.dispatch({ type: 'undo' }, ALEX.playerId, ctx());
+    expect(eng.state.seeRequests).toEqual([]);
+  });
+});

@@ -12,6 +12,7 @@ import {
   EMPTY_TABLE_TTL_MS,
   PlayerColorSchema,
   RECONNECT_GRACE_MS,
+  REQUEST_TTL_MS,
   tableChannel,
   imageNameFromFile,
 } from '@vct/shared';
@@ -37,6 +38,8 @@ export interface AppOptions {
   markMs: number;
   /** How long a table with nobody connected is kept. */
   emptyTtlMs: number;
+  /** request-expiry: how long a request waits for an answer */
+  requestTtlMs: number;
   clientDir?: string;
   quiet?: boolean;
   /** Per-connection message rate limit (messages/second, burst). */
@@ -77,6 +80,7 @@ export class App {
       graceMs: RECONNECT_GRACE_MS,
       markMs: DISCONNECTED_MARK_MS,
       emptyTtlMs: EMPTY_TABLE_TTL_MS,
+      requestTtlMs: REQUEST_TTL_MS,
       rate: { perSecond: 20, burst: 40 },
       clientDir: path.resolve(here, '../../client/dist'),
       ...opts,

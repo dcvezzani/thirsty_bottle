@@ -96,6 +96,9 @@ export interface LogEntry {
   cardAction?: boolean;
 }
 
+/** request-expiry: how long a request to take cards or to see a hand waits for an answer. */
+export const REQUEST_TTL_MS = 5000;
+
 /** request-hand-view: a seated player asks to see another player's whole hand; allowing shows the hand's cards. */
 export interface SeeRequest {
   id: string;
@@ -306,6 +309,8 @@ export type SystemAction =
   | { type: 'autoPass' }
   /** request-hand-view: the asker stopped viewing that table, so their pending asks end (except the seat now viewed). */
   | { type: 'seeDrop'; from: string; except?: string }
+  /** request-expiry: a take request or a see request went unanswered for REQUEST_TTL_MS. */
+  | { type: 'requestExpire'; id: string }
   | { type: 'passwordChanged'; hasPassword: boolean }
   | { type: 'renamePlayer'; playerId: string; name: string; color: string }
   /** table-setups: replace zones, cards and counters with an expanded setup (built by the server). */

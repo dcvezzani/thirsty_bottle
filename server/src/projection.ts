@@ -35,6 +35,9 @@ export interface ProjectionExtras {
   newerVersion: (deckId: string) => boolean;
   /** player-views: live viewing presence. */
   viewers: ViewerPresence[];
+  /** request-expiry */
+  requestTtlMs: number;
+  now: number;
 }
 
 /** Per-recipient projection state: handle maps and what was last sent. */
@@ -186,6 +189,7 @@ export class Viewer {
         to: '',
         kind: 'see' as const,
         dir: (r.from === me ? 'outgoing' : 'incoming') as 'incoming' | 'outgoing',
+        msLeft: Math.max(0, r.at + x.requestTtlMs - x.now),
       }));
     const requests = s.requests
       .filter((r) => r.from === me || (mySeat && r.seatId === mySeat.id))
@@ -199,6 +203,7 @@ export class Viewer {
         to: r.to,
         ...(r.zone && s.zones[r.zone] ? { zoneName: s.zones[r.zone].name } : {}),
         dir: (r.from === me ? 'outgoing' : 'incoming') as 'incoming' | 'outgoing',
+        msLeft: Math.max(0, r.at + x.requestTtlMs - x.now),
       }));
     const undoMs = x.undoFor(me);
     return {

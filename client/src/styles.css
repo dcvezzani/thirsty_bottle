@@ -376,3 +376,10 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 @keyframes hand-pulse { 0% { box-shadow: 0 0 0 0 rgba(244,197,66,0.95); } 100% { box-shadow: 0 0 0 14px rgba(244,197,66,0); } }
 @media (prefers-reduced-motion: reduce) { .hand-col { transition: none; } .hand-col.pulse { animation: none; box-shadow: 0 0 0 3px #f4c542; } }
 .viewing-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+
+/* request-expiry: seconds left and a shrinking bar (reduced motion: the seconds alone) */
+.req-seconds { margin-left: 6px; color: inherit; font-size: 13px; font-variant-numeric: tabular-nums; }
+.req-bar { display: block; height: 4px; margin: 6px 0; border-radius: 2px; background: var(--control-line, #bbb); overflow: hidden; }
+.banner .req-bar { display: inline-block; width: 60px; vertical-align: middle; margin: 0 0 0 6px; }
+.req-bar > span { display: block; height: 100%; background: var(--primary, #1a56db); transition: width 0.25s linear; }
+@media (prefers-reduced-motion: reduce) { .req-bar { display: none; } }

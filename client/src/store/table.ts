@@ -180,6 +180,9 @@ export const useTable = create<TableState>((set, get) => ({
         set({ server, view: st.view ? { ...st.view, viewers: m.viewers } : st.view });
         break;
       }
+      case 'table.notice':
+        if (m.tableId === st.tableId) useApp.getState().toast(m.text);
+        break;
       case 'table.left':
         if (m.tableId === st.tableId) {
           set({ tableId: null, server: null, view: null, pending: [], left: { reason: m.reason } });

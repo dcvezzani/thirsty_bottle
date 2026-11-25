@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CardView, TableView, ZoneView } from '@vct/shared';
+import type { CardView, RequestView, TableView, ZoneView } from '@vct/shared';
+import { useCountdown } from './requestCountdown';
 import { Sheet } from '../components/ui';
 import { CardFace, findDef } from '../components/Card';
 import { useTable } from '../store/table';
@@ -874,6 +875,20 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
 
 // ---------------------------------------------------------------------------------------------- prompts
 
+function Countdown({ r }: { r: RequestView }) {
+  const { seconds, fraction, over } = useCountdown(r.id, r.msLeft);
+  return (
+    <>
+      <span className="req-seconds" role="timer" aria-live="off">
+        {over ? 'Expiring…' : `${seconds}s`}
+      </span>
+      <span className="req-bar" aria-hidden="true">
+        <span style={{ width: `${Math.round(fraction * 100)}%` }} />
+      </span>
+    </>
+  );
+}
+
 export function Prompts({ view }: { view: TableView }) {
   const incoming = [...view.requests.filter((r) => r.dir === 'incoming' && r.kind !== 'see'), ...view.requests.filter((r) => r.dir === 'incoming' && r.kind === 'see')];
   const outgoing = view.requests.filter((r) => r.dir === 'outgoing' && r.kind !== 'see');
@@ -890,6 +905,7 @@ export function Prompts({ view }: { view: TableView }) {
                 ? `${incoming[0].fromName} asks to see your hand`
                 : `${incoming[0].fromName} wants ${incoming[0].count} card${incoming[0].count === 1 ? '' : 's'} from your ${incoming[0].zoneName ?? 'hand'}`}
             </h2>
+            <Countdown r={incoming[0]} />
             {incoming[0].kind === 'see' && <p className="small-text muted">Allowing shows them the cards you hold right now. Cards you draw later stay hidden.</p>}
             <div className="row">
               <button className="primary grow" onClick={() => send({ type: incoming[0].kind === 'see' ? 'seeRespond' : 'respondTake', requestId: incoming[0].id, approve: true })}>
@@ -902,10 +918,14 @@ export function Prompts({ view }: { view: TableView }) {
           </div>
         </div>
       )}
-      {outgoing.length > 0 && <div className="banner">Waiting for {view.seats.find((s) => s.id === outgoing[0].seatId)?.name ?? 'the player'} to allow your request…</div>}
+      {outgoing.length > 0 && (
+        <div className="banner">
+          Waiting for {view.seats.find((s) => s.id === outgoing[0].seatId)?.name ?? 'the player'} to allow your request… <Countdown r={outgoing[0]} />
+        </div>
+      )}
       {outgoingSee.length > 0 && (
         <div className="banner row" role="status">
-          <span className="grow">Waiting for {view.seats.find((s) => s.id === outgoingSee[0].seatId)?.name ?? 'the player'} to let you see their hand…</span>
+          <span className="grow">Waiting for {view.seats.find((s) => s.id === outgoingSee[0].seatId)?.name ?? 'the player'} to let you see their hand… <Countdown r={outgoingSee[0]} /></span>
           <button className="small" onClick={() => send({ type: 'seeCancel', requestId: outgoingSee[0].id })}>
             Cancel
           </button>

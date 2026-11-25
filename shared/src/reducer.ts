@@ -926,6 +926,24 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       s.seeRequests = s.seeRequests.filter((r) => r.id !== req.id);
       break;
     }
+    case 'requestExpire': {
+      // an unanswered request lapses: nothing is taken or shown. If it is already gone (answered at the same instant) nothing happens.
+      const take = s.requests.find((r) => r.id === action.id);
+      const see = take ? undefined : s.seeRequests.find((r) => r.id === action.id);
+      const req = take ?? see;
+      if (!req) break;
+      const owner = playerName(s, s.seats.find((x) => x.id === req.seatId)?.playerId);
+      const asker = playerName(s, req.from);
+      if (take) {
+        const zone = s.zones[take.zone ?? handZoneId(take.seatId)];
+        s.requests = s.requests.filter((r) => r.id !== take.id);
+        log(s, now, null, `${asker}'s request to take cards from ${zone?.kind === 'player' ? `${owner}'s ${zone.name}` : `${owner}'s hand`} expired`, 'action', undefined, true);
+      } else {
+        s.seeRequests = s.seeRequests.filter((r) => r.id !== req.id);
+        log(s, now, null, `${asker}'s request to see ${owner}'s hand expired`, 'action', undefined, true);
+      }
+      break;
+    }
     case 'seeDrop': {
       s.seeRequests = s.seeRequests.filter((r) => r.from !== action.from || r.seatId === action.except);
       break;
@@ -1447,6 +1465,8 @@ export class TableEngine {
     const prev = this.state;
     const res = reduce(prev, action, actor, ctx);
     this.state = res.state;
+    // request bookkeeping (expiry, an asker leaving the view) is not anyone's action: it must not end an undo window
+    if (action.type === 'requestExpire' || action.type === 'seeDrop') return res;
     if (actor && UNDOABLE.has(action.type) && !res.request) this.undo = { actor, at: ctx.now, prev };
     else this.undo = null;
     return res;
@@ -1466,6 +1486,9 @@ export class TableEngine {
     restored.log = structuredClone(cur.log);
     restored.logSeq = cur.logSeq;
     restored.idSeq = Math.max(restored.idSeq, cur.idSeq);
+    // an undo must not bring back a request that has been answered, cancelled or has expired since
+    restored.requests = structuredClone(cur.requests);
+    restored.seeRequests = structuredClone(cur.seeRequests ?? []);
     // Membership may not be rolled back by an undo (it cannot have changed: any seat change clears undo).
     log(restored, ctx.now, actor, `${playerName(restored, actor)} undid their last action`, 'action', undefined, true);
     const touched = new Set([...Object.keys(cur.cards), ...Object.keys(restored.cards)]);

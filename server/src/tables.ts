@@ -96,6 +96,8 @@ export class TableSession {
         this.engine.undo && this.engine.undo.actor === pid ? Math.max(0, 10_000 - (now - this.engine.undo.at)) : 0,
       newerVersion: (deckId) => this.app.decks?.hasNewerVersion(this.state.decks[deckId]) ?? false,
       viewers: this.viewerList(),
+      requestTtlMs: this.app.opts.requestTtlMs,
+      now,
     };
   }
 
@@ -208,6 +210,37 @@ export class TableSession {
     this.emptyTimer = setTimeout(() => this.app.tables.close(this.id, 'expired'), this.app.opts.emptyTtlMs);
   }
 
+  /** request-expiry: one timer per pending request, armed from its start time so a restart keeps the remaining time. */
+  private expiry = new Map<string, NodeJS.Timeout>();
+  armRequestTimers() {
+    if (this.closed) return;
+    const live = new Set<string>();
+    for (const r of [...this.state.requests, ...(this.state.seeRequests ?? [])]) {
+      live.add(r.id);
+      if (this.expiry.has(r.id)) continue;
+      const wait = Math.max(0, r.at + this.app.opts.requestTtlMs - Date.now());
+      this.expiry.set(
+        r.id,
+        setTimeout(() => {
+          this.expiry.delete(r.id);
+          const asker = [...this.state.requests, ...(this.state.seeRequests ?? [])].find((q) => q.id === r.id)?.from;
+          const res = this.system({ type: 'requestExpire', id: r.id });
+          if (res && asker) this.app.hub.send(asker, { t: 'table.notice', tableId: this.id, text: this.expiryNotice(r.id) } as any);
+        }, wait),
+      );
+    }
+    for (const [id, t] of this.expiry) {
+      if (live.has(id)) continue;
+      clearTimeout(t);
+      this.expiry.delete(id);
+    }
+  }
+  private expiryNotice(_id: string) {
+    const e = this.state.log.at(-1)?.text ?? '';
+    const m = / to (?:see|take cards from) (.+?)(?:'s .*)? expired$/.exec(e);
+    return m ? `${m[1]} didn't answer in time` : "Your request wasn't answered in time";
+  }
+
   /** Arm grace timers for everyone (after a server restart nobody is connected yet). */
   armAllGrace() {
     for (const pid of this.participants()) if (!this.app.hub.isConnected(pid)) this.onDisconnected(pid);
@@ -231,6 +264,7 @@ export class TableSession {
     this.version += 1;
     this.persist(action, actor, { now: ctx.now, draws: rng!.draws, connected: [...ctx.connected] });
     this.broadcast(res);
+    this.armRequestTimers();
     this.pruneLooking();
     this.app.lobbyChanged();
     this.app.metrics.record(performance.now() - t0);
@@ -354,6 +388,8 @@ export class TableSession {
   stopTimers() {
     for (const ts of this.timers.values()) for (const t of ts) clearTimeout(t);
     this.timers.clear();
+    for (const t of this.expiry.values()) clearTimeout(t);
+    this.expiry.clear();
     if (this.emptyTimer) clearTimeout(this.emptyTimer);
     this.emptyTimer = null;
   }
@@ -410,6 +446,7 @@ export class Tables {
       this.sessions.set(row.id, session);
       for (const pid of session.participants()) this.app.playerTables.set(pid, row.id);
       session.armAllGrace();
+      session.armRequestTimers();
     }
   }
 
