@@ -30,6 +30,7 @@ test('scrubbing a column: the card in the loupe is the card under the finger, do
   expect(col.y + col.height, 'the column is on screen').toBeLessThan(vh - 60);
   const x = col.x + col.width / 2;
   const cdp = await page.context().newCDPSession(page);
+  if (process.env.E2E_THROTTLE) await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.E2E_THROTTLE) });
   const move = (y: number) => cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
   const underFinger = (y: number) => page.evaluate(({ x, y }) => {
     // the card drawn at the finger, ignoring the loupe (which never covers the column)
@@ -42,8 +43,28 @@ test('scrubbing a column: the card in the loupe is the card under the finger, do
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: col.y + 14 }] });
   await move(col.y + 28); // a vertical nudge past the slop starts the scrub
   const mismatches: string[] = [];
+  // the column redraws (and its cards glide) a frame or more after a move: wait for that before comparing, so a slow machine
+  // does not read a layout that is still on its way
+  const settled = () =>
+    page.waitForFunction(
+      () =>
+        new Promise<boolean>((res) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+              res(
+                document
+                  .getAnimations()
+                  .filter((a) => a.playState === 'running')
+                  .every((a) => !(a.effect as KeyframeEffect | null)?.target?.closest?.('[data-h]')),
+              ),
+            ),
+          ),
+        ),
+      undefined,
+      { timeout: 5000, polling: 20 },
+    );
   const check = async (y: number, tag: string) => {
-    await page.waitForTimeout(25);
+    await settled();
     const [a, b] = [await shown(), await underFinger(y)];
     if (a !== b) mismatches.push(`${tag} y=${Math.round(y)} loupe=${a} under=${b}`);
   };
@@ -60,8 +81,8 @@ test('scrubbing a column: the card in the loupe is the card under the finger, do
     await check(y, 'up');
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  // allow a card or two of slack at the instant the layout redraws; a real mismatch shows up over and over
-  expect(mismatches.length, mismatches.slice(0, 8).join('\n')).toBeLessThanOrEqual(Math.ceil((2 * (col.height / step)) * 0.05));
+  // the old behaviour mismatched at dozens of positions; allow a stray one or two where a card boundary sits exactly at the finger
+  expect(mismatches.length, mismatches.slice(0, 8).join('\n')).toBeLessThanOrEqual(2);
   await expect(page.locator('section.zone[aria-label="C"] [data-h]')).toHaveCount(12); // nothing moved
   await ctx.close();
 });
