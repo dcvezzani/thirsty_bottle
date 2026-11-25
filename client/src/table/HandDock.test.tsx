@@ -13,7 +13,7 @@ afterEach(() => {
 
 const card = (h: string, known: boolean): CardView => ({ h, faceUp: known, known, deck: 'd', def: h }) as unknown as CardView;
 const zone = (id: string, seatId: string, cards: CardView[]): ZoneView => ({ id, name: 'Hand', kind: 'hand', seatId, layout: 'spread', color: '#333', x: 0, y: 0, width: 'full', newRow: false, cards }) as ZoneView;
-const view = { decks: [] } as unknown as TableView;
+const view = { decks: [], me: { playerId: 'p', seatId: 's1', isHost: false, spectator: false }, seats: [], zones: [], requests: [] } as unknown as TableView;
 const mount = (viewedCards: CardView[], mineCards: CardView[] | null = [card('m1', true)]) =>
   render(<HandDock view={view} viewed={zone('hand:s2', 's2', viewedCards)} mine={mineCards ? zone('hand:s1', 's1', mineCards) : undefined} name="Sam" onInfo={() => {}} />);
 

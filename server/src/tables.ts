@@ -127,6 +127,13 @@ export class TableSession {
     if (next) this.looking.set(pid, next);
     else this.looking.delete(pid);
     this.broadcastViewers();
+    this.dropSeeRequests(pid, next); // request-hand-view: an ask belongs to the table being viewed
+  }
+
+  /** The asker stopped viewing that table (or went away): their pending asks to see a hand end, except for the seat now viewed. */
+  private dropSeeRequests(pid: string, keepSeat: string | null = null) {
+    if (this.state.seeRequests?.some((r) => r.from === pid && r.seatId !== keepSeat))
+      this.system({ type: 'seeDrop', from: pid, ...(keepSeat ? { except: keepSeat } : {}) });
   }
 
   private viewerList() {
@@ -140,6 +147,7 @@ export class TableSession {
 
   private clearLooking(pid: string) {
     if (this.looking.delete(pid)) this.broadcastViewers();
+    this.dropSeeRequests(pid);
   }
 
   /** Drop entries for participants who left, seats that are gone, or a seat that became the viewer's own. */

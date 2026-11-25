@@ -185,6 +185,18 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('toolbar', { name: 'Selected cards' }).getByRole('button', { name: 'Ask to take' })).toBeVisible();
       await expectReadable(page, 'toolbar for another player cards');
       await page.getByRole('toolbar', { name: 'Selected cards' }).getByRole('button', { name: 'Clear selection' }).click();
+      // request-hand-view: the ask pill, the waiting banner, the owner's prompt, the stop control
+      await expectReadable(page, 'viewed column with the ask control');
+      await page.getByRole('button', { name: 'Ask to see hand' }).click();
+      await expect(page.getByText('Waiting for Sam to let you see their hand…')).toBeVisible();
+      await expectReadable(page, 'waiting banner and Asked control');
+      await expect(samPage.getByRole('alertdialog', { name: 'Card request' })).toContainText('asks to see your hand');
+      await expectReadable(samPage, 'see-hand prompt');
+      await samPage.getByRole('alertdialog', { name: 'Card request' }).getByRole('button', { name: 'Allow' }).click();
+      await expect(page.getByTestId('viewed-col')).toContainText('3 shown');
+      await expectReadable(page, 'viewed hand after allow');
+      await expect(samPage.getByRole('button', { name: 'Stop showing my hand' })).toBeVisible();
+      await expectReadable(samPage, 'stop showing control');
       await expect(samPage.locator('.viewing-pill')).toContainText('Alex');
       await expect(samPage.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing you/);
       await expectReadable(samPage, 'eye pill');

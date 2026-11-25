@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { TableView, ZoneView } from '@vct/shared';
 import { CardRow } from './CardRow';
 import { handBadgeText, nextFocus, shownIncreased, viewedHandDisplay, type HandColumn } from './handFocus';
+import { AskToSee, StopShowingHand } from './HandControls';
 import { useUI } from './ui';
 
 /**
@@ -39,7 +40,10 @@ export function HandDock({ view, viewed, mine, name, onInfo }: { view: TableView
   return (
     <div className="hand-dock" data-testid="hand-dock">
       <section className={`hand-col viewed ${state('viewed')} ${pulse ? 'pulse' : ''}`} aria-label={`${name}'s hand`} data-drop-zone={viewed.id} data-testid="viewed-col">
-        <span className="hand-badge">{handBadgeText(name, d)}</span>
+        <div className="hand-top">
+          <span className="hand-badge">{handBadgeText(name, d)}</span>
+          <AskToSee view={view} seatId={viewed.seatId} />
+        </div>
         <CardRow
           zone={{ ...viewed, cards: d.ordered }}
           decks={view.decks}
@@ -53,7 +57,10 @@ export function HandDock({ view, viewed, mine, name, onInfo }: { view: TableView
       </section>
       {mine && (
         <section className={`hand-col mine ${state('mine')}`} aria-label="Your hand" data-testid="mine-col">
-          <span className="hand-badge">You · {mine.cards.length}</span>
+          <div className="hand-top">
+            <span className="hand-badge">You · {mine.cards.length}</span>
+            <StopShowingHand hand={mine} />
+          </div>
           <CardRow zone={mine} decks={view.decks} arc dropId={mine.id} onInfo={onInfo} emptyText="Your hand is empty" onScrubStart={() => focusHand(nextFocus(focus, { kind: 'scrub', column: 'mine' }))} />
         </section>
       )}

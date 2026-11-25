@@ -175,10 +175,23 @@ export class Viewer {
     });
     const nameOf = (pid: string) =>
       s.seats.find((st) => st.playerId === pid)?.name ?? s.spectators.find((p) => p.playerId === pid)?.name ?? '?';
+    const seeRequests = (s.seeRequests ?? [])
+      .filter((r) => r.from === me || (mySeat && r.seatId === mySeat.id))
+      .map((r) => ({
+        id: r.id,
+        from: r.from,
+        fromName: nameOf(r.from),
+        seatId: r.seatId,
+        count: 0,
+        to: '',
+        kind: 'see' as const,
+        dir: (r.from === me ? 'outgoing' : 'incoming') as 'incoming' | 'outgoing',
+      }));
     const requests = s.requests
       .filter((r) => r.from === me || (mySeat && r.seatId === mySeat.id))
       .map((r) => ({
         id: r.id,
+        kind: 'take' as const,
         from: r.from,
         fromName: nameOf(r.from),
         seatId: r.seatId,
@@ -199,7 +212,7 @@ export class Viewer {
       decks,
       counters: s.counters,
       notes: s.notes,
-      requests,
+      requests: [...requests, ...seeRequests],
       vacated: isHost ? s.vacated : [],
       viewers: x.viewers,
       me: { playerId: me, seatId: mySeat?.id ?? null, isHost, spectator: !mySeat },

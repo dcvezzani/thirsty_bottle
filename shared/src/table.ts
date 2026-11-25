@@ -96,6 +96,14 @@ export interface LogEntry {
   cardAction?: boolean;
 }
 
+/** request-hand-view: a seated player asks to see another player's whole hand; allowing shows the hand's cards. */
+export interface SeeRequest {
+  id: string;
+  from: string; // asking player
+  seatId: string; // hand owner seat
+  at: number;
+}
+
 export interface TakeRequest {
   id: string;
   from: string; // requesting player
@@ -149,6 +157,8 @@ export interface TableState {
   seatedOrder: string[];
   /** The setup last applied to this table (table-setups: Play again). */
   lastSetup?: { id: string; versionId: string; name: string; slots?: Record<string, string> };
+  /** request-hand-view: pending asks to see a hand (defaults to empty for older stored tables). */
+  seeRequests: SeeRequest[];
   /** 1 once zoneOrder (not x/y) drives the board layout; see migrateState. */
   zoneLayoutVersion?: number;
 }
@@ -219,6 +229,10 @@ export const ActionSchema = z.discriminatedUnion('type', [
   /** `deck` (gather-by-deck): only that loaded deck's cards are gathered. */
   z.object({ type: z.literal('gather'), zones: z.union([z.literal('all'), z.array(id).min(1)]), to: id, deck: id.optional() }),
   z.object({ type: z.literal('respondTake'), requestId: id, approve: z.boolean() }),
+  // --- request-hand-view
+  z.object({ type: z.literal('seeAsk'), seat: id }),
+  z.object({ type: z.literal('seeRespond'), requestId: id, approve: z.boolean() }),
+  z.object({ type: z.literal('seeCancel'), requestId: id }),
   // --- zones
   z.object({
     type: z.literal('zoneAdd'),
@@ -290,6 +304,8 @@ export type SystemAction =
   | { type: 'reloadDeck'; deckId: string; deck: z.infer<typeof TableDeckSchema> }
   | { type: 'autoHost'; playerId: string }
   | { type: 'autoPass' }
+  /** request-hand-view: the asker stopped viewing that table, so their pending asks end (except the seat now viewed). */
+  | { type: 'seeDrop'; from: string; except?: string }
   | { type: 'passwordChanged'; hasPassword: boolean }
   | { type: 'renamePlayer'; playerId: string; name: string; color: string }
   /** table-setups: replace zones, cards and counters with an expanded setup (built by the server). */

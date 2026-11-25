@@ -11,6 +11,7 @@ import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
 import { SeatBar } from '../table/Seats';
 import { HandDock } from '../table/HandDock';
+import { StopShowingHand } from '../table/HandControls';
 import { useUI, findCard, boardZones, orderedSelection, rotateSeat, shownSeat, viewRotation, type DrawerTab } from '../table/ui';
 import { useSelectionDrawer } from '../table/useSelectionDrawer';
 import { setBoardElement } from '../table/drag';
@@ -246,6 +247,9 @@ function TableScreen({ view }: { view: TableView }) {
       ) : (
         myHand && (
           <div className="hand-area" aria-label="Your hand">
+            <div className="hand-top end">
+              <StopShowingHand hand={myHand} />
+            </div>
             <CardRow zone={myHand} decks={view.decks} arc dropId={myHand.id} onInfo={onInfo} />
           </div>
         )

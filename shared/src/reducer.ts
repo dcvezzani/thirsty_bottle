@@ -107,6 +107,7 @@ export function createTableState(o: CreateTableOptions): TableState {
     log: [],
     logSeq: 0,
     requests: [],
+    seeRequests: [],
     vacated: [],
     idSeq: 0,
     seatedOrder: [],
@@ -133,6 +134,7 @@ export function createTableState(o: CreateTableOptions): TableState {
  * Idempotent; returns the same object.
  */
 export function migrateState(s: TableState): TableState {
+  if (!s.seeRequests) s.seeRequests = []; // request-hand-view: tables saved before it existed
   if ((s.zoneLayoutVersion ?? 0) >= 1) return s;
   const shared = s.zoneOrder
     .filter((id) => s.zones[id]?.kind === 'shared')
@@ -494,6 +496,9 @@ const ADMIN = new Set([
 
 /** Out-of-turn safe actions: they change no shared zone and no other player's zone. */
 const ALWAYS_ALLOWED = new Set([
+  'seeAsk',
+  'seeRespond',
+  'seeCancel',
   'show',
   'unshow',
   'peek',
@@ -884,6 +889,47 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       log(s, now, actor, `${who} gathered ${what} into ${zoneLabel(s, to)}`, 'action', undefined, true);
       break;
     }
+    // ----------------------------------------------------------------- request-hand-view
+    case 'seeAsk': {
+      const target = s.seats.find((x) => x.id === action.seat) ?? fail('NO_SEAT', 'That seat no longer exists');
+      if (!target.playerId || target.playerId === actor) fail('BAD_TARGET', 'Choose another player');
+      if (s.seeRequests.some((r) => r.from === actor && r.seatId === target.id)) fail('ALREADY_ASKED', `You already asked ${target.name}`);
+      s.seeRequests.push({ id: nextId(s, 'r'), from: actor!, seatId: target.id, at: now });
+      log(s, now, actor, `${who} asked to see ${target.name}'s hand`, 'action', undefined, true);
+      break;
+    }
+    case 'seeRespond': {
+      const req = s.seeRequests.find((r) => r.id === action.requestId) ?? fail('NO_REQUEST', 'That request has expired');
+      const seat = s.seats.find((x) => x.id === req.seatId);
+      if (!seat || seat.playerId !== actor) fail('NOT_YOURS', 'Only the hand owner can answer');
+      s.seeRequests = s.seeRequests.filter((r) => r.id !== req.id);
+      const asker = playerName(s, req.from);
+      if (!action.approve) {
+        log(s, now, actor, `${who} declined ${asker}'s request`, 'action', undefined, true);
+        break;
+      }
+      // allowing = showing every card currently in the hand to the asker, exactly as `show` does
+      const ids = [...(s.zones[handZoneId(req.seatId)]?.cards ?? [])];
+      for (const id of ids) {
+        const c = s.cards[id];
+        if (c.shownTo.includes('*')) continue;
+        c.shownTo = [...new Set([...c.shownTo, req.from])];
+        c.shownBy = actor;
+      }
+      const priv: Record<string, string> = { [req.from]: `${who} showed you their hand: ${listNames(s, ids)}`, ...(actor ? { [actor]: `You showed your hand to ${asker}` } : {}) };
+      log(s, now, actor, ids.length ? `${who} showed ${asker} their hand` : `${who} had no cards to show ${asker}`, 'action', ids.length ? priv : undefined, true);
+      break;
+    }
+    case 'seeCancel': {
+      const req = s.seeRequests.find((r) => r.id === action.requestId) ?? fail('NO_REQUEST', 'That request has expired');
+      if (req.from !== actor) fail('NOT_YOURS', 'Only the asker can cancel');
+      s.seeRequests = s.seeRequests.filter((r) => r.id !== req.id);
+      break;
+    }
+    case 'seeDrop': {
+      s.seeRequests = s.seeRequests.filter((r) => r.from !== action.from || r.seatId === action.except);
+      break;
+    }
     case 'respondTake': {
       const req = s.requests.find((r) => r.id === action.requestId) ?? fail('NO_REQUEST', 'That request has expired');
       const seat = s.seats.find((x) => x.id === req.seatId);
@@ -1139,6 +1185,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       }
       for (const c of s.counters) c.value = 0;
       s.requests = [];
+      s.seeRequests = [];
       if (s.mode === 'turn') s.turn.active = seatOfPlayer(s, s.hostId)?.id ?? null;
       log(s, now, actor, `${who} reset the table`, 'system');
       break;
@@ -1162,6 +1209,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       s.decks = {};
       s.counters = [];
       s.requests = [];
+      s.seeRequests = [];
       const zoneOf: Record<string, string> = {};
       for (const pz of plan.zones) {
         const z = addZone(s, { name: pz.name, layout: pz.layout, ...(pz.color ? { color: pz.color } : {}), ...(pz.width ? { width: pz.width } : {}), ...(pz.newRow ? { newRow: true } : {}), ...(pz.perPlayer ? { perPlayer: true } : {}) });
@@ -1305,6 +1353,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       seat.playerId = null;
       s.seatedOrder = s.seatedOrder.filter((x) => x !== pid);
       s.requests = s.requests.filter((r) => r.from !== pid && r.seatId !== seat.id);
+      s.seeRequests = s.seeRequests.filter((r) => r.from !== pid && r.seatId !== seat.id);
       for (const c of Object.values(s.cards)) {
         c.shownTo = c.shownTo.filter((x) => x !== pid);
         c.peekedBy = c.peekedBy.filter((x) => x !== pid);

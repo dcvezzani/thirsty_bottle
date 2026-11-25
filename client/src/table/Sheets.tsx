@@ -8,6 +8,7 @@ import { api, imageUrl } from '../lib/api';
 import { MetaList } from '../pages/DeckEditor';
 import { boardZones, findCard, isOthersZone, orderedSelection, useUI, viewingOf, zoneLabel } from './ui';
 import { moveCards } from './drag';
+import { canAskToSee } from './seeHand';
 import { flipCards, flipSelection } from './flip';
 import { playAgain } from './SetupSheets';
 import { CardRow } from './CardRow';
@@ -611,6 +612,12 @@ export function SeatSheet({ view, seatId, onClose }: { view: TableView; seatId: 
             View table
           </button>
         )}
+        {/* request-hand-view */}
+        {canAskToSee(view, seat.id) && (
+          <button disabled={canAskToSee(view, seat.id) === 'pending'} onClick={() => act({ type: 'seeAsk', seat: seat.id })}>
+            {canAskToSee(view, seat.id) === 'pending' ? 'Asked…' : 'Ask to see hand'}
+          </button>
+        )}
         {handles.length > 0 && seat.id !== view.me.seatId && selZone && (
           <button className="primary" onClick={() => (moveCards(handles, selZone, `hand:${seat.id}`), onClose())}>
             Pass {handles.length} selected card{handles.length === 1 ? '' : 's'}
@@ -868,8 +875,9 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
 // ---------------------------------------------------------------------------------------------- prompts
 
 export function Prompts({ view }: { view: TableView }) {
-  const incoming = view.requests.filter((r) => r.dir === 'incoming');
-  const outgoing = view.requests.filter((r) => r.dir === 'outgoing');
+  const incoming = [...view.requests.filter((r) => r.dir === 'incoming' && r.kind !== 'see'), ...view.requests.filter((r) => r.dir === 'incoming' && r.kind === 'see')];
+  const outgoing = view.requests.filter((r) => r.dir === 'outgoing' && r.kind !== 'see');
+  const outgoingSee = view.requests.filter((r) => r.dir === 'outgoing' && r.kind === 'see');
   const [returnTo, setReturnTo] = useState<string>('');
   const shared = useMemo(() => view.zones.filter((z) => z.kind === 'shared'), [view.zones]);
   return (
@@ -878,13 +886,16 @@ export function Prompts({ view }: { view: TableView }) {
         <div className="overlay" style={{ alignItems: 'center' }}>
           <div className="sheet" role="alertdialog" aria-label="Card request">
             <h2>
-              {incoming[0].fromName} wants {incoming[0].count} card{incoming[0].count === 1 ? '' : 's'} from your {incoming[0].zoneName ?? 'hand'}
+              {incoming[0].kind === 'see'
+                ? `${incoming[0].fromName} asks to see your hand`
+                : `${incoming[0].fromName} wants ${incoming[0].count} card${incoming[0].count === 1 ? '' : 's'} from your ${incoming[0].zoneName ?? 'hand'}`}
             </h2>
+            {incoming[0].kind === 'see' && <p className="small-text muted">Allowing shows them the cards you hold right now. Cards you draw later stay hidden.</p>}
             <div className="row">
-              <button className="primary grow" onClick={() => send({ type: 'respondTake', requestId: incoming[0].id, approve: true })}>
+              <button className="primary grow" onClick={() => send({ type: incoming[0].kind === 'see' ? 'seeRespond' : 'respondTake', requestId: incoming[0].id, approve: true })}>
                 Allow
               </button>
-              <button className="grow" onClick={() => send({ type: 'respondTake', requestId: incoming[0].id, approve: false })}>
+              <button className="grow" onClick={() => send({ type: incoming[0].kind === 'see' ? 'seeRespond' : 'respondTake', requestId: incoming[0].id, approve: false })}>
                 Decline
               </button>
             </div>
@@ -892,6 +903,14 @@ export function Prompts({ view }: { view: TableView }) {
         </div>
       )}
       {outgoing.length > 0 && <div className="banner">Waiting for {view.seats.find((s) => s.id === outgoing[0].seatId)?.name ?? 'the player'} to allow your request…</div>}
+      {outgoingSee.length > 0 && (
+        <div className="banner row" role="status">
+          <span className="grow">Waiting for {view.seats.find((s) => s.id === outgoingSee[0].seatId)?.name ?? 'the player'} to let you see their hand…</span>
+          <button className="small" onClick={() => send({ type: 'seeCancel', requestId: outgoingSee[0].id })}>
+            Cancel
+          </button>
+        </div>
+      )}
       {view.vacated.map((v) => (
         <div key={v.seatId} className="banner" role="alert">
           {v.playerName} left with cards in hand.{' '}

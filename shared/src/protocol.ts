@@ -107,6 +107,8 @@ export interface RequestView {
   to: string;
   /** Name of the per-player zone the cards are in; missing = the hand. */
   zoneName?: string;
+  /** 'take': cards out of a hand; 'see' (request-hand-view): a whole hand shown to the asker. */
+  kind: 'take' | 'see';
   /** 'incoming' = someone wants cards from my hand. */
   dir: 'incoming' | 'outgoing';
 }

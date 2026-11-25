@@ -227,7 +227,7 @@ label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px
 .row-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #cfe; font-size: 13px; pointer-events: none; }
 .sel-count { position: absolute; top: -4px; right: 4px; background: #f4c542; color: #222; font-weight: 700; border-radius: 10px; padding: 0 7px; font-size: 12px; z-index: 300; }
 .free-zone { position: relative; height: calc(var(--card-w) * 3); touch-action: none; }
-.hand-area { flex: none; padding: 0 4px calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0,0,0,0.25)); }
+.hand-area { position: relative; flex: none; padding: 0 4px calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0,0,0,0.25)); }
 .selection-bar { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; padding: 2px 4px; background: var(--bg-2); flex: none; overflow-x: auto; scrollbar-width: none; box-sizing: border-box; min-height: calc(var(--tap) + 4px); color: #fff; }
 .selection-bar button { color: #fff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); flex: none; min-height: var(--tap); }
 .selection-bar button.primary { background: var(--accent); border-color: #fff; }
@@ -366,7 +366,12 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .hand-col.narrow { flex: 1 1 0; background: rgba(0,0,0,0.18); }
 .hand-col.solo { flex: 1 1 100%; }
 .hand-col .card-row { width: 100%; }
-.hand-badge { position: absolute; top: 0; left: 4px; z-index: 5; max-width: calc(100% - 8px); padding: 1px 7px; border-radius: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hand-top { position: absolute; top: 0; left: 4px; right: 4px; z-index: 5; display: flex; align-items: center; gap: 4px; pointer-events: none; }
+.hand-top.end { justify-content: flex-end; }
+.hand-badge { flex: 0 1 auto; min-width: 0; padding: 1px 7px; border-radius: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hand-action { position: relative; flex: none; pointer-events: auto; min-height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; background: var(--accent); color: var(--accent-ink); border: 1px solid #fff; }
+.hand-action::after { content: ''; position: absolute; inset: -9px -4px; } /* a 44px tap target around the small pill */
+.hand-action:disabled { background: rgba(0,0,0,0.6); color: #fff; opacity: 1; }
 .hand-col.pulse { animation: hand-pulse 600ms ease-out; }
 @keyframes hand-pulse { 0% { box-shadow: 0 0 0 0 rgba(244,197,66,0.95); } 100% { box-shadow: 0 0 0 14px rgba(244,197,66,0); } }
 @media (prefers-reduced-motion: reduce) { .hand-col { transition: none; } .hand-col.pulse { animation: none; box-shadow: 0 0 0 3px #f4c542; } }
