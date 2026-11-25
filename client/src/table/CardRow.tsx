@@ -9,6 +9,7 @@ import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
 import { pickLoupe } from './loupe';
 import { registerStrip, StripRun } from './scrubStrip';
+import { getLoupeMode } from '../lib/loupePrefs';
 
 function vibrate(ms: number) {
   try {
@@ -24,6 +25,24 @@ function showOwn(h: { indexAt(x: number): number }, zoneId: string, x: number, c
   if (hh) useUI.setState({ preview: { h: hh, zone: zoneId } });
 }
 
+/**
+ * loupe-view-modes: what a finished scrub leaves behind. In 'stay' mode (touch) the last card stays viewed and the loupe stays
+ * up with its buttons; otherwise both go away. Nothing here touches the selection.
+ */
+export function finishScrub(pointerType: string) {
+  const st = useUI.getState();
+  if (pointerType !== 'mouse' && st.loupe && st.preview && getLoupeMode() === 'stay') {
+    useUI.setState({ viewed: { h: st.preview.h, zone: st.preview.zone }, preview: null, loupe: { ...st.loupe, details: false } });
+  } else useUI.setState({ preview: null, loupe: null });
+}
+
+/** A tap on the card that is being viewed ends the viewing instead of selecting it. */
+export function tapEndsViewing(h: string | undefined) {
+  if (!h || useUI.getState().viewed?.h !== h) return false;
+  useUI.setState({ viewed: null, loupe: null, preview: null });
+  return true;
+}
+
 /** scrub-loupe: choose the loupe's side from the pressed zone and the board, once, when a touch scrub starts. */
 export function placeLoupe(el: HTMLElement | null, pointerType: string) {
   if (!el || pointerType === 'mouse') return;
@@ -32,7 +51,7 @@ export function placeLoupe(el: HTMLElement | null, pointerType: string) {
   const zr = (el.closest('.zone') ?? el).getBoundingClientRect();
   if (!b) return;
   const p = pickLoupe({ top: zr.top, bottom: zr.bottom }, { top: b.top, bottom: b.bottom });
-  useUI.setState({ loupe: { ...p, details: false, row: null } });
+  useUI.setState({ loupe: { ...p, details: false, row: null }, viewed: null });
 }
 
 /**
@@ -78,6 +97,7 @@ export function CardRow({
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
   const preview = useUI((s) => s.preview);
+  const viewedH = useUI((s) => s.viewed?.h);
   const drag = useUI((s) => s.drag);
   const zoom = useUI((s) => s.zoom);
   const cards = zone.cards;
@@ -132,9 +152,15 @@ export function CardRow({
   /** The pointer type of the current press: the loupe is for touch and pen; the mouse keeps the hover preview. */
   const pointer = useRef<string>('touch');
   const run = useRef<StripRun | null>(null);
+  // the row's card size can change mid-gesture (a neighbouring zone opening makes this one's cards smaller), so the
+  // recognizer reads it through a ref: recreating it would forget a drag in progress and the drop would never happen
+  const cardWRef = useRef(cardW);
+  cardWRef.current = cardW;
   const gesture = useMemo(() => {
-    const hit = (x: number, y: number) =>
-      hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06 }), x, y, arc ? cardW * 0.3 : 0);
+    const hit = (x: number, y: number) => {
+      const cw = cardWRef.current;
+      return hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cw, { arc, maxSpacing: arc ? undefined : cw * 1.06 }), x, y, arc ? cw * 0.3 : 0);
+    };
     const h = (i: number) => live.current.cards[i]?.h;
     const setPreview = (i: number) => {
       const hh = h(i);
@@ -155,6 +181,7 @@ export function CardRow({
         hit: (x, y) => hit(x, y),
         onTap: (i) => {
           if (i === null || !live.current.interactive) return;
+          if (tapEndsViewing(h(i))) return;
           useUI.getState().toggle(live.current.zone.id, h(i)!);
         },
         onDoubleTap: (i) => {
@@ -212,7 +239,7 @@ export function CardRow({
           if (pendingScrub.current.timer) clearTimeout(pendingScrub.current.timer);
           pendingScrub.current = { i: -1, timer: null };
           run.current = null;
-          useUI.setState({ preview: null, loupe: null });
+          finishScrub(pointer.current);
         },
         onDragStart: (i, s) => {
           if (!live.current.draggable || !live.current.interactive || run.current?.away) return;
@@ -230,7 +257,7 @@ export function CardRow({
         onCancel: () => cancelDrag(),
       }),
     };
-  }, [cardW, arc]);
+  }, [arc]);
 
   // scrub-loupe: this row can be reached by a scrub that started in a neighbouring zone
   const handle = useRef<{ indexAt(x: number): number } | null>(null);
@@ -367,7 +394,7 @@ export function CardRow({
             key={c.h}
             card={c}
             decks={decks}
-            className={`in-row ${sel ? 'selected' : ''} ${m.scale > 1 ? 'focused' : ''}`}
+            className={`in-row ${sel ? 'selected' : ''} ${m.scale > 1 ? 'focused' : ''} ${viewedH === c.h ? 'viewed' : ''}`}
             style={{
               ['--card-w' as any]: `${cardW}px`,
               transform: `translate(${p.x + m.dx}px, ${p.y + m.dy + lift}px) rotate(${m.scale > 1 ? 0 : p.rot}deg) scale(${m.scale})`,

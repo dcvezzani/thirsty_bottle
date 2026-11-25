@@ -142,9 +142,33 @@ function TableScreen({ view }: { view: TableView }) {
   }, []);
   const sheetOpen = useUI((s) => s.sheet !== null);
   const drawerOpen = useUI((s) => s.drawer !== null);
+  const endViewing = () => useUI.setState({ viewed: null, loupe: null, preview: null });
   useEffect(() => {
     if ((sheetOpen || drawerOpen) && useUI.getState().openZone?.pinned) useUI.setState({ openZone: null });
+    if ((sheetOpen || drawerOpen) && useUI.getState().viewed) useUI.setState({ viewed: null, loupe: null, preview: null });
   }, [sheetOpen, drawerOpen]);
+  // loupe-view-modes: a stay-open view ends on Escape and on a tap on empty table (a pan or scroll makes no click)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && useUI.getState().viewed) useUI.setState({ viewed: null, loupe: null, preview: null });
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!useUI.getState().viewed) return;
+      const t = e.target as Element | null;
+      if (t?.closest('.card, button, input, select, textarea, a, [role="button"], .loupe, .sheet, .overlay')) return;
+      useUI.setState({ viewed: null, loupe: null, preview: null });
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, []);
+  useEffect(() => {
+    const v = useUI.getState().viewed;
+    if (v && !view.zones.some((z) => z.cards.some((c) => c.h === v.h))) endViewing();
+  }, [view]);
   useEffect(() => {
     const oz = useUI.getState().openZone;
     if (oz && !view.zones.some((z) => z.id === oz.id && z.cards.length > 0)) useUI.setState({ openZone: null });

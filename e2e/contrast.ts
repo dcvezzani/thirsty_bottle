@@ -53,7 +53,7 @@ export async function lowContrast(page: Page, opts: { fallbackBg?: string } = {}
     for (const el of document.querySelectorAll<HTMLElement>('body *')) {
       if (excluded(el) || !visible(el)) continue;
       const cs = getComputedStyle(el);
-      const isField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) && (el as HTMLInputElement).type !== 'checkbox' && (el as HTMLInputElement).type !== 'color';
+      const isField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) && (el as HTMLInputElement).type !== 'checkbox' && (el as HTMLInputElement).type !== 'radio' && (el as HTMLInputElement).type !== 'color';
       const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim());
       const bg = bgOf(el);
       if (ownText || (isField && ((el as HTMLInputElement).value || el.tagName === 'SELECT'))) {

@@ -4,7 +4,7 @@ import { CardFace } from '../components/Card';
 import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
 import { columnHit, columnLayout, columnMagnify } from './column';
 import { useUI } from './ui';
-import { placeLoupe } from './CardRow';
+import { finishScrub, placeLoupe, tapEndsViewing } from './CardRow';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
@@ -21,6 +21,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
   const preview = useUI((s) => s.preview);
+  const viewedH = useUI((s) => s.viewed?.h);
   const drag = useUI((s) => s.drag);
   const cards = zone.cards;
   const dragSet = useMemo(() => new Set(drag?.handles ?? []), [drag]);
@@ -78,6 +79,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
           hit: (_x, y) => columnHit(live.current.Lfull, y),
           onTap: (i) => {
             if (i === null || !live.current.interactive) return;
+            if (tapEndsViewing(h(i))) return;
             useUI.getState().toggle(live.current.zone.id, h(i)!);
           },
           onDoubleTap: (i) => {
@@ -101,7 +103,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
             if (useUI.getState().loupe?.details) useUI.setState({ loupe: { ...useUI.getState().loupe!, details: false } });
             setPreview(i);
           },
-          onScrubEnd: () => useUI.setState({ preview: null, loupe: null }),
+          onScrubEnd: () => finishScrub(pointer.current),
           onDragStart: (i, s) => {
             if (!live.current.interactive) return;
             const st = useUI.getState();
@@ -187,7 +189,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
           key={c.h}
           card={c}
           decks={decks}
-          className={`in-column ${selSet.has(c.h) ? 'selected' : ''} ${i === focus ? 'focused' : ''}`}
+          className={`in-column ${selSet.has(c.h) ? 'selected' : ''} ${i === focus ? 'focused' : ''} ${viewedH === c.h ? 'viewed' : ''}`}
           style={{ transform: `translateY(${M.y[i]}px)`, zIndex: i + 1 }}
         />
       ))}

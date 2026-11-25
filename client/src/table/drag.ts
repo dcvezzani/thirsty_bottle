@@ -116,7 +116,7 @@ function stopDwell() {
 }
 
 export function startDrag(handles: string[], fromZone: string, x: number, y: number) {
-  useUI.setState({ drag: { handles, fromZone, x, y, over: null }, preview: null, loupe: null });
+  useUI.setState({ drag: { handles, fromZone, x, y, over: null }, preview: null, loupe: null, viewed: null });
   rest = { x, y, t: performance.now() };
   stopDwell();
   dwellTimer = setInterval(dwellTick, 60);

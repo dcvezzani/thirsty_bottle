@@ -2,6 +2,8 @@ import type { TableView } from '@vct/shared';
 import { CardFace, findDef } from '../components/Card';
 import { MetaList } from '../pages/DeckEditor';
 import { findCard, useUI, zoneLabel } from './ui';
+import { isQuickTap, showsDetails } from './loupeView';
+import { useRef } from 'react';
 
 /** Where a hidden card is, as the card details view says it. */
 function whereText(view: TableView, zone: ReturnType<typeof findCard> & {}) {
@@ -17,8 +19,12 @@ function whereText(view: TableView, zone: ReturnType<typeof findCard> & {}) {
 export function Loupe({ view }: { view: TableView }) {
   const loupe = useUI((s) => s.loupe);
   const preview = useUI((s) => s.preview);
-  if (!loupe || !preview) return null;
-  const found = findCard(view, preview.h);
+  const viewed = useUI((s) => s.viewed);
+  const face = useUI((s) => s.loupeFace);
+  const tap = useRef<{ id: number; t: number; x: number; y: number } | null>(null);
+  const shownH = preview?.h ?? viewed?.h;
+  if (!loupe || !shownH) return null;
+  const found = findCard(view, shownH);
   if (!found) return null;
   const { card, zone } = found;
   const def = findDef(view.decks, card);
@@ -28,9 +34,42 @@ export function Loupe({ view }: { view: TableView }) {
   const title = loupe.row ? `${loupe.row}` : where;
   const capH = 44;
   const cardW = Math.min(Math.floor((loupe.h - capH) / 1.4), 200);
-  const showDetails = loupe.details;
+  const stay = !!viewed && !preview; // released in 'stay' mode: the loupe has buttons
+  const showDetails = showsDetails(face, loupe.details);
   return (
-    <div className="loupe" data-testid="loupe" data-side={loupe.side} style={{ top: loupe.y, height: loupe.h }} role="img" aria-label={known ? def!.name : 'Face-down card'}>
+    <div
+      className={`loupe ${stay ? 'stay' : 'scrubbing'}`}
+      data-testid="loupe"
+      data-side={loupe.side}
+      style={{ top: loupe.y, height: loupe.h }}
+      role={stay ? 'dialog' : 'img'}
+      aria-label={known ? def!.name : 'Face-down card'}
+      // second-finger mode: a quick tap of another finger on the loupe switches its view while a scrub carries on
+      onPointerDown={(e) => {
+        if (stay) return;
+        tap.current = { id: e.pointerId, t: performance.now(), x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e) => {
+        const d = tap.current;
+        tap.current = null;
+        if (!stay && d && d.id === e.pointerId && isQuickTap(d, { t: performance.now(), x: e.clientX, y: e.clientY })) useUI.getState().flipLoupe();
+      }}
+      onPointerCancel={() => (tap.current = null)}
+    >
+      {stay && (
+        <div className="loupe-controls" role="group" aria-label="Loupe view">
+          <button className={`small${!showDetails ? ' primary' : ''}`} aria-pressed={!showDetails} onClick={() => useUI.setState({ loupeFace: 'card' })}>
+            Card
+          </button>
+          <button className={`small${showDetails ? ' primary' : ''}`} aria-pressed={showDetails} onClick={() => useUI.setState({ loupeFace: 'details' })}>
+            Details
+          </button>
+          <span className="grow" />
+          <button className="small icon" aria-label="Close loupe" onClick={() => useUI.setState({ viewed: null, loupe: null, preview: null })}>
+            ✕
+          </button>
+        </div>
+      )}
       <div className={`loupe-body ${showDetails ? 'details' : ''}`}>
         <CardFace card={card} decks={view.decks} large style={{ ['--card-w' as any]: `${showDetails ? Math.floor(cardW * 0.7) : cardW}px` }} />
         {showDetails && (

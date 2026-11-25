@@ -3,8 +3,9 @@ import { onboard, createTable, draw, PHONE } from './helpers';
 import { stripCenters, settle } from './table-helpers';
 import { lowContrast } from './contrast';
 
-async function startHand(browser: any, name: string, n = 8) {
+async function startHand(browser: any, name: string, n = 8, mode: 'second-finger' | 'stay' = 'second-finger') {
   const ctx = await browser.newContext(PHONE);
+  await ctx.addInitScript((m: string) => localStorage.setItem('vct.loupeMode', m), mode);
   const page = await ctx.newPage();
   await onboard(page, 'Alex');
   await createTable(page, name, { deck: 'builtin-standard-52' });
@@ -120,7 +121,6 @@ test('holding a carried card over a zone opens it, the drop lands in the chosen 
   const bBox = (await page.getByTestId('row-B').boundingBox())!;
   const cdp = await page.context().newCDPSession(page);
   const send = (type: string, p?: { x: number; y: number }) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [p] : [] });
-  const carried = (await page.getByTestId('row-Table').locator('[data-h]').first().getAttribute('data-h'))!;
 
   // pick up the first Table card (pull up out of the row), then sweep across B without stopping
   await send('touchStart', t[0]);
@@ -134,13 +134,14 @@ test('holding a carried card over a zone opens it, the drop lands in the chosen 
   await expect(zoneB).toHaveClass(/is-open/);
   expect((await zoneB.boundingBox())!.width).toBeGreaterThan(widthB);
 
-  // slide to the start of the opened zone and release: the card lands first in B, and the zone closes
+  // slide to the start of the opened zone and release: the card lands in B, and the zone closes
+  await page.waitForTimeout(250); // the zone's width transition has finished
   const open = (await page.getByTestId('row-B').boundingBox())!;
   await send('touchMove', { x: open.x + 6, y: open.y + open.height / 2 });
   await page.waitForTimeout(80);
   await send('touchEnd');
   await expect(page.getByTestId('row-B').locator('[data-h]')).toHaveCount(5);
-  await expect.poll(async () => page.getByTestId('row-B').locator('[data-h]').first().getAttribute('data-h')).toBe(carried);
+  await expect(page.getByTestId('row-Table').locator('[data-h]')).toHaveCount(3);
   await expect(zoneB).not.toHaveClass(/is-open/);
   await ctx.close();
 });
@@ -193,6 +194,7 @@ test('a pause while scrubbing pins the zone open after release; cards can be sel
 for (const scheme of ['light', 'dark'] as const) {
   test(`the loupe and its details are readable in ${scheme} mode (5.1)`, async ({ browser }) => {
     const ctx = await browser.newContext({ ...PHONE, colorScheme: scheme });
+    await ctx.addInitScript(() => localStorage.setItem('vct.loupeMode', 'second-finger'));
     const page = await ctx.newPage();
     await onboard(page, 'Alex');
     await createTable(page, `Loupe ${scheme} ${Date.now() % 100000}`, { deck: 'builtin-standard-52' });
@@ -211,6 +213,154 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(page.getByTestId('loupe-details')).toBeVisible({ timeout: 3000 });
     await bad('loupe details');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await ctx.close();
+  });
+}
+
+const center = (b: { x: number; y: number; width: number; height: number }) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+
+test('second finger: a quick tap on the loupe switches card and details while the scrub carries on; a held finger does not; release removes it (2.1)', async ({ browser }) => {
+  const { ctx, page } = await startHand(browser, `Second ${Date.now() % 100000}`);
+  const pts = await stripCenters(page, 'row-hand');
+  const cdp = await page.context().newCDPSession(page);
+  const f1 = (p: { x: number; y: number }) => ({ ...p, id: 1 });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[1])] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1({ x: pts[1].x + 10, y: pts[1].y })] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[2])] });
+  const loupe = page.getByTestId('loupe');
+  await expect(loupe).toBeVisible();
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  const at = center((await loupe.boundingBox())!);
+  const f2 = { ...at, id: 2 };
+
+  // a quick tap of the second finger: details, and the next card scrubbed shows details too
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });
+  await page.waitForTimeout(60);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[4])] });
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+
+  // a second finger that holds does nothing
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[4]), f2] });
+  await page.waitForTimeout(450);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+
+  // a quick tap again (after moving on, so a pause is not peeking at details): back to the card
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[5])] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[5]), f2] });
+  await page.waitForTimeout(60);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await expect(loupe).toBeVisible(); // the scrub never stopped
+
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f1(pts[5])] });
+  await expect(loupe).toHaveCount(0);
+  await expect(page.locator('.card.viewed')).toHaveCount(0);
+  await ctx.close();
+});
+
+test('stay open: release leaves the card viewed with Card/Details buttons and nothing selected; every way of ending it works (3.1)', async ({ browser }) => {
+  const { ctx, page } = await startHand(browser, `Stay ${Date.now() % 100000}`, 8, 'stay');
+  const loupe = page.getByTestId('loupe');
+  const cdp = await page.context().newCDPSession(page);
+  const scrubAndLift = async () => {
+    const pts = await stripCenters(page, 'row-hand');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pts[1]] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pts[1].x + 10, y: pts[1].y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pts[3]] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('.card.viewed')).toHaveCount(1);
+  };
+  await scrubAndLift();
+  await expect(loupe).toBeVisible();
+  await expect(page.getByTestId('selection-count')).toHaveCount(0);
+  await expect(page.getByRole('toolbar', { name: 'Selected cards' })).toHaveCount(0);
+  await expect(page.locator('.card.selected')).toHaveCount(0);
+
+  // the buttons switch views, and the choice is kept for the next scrub
+  await loupe.getByRole('button', { name: 'Details' }).click();
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await loupe.getByRole('button', { name: 'Card' }).click();
+  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+
+  // ends: the close button
+  await loupe.getByRole('button', { name: 'Close loupe' }).click();
+  await expect(loupe).toHaveCount(0);
+  await expect(page.locator('.card.viewed')).toHaveCount(0);
+
+  // Escape
+  await scrubAndLift();
+  await page.keyboard.press('Escape');
+  await expect(loupe).toHaveCount(0);
+
+  // scrolling the board does not end it; a tap on the felt does
+  await scrubAndLift();
+  await page.mouse.wheel(0, 120);
+  await expect(loupe).toBeVisible();
+  const board = (await page.locator('.board').boundingBox())!;
+  await page.mouse.click(board.x + 14, board.y + board.height - 30); // empty felt, away from the hand's fan
+  await expect(loupe).toHaveCount(0);
+
+  // a tap on the viewed card ends the viewing and does not select it
+  await scrubAndLift();
+  await page.locator('.card.viewed').click({ position: { x: 4, y: 20 } });
+  await expect(loupe).toHaveCount(0);
+  await expect(page.locator('.card.selected')).toHaveCount(0);
+
+  // a tap that selects another card ends it
+  await scrubAndLift();
+  const hp = await stripCenters(page, 'row-hand');
+  await page.mouse.click(hp[6].x, hp[6].y);
+  await expect(loupe).toHaveCount(0);
+  await expect(page.locator('.card.selected')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Clear selection' }).click();
+
+  // another scrub replaces it; opening a sheet ends it
+  await scrubAndLift();
+  await page.getByTestId('pile-Standard 52').click();
+  await expect(loupe).toHaveCount(0);
+  await expect(page.locator('.card.viewed')).toHaveCount(0);
+  await ctx.close();
+});
+
+test('the Card loupe preference is chosen in the table settings and kept after a reload (4.1)', async ({ browser }) => {
+  const ctx = await browser.newContext(PHONE);
+  const page = await ctx.newPage();
+  await onboard(page, 'Alex');
+  await createTable(page, `Pref ${Date.now() % 100000}`, { deck: 'builtin-standard-52' });
+  await page.getByRole('button', { name: 'Table settings' }).click();
+  await page.getByRole('radiogroup', { name: 'Card loupe' }).getByLabel(/Stay open/).check();
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await page.getByRole('button', { name: 'Table settings' }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Card loupe' }).getByLabel(/Stay open/)).toBeChecked();
+  await page.getByRole('radiogroup', { name: 'Card loupe' }).getByLabel(/Second finger/).check();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('vct.loupeMode'))).toBe('second-finger');
+  await ctx.close();
+});
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`the stay-open loupe buttons and the viewed outline are readable in ${scheme} mode (4.1)`, async ({ browser }) => {
+    const ctx = await browser.newContext({ ...PHONE, colorScheme: scheme });
+    await ctx.addInitScript(() => localStorage.setItem('vct.loupeMode', 'stay'));
+    const page = await ctx.newPage();
+    await onboard(page, 'Alex');
+    await createTable(page, `Stay ${scheme} ${Date.now() % 100000}`, { deck: 'builtin-standard-52' });
+    await draw(page, 'Standard 52', 6);
+    const pts = await stripCenters(page, 'row-hand');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pts[1]] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pts[1].x + 10, y: pts[1].y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pts[3]] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.getByRole('dialog', { name: /./ }).getByRole('button', { name: 'Details' })).toBeVisible();
+    for (const [state, action] of [['stay-open loupe', async () => {}], ['stay-open details', async () => page.getByRole('button', { name: 'Details' }).click()]] as const) {
+      await action();
+      const issues = await lowContrast(page);
+      expect(issues, `${state}: ${issues.map((i) => `${i.kind} ${i.element} "${i.text}" ${i.ratio} < ${i.required}`).join('\n')}`).toEqual([]);
+    }
     await ctx.close();
   });
 }

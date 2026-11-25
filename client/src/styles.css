@@ -385,7 +385,7 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 @media (prefers-reduced-motion: reduce) { .req-bar { display: none; } }
 
 /* scrub-loupe: a large card at a fixed place, never under the scrubbing finger */
-.loupe { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 360px); z-index: 60; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--panel); color: var(--ink); border: 2px solid var(--control-line, #666); box-shadow: 0 6px 24px rgba(0,0,0,0.45); box-sizing: border-box; overflow: hidden; }
+.loupe { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 360px); z-index: 60; pointer-events: none; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--panel); color: var(--ink); border: 2px solid var(--control-line, #666); box-shadow: 0 6px 24px rgba(0,0,0,0.45); box-sizing: border-box; overflow: hidden; }
 .loupe-body { display: flex; gap: 10px; align-items: flex-start; min-height: 0; flex: 1; }
 .loupe-body .card { position: relative; flex: none; }
 .loupe-text { font-size: 13px; line-height: 1.3; overflow: hidden; max-height: 100%; }
@@ -398,3 +398,13 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 /* scrub-loupe: a zone opened in place (held drag, or pinned open after a pause) */
 .zone.is-open { outline: 2px solid var(--accent-ink, #fff); outline-offset: 1px; }
 @media (prefers-reduced-motion: no-preference) { .zone-row .zone { transition: width 0.12s ease-out; } }
+
+/* loupe-view-modes: a second finger can tap the loupe while a scrub carries on; after release (stay open) only its buttons take touches */
+.loupe.scrubbing { pointer-events: auto; }
+.loupe-controls { display: flex; gap: 6px; align-items: center; width: 100%; pointer-events: auto; }
+.loupe.stay { pointer-events: none; }
+.card.viewed { outline: 3px dashed #fff; outline-offset: 2px; }
+.loupe-setting { border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; padding: 6px 10px; }
+.loupe-setting legend { font-weight: 600; padding: 0 4px; }
+.loupe-setting input[type='radio'] { width: auto; min-height: 0; margin-top: 4px; }
+.loupe-setting .muted { color: var(--ink-2); }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { CardView, TableView, ZoneView } from '@vct/shared';
 import { boardSlots } from '@vct/shared';
 import { FOCUS_SETTLE_MS, type HandColumn } from './handFocus';
+import { flipFace, type LoupeFace } from './loupeView';
 
 export type Sheet =
   | { kind: 'cards' }
@@ -39,6 +40,10 @@ interface UIState {
   /** scrub-loupe: the zone widened in place (while carrying cards, or pinned open after a pause). */
   openZone: { id: string; pinned: boolean } | null;
   loupe: { y: number; h: number; side: 'top' | 'bottom'; details: boolean; row: string | null } | null;
+  /** loupe-view-modes: the chosen loupe view for this session, and (mode 'stay') the card left viewed after release. */
+  loupeFace: LoupeFace;
+  viewed: { h: string; zone: string } | null;
+  flipLoupe(): void;
   sheet: Sheet;
   faceDown: boolean;
   drawer: DrawerTab | null;
@@ -68,6 +73,11 @@ export const useUI = create<UIState>((set, get) => ({
   preview: null,
   drag: null,
   loupe: null,
+  loupeFace: 'card',
+  viewed: null,
+  flipLoupe() {
+    set({ loupeFace: flipFace(get().loupeFace) });
+  },
   openZone: null,
   sheet: null,
   faceDown: false,
@@ -90,13 +100,13 @@ export const useUI = create<UIState>((set, get) => ({
     }
   })(),
   select(zone, handles) {
-    set({ selZone: handles.length ? zone : null, selected: handles });
+    set({ selZone: handles.length ? zone : null, selected: handles, ...(handles.length ? { viewed: null, ...(get().viewed ? { loupe: null, preview: null } : {}) } : {}) });
   },
   toggle(zone, h) {
     const st = get();
     const base = st.selZone === zone ? st.selected : [];
     const selected = base.includes(h) ? base.filter((x) => x !== h) : [...base, h];
-    set({ selZone: selected.length ? zone : null, selected });
+    set({ selZone: selected.length ? zone : null, selected, ...(selected.length && st.viewed ? { viewed: null, loupe: null, preview: null } : {}) });
   },
   clear() {
     const oz = get().openZone;

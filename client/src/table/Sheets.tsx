@@ -14,6 +14,7 @@ import { flipCards, flipSelection } from './flip';
 import { playAgain } from './SetupSheets';
 import { CardRow } from './CardRow';
 import { CountField } from '../components/CountField';
+import { getLoupeMode, setLoupeMode, type LoupeMode } from '../lib/loupePrefs';
 
 const send = (a: any, predict?: any) => useTable.getState().send(a, predict);
 
@@ -758,6 +759,36 @@ function DeckReference({ view, deckId }: { view: TableView; deckId: string }) {
   );
 }
 
+/** loupe-view-modes: what the card loupe does when the scrubbing finger lifts, for this device only. */
+function LoupeSetting() {
+  const [mode, setMode] = useState<LoupeMode>(getLoupeMode);
+  const choose = (m: LoupeMode) => {
+    setLoupeMode(m);
+    setMode(m);
+  };
+  return (
+    <fieldset className="loupe-setting">
+      <legend>On this device</legend>
+      <div role="radiogroup" aria-label="Card loupe">
+        <label className="row" style={{ alignItems: 'flex-start', gap: 8, margin: '4px 0' }}>
+          <input type="radio" name="loupe-mode" checked={mode === 'second-finger'} onChange={() => choose('second-finger')} />
+          <span>
+            <strong>Second finger</strong>
+            <span className="small-text muted"> The card view goes away when you lift. Tap it with a second finger to switch between the card and its details.</span>
+          </span>
+        </label>
+        <label className="row" style={{ alignItems: 'flex-start', gap: 8, margin: '4px 0' }}>
+          <input type="radio" name="loupe-mode" checked={mode === 'stay'} onChange={() => choose('stay')} />
+          <span>
+            <strong>Stay open</strong>
+            <span className="small-text muted"> The last card stays up after you lift, with Card and Details buttons.</span>
+          </span>
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
 export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () => void }) {
   const st = view.settings;
   const [name, setName] = useState(st.name);
@@ -783,6 +814,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
           Copy
         </button>
       </div>
+      <LoupeSetting />
       {!host && <p className="small-text muted">Only the host can change table settings.</p>}
       {host && (
         <>
