@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TableView, ZoneView } from '@vct/shared';
-import { CardBack } from '../components/Card';
 import { CardRow } from './CardRow';
 import { handBadgeText, nextFocus, shownIncreased, viewedHandDisplay, type HandColumn } from './handFocus';
 import { useUI } from './ui';
@@ -36,36 +35,21 @@ export function HandDock({ view, viewed, mine, name, onInfo }: { view: TableView
     return () => clearTimeout(t);
   }, [d.shown.length]);
 
-  const openSeat = () => viewed.seatId && useUI.getState().setSheet({ kind: 'seat', seat: viewed.seatId });
-  const hiddenBack = viewed.cards.find((c) => !c.known)?.back;
   const state = (col: HandColumn) => (!mine ? 'solo' : focus === col ? 'focused' : 'narrow');
   return (
     <div className="hand-dock" data-testid="hand-dock">
       <section className={`hand-col viewed ${state('viewed')} ${pulse ? 'pulse' : ''}`} aria-label={`${name}'s hand`} data-drop-zone={viewed.id} data-testid="viewed-col">
         <span className="hand-badge">{handBadgeText(name, d)}</span>
-        <div className="hand-col-body">
-          <div className="hand-col-cards">
-            <CardRow
-              zone={{ ...viewed, cards: d.shown }}
-              decks={view.decks}
-              arc
-              dropId={viewed.id}
-              onInfo={onInfo}
-              testId="row-viewed-hand"
-              emptyText={d.total === 0 ? `${name}'s hand is empty` : ''}
-              onScrubStart={() => mine && focusHand(nextFocus(focus, { kind: 'scrub', column: 'viewed' }))}
-            />
-          </div>
-          {d.hidden > 0 && (
-            <button className="hidden-stack ghost" aria-label={`${d.hidden} hidden card${d.hidden === 1 ? '' : 's'}`} onClick={openSeat}>
-              <span className="card back">
-                <CardBack imageId={hiddenBack} />
-              </span>
-              {/* the narrow column has little room: "+5" there, "+5 hidden" when focused (the full text stays in the label) */}
-              <span className="hidden-count">+{d.hidden}{state('viewed') === 'narrow' ? '' : ' hidden'}</span>
-            </button>
-          )}
-        </div>
+        <CardRow
+          zone={{ ...viewed, cards: d.ordered }}
+          decks={view.decks}
+          arc
+          dropId={viewed.id}
+          onInfo={onInfo}
+          testId="row-viewed-hand"
+          emptyText={`${name}'s hand is empty`}
+          onScrubStart={() => mine && focusHand(nextFocus(focus, { kind: 'scrub', column: 'viewed' }))}
+        />
       </section>
       {mine && (
         <section className={`hand-col mine ${state('mine')}`} aria-label="Your hand" data-testid="mine-col">

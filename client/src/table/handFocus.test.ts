@@ -20,10 +20,12 @@ describe('hand focus rules (1.1)', () => {
 });
 
 describe('viewed column content (2.1, 2.2)', () => {
-  it('shown cards come first in hand order; the rest are only counted', () => {
+  it('the fan holds every card: shown first in hand order, then the hidden ones in hand order', () => {
     const d = viewedHandDisplay([card('a', false), card('b', true), card('c', false), card('d', true), card('e', false)]);
     expect(d.shown.map((c) => c.h)).toEqual(['b', 'd']);
+    expect(d.ordered.map((c) => c.h)).toEqual(['b', 'd', 'a', 'c', 'e']);
     expect([d.hidden, d.total]).toEqual([3, 5]);
+    expect(viewedHandDisplay([]).ordered).toEqual([]);
   });
 
   it('the badge names the owner: empty, none shown, some shown', () => {

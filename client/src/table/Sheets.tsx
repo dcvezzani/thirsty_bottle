@@ -48,6 +48,9 @@ export function SelectionBar({ view, unread = 0 }: { view: TableView; unread?: n
   if (!handles.length || view.me.spectator) return null;
   const last = recent.find((r) => r !== selZone && view.zones.some((z) => z.id === r));
   const lastZone = view.zones.find((z) => z.id === last);
+  // fanned-viewed-hand: cards in another player's hand or zone can only be taken (flip and send again are refused there)
+  const selected0 = view.zones.find((z) => z.id === selZone);
+  const others = !!selected0 && isOthersZone(view, selected0);
   return (
     <div className="selection-bar" role="toolbar" aria-label="Selected cards">
       <strong className="selection-count" data-testid="selection-count">
@@ -56,10 +59,16 @@ export function SelectionBar({ view, unread = 0 }: { view: TableView; unread?: n
       <button className="small icon" aria-label="Clear selection" onClick={() => useUI.getState().clear()}>
         ✕
       </button>
-      <button className="small" onClick={() => flipSelection()}>
-        Flip
-      </button>
-      {lastZone && (
+      {others ? (
+        <button className="small primary" disabled={!view.me.seatId} onClick={() => moveCards(handles, selZone!, `hand:${view.me.seatId}`)}>
+          {view.settings.openHands ? 'Take' : 'Ask to take'}
+        </button>
+      ) : (
+        <button className="small" onClick={() => flipSelection()}>
+          Flip
+        </button>
+      )}
+      {!others && lastZone && (
         <button className="small primary send-again" onClick={() => moveCards(handles, selZone!, lastZone.id)} title={`Send to ${zoneLabel(view, lastZone)}`} aria-label={`Send again to ${zoneLabel(view, lastZone)}`}>
           → {zoneLabel(view, lastZone)}
         </button>

@@ -65,6 +65,42 @@ describe('selection toolbar (1.1, 1.2)', () => {
   });
 });
 
+describe('toolbar for another player\'s cards (2.1)', () => {
+  const others = {
+    ...view,
+    zones: [{ ...zone('hand:s2', 'Hand', [card('x'), card('y')]), kind: 'hand', seatId: 's2' } as ZoneView, ...view.zones],
+  } as unknown as TableView;
+  const selectOthers = () => act(() => useUI.getState().select('hand:s2', ['x']));
+
+  it('offers Ask to take, and neither Flip nor send again', () => {
+    useUI.setState({ recent: ['z2'] });
+    selectOthers();
+    render(<SelectionBar view={others} />);
+    expect(screen.getByText('Ask to take')).toBeTruthy();
+    expect(screen.queryByText('Flip')).toBeNull();
+    expect(screen.queryByLabelText(/Send again/)).toBeNull();
+    expect(screen.getByLabelText('Clear selection')).toBeTruthy();
+    expect(screen.getByLabelText('Actions…')).toBeTruthy();
+  });
+
+  it('says Take with open hands, and is disabled without a seat of my own', () => {
+    selectOthers();
+    const { rerender } = render(<SelectionBar view={{ ...others, settings: { openHands: true } } as unknown as TableView} />);
+    expect(screen.getByText('Take')).toBeTruthy();
+    rerender(<SelectionBar view={{ ...others, me: { ...others.me, seatId: null } } as unknown as TableView} />);
+    expect((screen.getByText('Ask to take') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('my own cards still get Flip and send again', () => {
+    useUI.setState({ recent: ['z2'] });
+    select('a');
+    render(<SelectionBar view={others} />);
+    expect(screen.getByText('Flip')).toBeTruthy();
+    expect(screen.getByLabelText('Send again to Discard')).toBeTruthy();
+    expect(screen.queryByText('Ask to take')).toBeNull();
+  });
+});
+
 describe('actions sheet carries the rest (1.2)', () => {
   it('Select all selects the whole zone and closes; Clear empties; Face down toggles the setting', () => {
     select('a');

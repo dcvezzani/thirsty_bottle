@@ -18,21 +18,22 @@ const mount = (viewedCards: CardView[], mineCards: CardView[] | null = [card('m1
   render(<HandDock view={view} viewed={zone('hand:s2', 's2', viewedCards)} mine={mineCards ? zone('hand:s1', 's1', mineCards) : undefined} name="Sam" onInfo={() => {}} />);
 
 describe('HandDock content (2.1, 2.2)', () => {
-  it('their column is focused by default; the badge counts; hidden cards are one stack', () => {
-    const { container } = mount([card('a', true), card('b', false), card('c', false)]);
+  it('their column is focused by default; the badge counts; the whole hand is fanned, shown cards first', () => {
+    const { container } = mount([card('a', false), card('b', true), card('c', false)]);
     expect(screen.getByTestId('viewed-col').className).toContain('focused');
     expect(screen.getByTestId('mine-col').className).toContain('narrow');
     expect(screen.getByText('Sam · 3 · 1 shown')).toBeTruthy();
     expect(screen.getByText('You · 1')).toBeTruthy();
-    expect(screen.getByText('+2 hidden')).toBeTruthy();
-    expect(container.querySelectorAll('[data-testid="row-viewed-hand"] [data-h]').length).toBe(1);
+    expect(screen.queryByText(/hidden/)).toBeNull(); // no stack
+    const fan = [...container.querySelectorAll('[data-testid="row-viewed-hand"] [data-h]')].map((e) => e.getAttribute('data-h'));
+    expect(fan).toEqual(['b', 'a', 'c']);
   });
 
-  it('nothing shown: just the stack and a "none shown" badge; empty: the owner says so', () => {
+  it('nothing shown: the backs are fanned and the badge says none shown; empty: the owner says so', () => {
     const { container, unmount } = mount([card('a', false), card('b', false)]);
     expect(screen.getByText('Sam · 2 · none shown')).toBeTruthy();
-    expect(screen.getByLabelText('2 hidden cards')).toBeTruthy();
-    expect(container.querySelectorAll('[data-testid="row-viewed-hand"] [data-h]').length).toBe(0);
+    expect(container.querySelectorAll('[data-testid="row-viewed-hand"] [data-h]').length).toBe(2);
+    expect(screen.queryByText("Sam's hand is empty")).toBeNull();
     unmount();
     mount([]);
     expect(screen.getByText("Sam's hand is empty")).toBeTruthy();

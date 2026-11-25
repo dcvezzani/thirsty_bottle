@@ -52,7 +52,8 @@ test('player views: view, rotate, presence for everyone, permissions while viewi
   // shared-hand-dock: nothing shown to Alex, so Sam's column shows a badge and the hidden stack
   const samCol = alex.page.getByTestId('viewed-col');
   await expect(samCol).toContainText('Sam · 1 · none shown');
-  await expect(samCol.locator('.hidden-count')).toHaveText('+1 hidden');
+  await expect(samCol.locator('.card-row [data-h]')).toHaveCount(1); // fanned-viewed-hand: the whole hand is fanned
+  await expect(samCol.locator('.card-row .card.back')).toHaveCount(1);
   await expect(alex.page.getByTestId('seat-Alex')).toContainText('(you)');
 
   // everyone can tell
@@ -153,7 +154,8 @@ test('hand dock: constant height, their hand focused by default, sliding focuses
   await show(1);
   await expect(samCol).toContainText('Sam · 5 · 2 shown');
   await expect(samCol.locator('.card-row .card.face')).toHaveCount(2);
-  await expect(samCol.locator('.hidden-count')).toHaveText('+3 hidden');
+  await expect(samCol.locator('.card-row [data-h]')).toHaveCount(5); // all five fanned: two shown first, three backs
+  await expect(samCol.locator('.card-row .card.back')).toHaveCount(3);
   expect(Math.abs((await dock.boundingBox())!.height - ownH)).toBeLessThanOrEqual(1);
   expect(await boardH()).toBe(board0);
 
@@ -208,4 +210,55 @@ test('hand dock: constant height, their hand focused by default, sliding focuses
   await expect(lee.page.getByTestId('viewed-col')).toHaveClass(/solo/);
   await expect(lee.page.getByTestId('mine-col')).toHaveCount(0);
   await closeAll(alex.ctx, sam.ctx, kim.ctx, lee.ctx);
+});
+
+test('fanned viewed hand: every card is fanned, shown first; a back can be picked blindly; open hands takes at once', async ({ browser }) => {
+  const alex = await newPlayer(browser, 'Alex', PHONE);
+  const sam = await newPlayer(browser, 'Sam', PHONE);
+  await createTable(alex.page, 'Fan', { deck: 'builtin-standard-52' });
+  await joinTable(sam.page, 'Fan');
+  for (let i = 0; i < 5; i++) await drawInto(sam.page, 'Your hand');
+
+  // Alex views Sam: nothing shown yet, but all five are fanned as backs
+  await alex.page.getByTestId('seat-Sam').click();
+  await alex.page.getByRole('button', { name: 'View table' }).click();
+  const samCol = alex.page.getByTestId('viewed-col');
+  const fan = samCol.locator('.card-row [data-h]');
+  await expect(samCol).toContainText('Sam · 5 · none shown');
+  await expect(fan).toHaveCount(5);
+  await expect(samCol.locator('.card-row .card.back')).toHaveCount(5);
+
+  // Sam shows one card: it comes first and face up, the other four stay backs in the same fan
+  const pts = await stripCenters(sam.page, 'row-hand');
+  await sam.page.touchscreen.tap(pts[2].x, pts[2].y);
+  await sam.page.getByRole('button', { name: 'Actions…' }).click();
+  await sam.page.getByRole('button', { name: 'Show to…' }).click();
+  await sam.page.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
+  await expect(samCol).toContainText('Sam · 5 · 1 shown');
+  await expect(fan).toHaveCount(5);
+  await expect(fan.first()).toHaveClass(/face/);
+  await expect(samCol.locator('.card-row .card.back')).toHaveCount(4);
+
+  // pick a back blindly: the toolbar offers Ask to take (no Flip), and Sam is asked for one card
+  const backs = await stripCenters(alex.page, 'row-viewed-hand');
+  await alex.page.touchscreen.tap(backs[3].x, backs[3].y);
+  const bar = alex.page.getByRole('toolbar', { name: 'Selected cards' });
+  await expect(bar.getByRole('button', { name: 'Ask to take' })).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Flip' })).toHaveCount(0);
+  await bar.getByRole('button', { name: 'Ask to take' }).click();
+  await expect(sam.page.getByText('Alex wants 1 card from your hand')).toBeVisible();
+  await expect(handCards(alex.page)).toHaveCount(0); // nothing moved before Sam answers
+  await sam.page.getByRole('button', { name: 'Allow' }).click();
+  await expect(handCards(alex.page)).toHaveCount(1);
+  await expect(samCol).toContainText('Sam · 4 · 1 shown');
+
+  // open hands: dragging a back out of Sam's fan onto my own hand takes it at once
+  await alex.page.getByRole('button', { name: 'Table settings' }).click();
+  await alex.page.getByLabel(/Open hands/).click(); // the checkbox follows the server's answer
+  await expect(alex.page.getByLabel(/Open hands/)).toBeChecked();
+  await alex.page.keyboard.press('Escape');
+  await drag(alex.page, fan.last(), alex.page.getByTestId('row-hand'));
+  await expect(handCards(alex.page)).toHaveCount(2);
+  await expect(samCol).toContainText('Sam · 3 · 1 shown');
+  await closeAll(alex.ctx, sam.ctx);
 });

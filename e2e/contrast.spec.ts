@@ -180,6 +180,11 @@ for (const scheme of ['light', 'dark'] as const) {
       await samPage.getByRole('dialog').getByRole('button', { name: 'Alex' }).click();
       await expect(page.getByLabel("Sam's hand", { exact: true })).toContainText('1 shown');
       await expectReadable(page, 'hand dock, a shown card');
+      // fanned-viewed-hand: pick a back in their fan; the toolbar offers Ask to take
+      await page.getByTestId('row-viewed-hand').locator('.card.back').last().click();
+      await expect(page.getByRole('toolbar', { name: 'Selected cards' }).getByRole('button', { name: 'Ask to take' })).toBeVisible();
+      await expectReadable(page, 'toolbar for another player cards');
+      await page.getByRole('toolbar', { name: 'Selected cards' }).getByRole('button', { name: 'Clear selection' }).click();
       await expect(samPage.locator('.viewing-pill')).toContainText('Alex');
       await expect(samPage.getByTestId('seat-Alex')).toHaveAttribute('aria-label', /viewing you/);
       await expectReadable(samPage, 'eye pill');

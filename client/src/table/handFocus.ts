@@ -13,12 +13,13 @@ export function nextFocus(current: HandColumn, ev: FocusEvent): HandColumn {
 }
 
 /**
- * Cards shown or peeked to the viewer (`known`) first, in hand order; the rest are only counted.
- * Display only: the real hand order is untouched.
+ * The viewed hand, fanned in full: cards shown or peeked to the viewer (`known`) first, in hand order, then the
+ * hidden cards (backs), in hand order. Display only: the real hand order is untouched, and actions use the handles.
  */
 export function viewedHandDisplay(cards: CardView[]) {
   const shown = cards.filter((c) => c.known);
-  return { shown, hidden: cards.length - shown.length, total: cards.length };
+  const hidden = cards.filter((c) => !c.known);
+  return { shown, hidden: hidden.length, total: cards.length, ordered: [...shown, ...hidden] };
 }
 
 /** The badge over a column: "Sam · 5 · 2 shown", "Sam · 5 · none shown", "Sam · empty". */
