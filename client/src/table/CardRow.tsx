@@ -3,6 +3,7 @@ import type { TableDeckView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
 import { ZoneGesture, applyPaint, paintMode, type Sample } from './gestures';
 import { cardPos, fanLayout, hitIndex, hitIndexXY, insertionIndex, magnify } from './layout';
+import { zonePad } from './rotation';
 import { useUI } from './ui';
 import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
@@ -106,8 +107,14 @@ export function CardRow({
   const shown = useMemo(() => (drag ? cards.filter((c) => !dragSet.has(c.h)) : cards), [cards, drag, dragSet]);
   const gapAt = drag && drag.over?.kind === 'zone' && drag.over.zone === zone.id && drag.over.index !== undefined ? drag.over.index - cards.slice(0, drag.over.index).filter((c) => dragSet.has(c.h)).length : null;
   const maxSpacing = arc ? undefined : cardW * 1.06;
-  const L = useMemo(() => fanLayout(shown.length, width, cardW, { arc, gapAt, maxSpacing }), [shown.length, width, cardW, arc, gapAt, maxSpacing]);
-  const Lfull = useMemo(() => fanLayout(cards.length, width, cardW, { arc, maxSpacing }), [cards.length, width, cardW, arc, maxSpacing]);
+  // card-rotation: room around the fan for the most rotated card in the zone (zero when every card is upright)
+  const pad = zonePad(zone);
+  const padX = pad.x * cardW;
+  const padY = pad.y * cardW;
+  const padRef = useRef({ x: pad.x, y: pad.y });
+  padRef.current = { x: pad.x, y: pad.y };
+  const L = useMemo(() => fanLayout(shown.length, width, cardW, { arc, gapAt, maxSpacing, edge: padX }), [shown.length, width, cardW, arc, gapAt, maxSpacing, padX]);
+  const Lfull = useMemo(() => fanLayout(cards.length, width, cardW, { arc, maxSpacing, edge: padX }), [cards.length, width, cardW, arc, maxSpacing, padX]);
   const focus = preview && preview.zone === zone.id ? shown.findIndex((c) => c.h === preview.h) : -1;
   const selSet = new Set(selZone === zone.id ? selected : []);
 
@@ -159,7 +166,8 @@ export function CardRow({
   const gesture = useMemo(() => {
     const hit = (x: number, y: number) => {
       const cw = cardWRef.current;
-      return hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cw, { arc, maxSpacing: arc ? undefined : cw * 1.06 }), x, y, arc ? cw * 0.3 : 0);
+      const p = padRef.current;
+      return hitIndexXY(fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cw, { arc, maxSpacing: arc ? undefined : cw * 1.06, edge: p.x * cw }), x, y, (arc ? cw * 0.3 : 0) + p.y * cw);
     };
     const h = (i: number) => live.current.cards[i]?.h;
     const setPreview = (i: number) => {
@@ -263,7 +271,7 @@ export function CardRow({
   const handle = useRef<{ indexAt(x: number): number } | null>(null);
   useEffect(() => {
     if (!strip) return;
-    const layout = () => fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06 });
+    const layout = () => fanLayout(live.current.cards.length, ref.current?.clientWidth ?? widthRef.current, cardW, { arc, maxSpacing: arc ? undefined : cardW * 1.06, edge: padRef.current.x * cardW });
     const h = {
       el: ref.current!,
       name: zone.name,
@@ -306,7 +314,7 @@ export function CardRow({
         /* ignore */
       }
       pointer.current = 'touch';
-      const l = fanLayout(live.current.cards.length, el.clientWidth || widthRef.current, cardWRef.current, { arc, maxSpacing: arc ? undefined : cardWRef.current * 1.06 });
+      const l = fanLayout(live.current.cards.length, el.clientWidth || widthRef.current, cardWRef.current, { arc, maxSpacing: arc ? undefined : cardWRef.current * 1.06, edge: padRef.current.x * cardWRef.current });
       const x = cx - r.left;
       const i = hitIndex(l, x) ?? (x < l.left ? 0 : live.current.cards.length - 1);
       gesture.g.beginScrub({ x, y: cy - r.top, t: performance.now() }, i);
@@ -339,7 +347,7 @@ export function CardRow({
     if (e.pointerType === 'mouse' && e.shiftKey) {
       // desktop range select
       const s = local(e);
-      const i = hitIndexXY(Lfull, s.x, s.y, arc ? cardW * 0.3 : 0);
+      const i = hitIndexXY(Lfull, s.x, s.y, (arc ? cardW * 0.3 : 0) + padY);
       if (i === null) return;
       const st = useUI.getState();
       const sel = st.selZone === zone.id ? st.selected : [];
@@ -361,7 +369,7 @@ export function CardRow({
       // desktop hover preview
       if (e.pointerType === 'mouse' && e.buttons === 0 && !drag) {
         const pt = local(e);
-        const i = hitIndexXY(Lfull, pt.x, pt.y, arc ? cardW * 0.3 : 0);
+        const i = hitIndexXY(Lfull, pt.x, pt.y, (arc ? cardW * 0.3 : 0) + padY);
         const hh = i === null ? null : cards[i]?.h;
         const cur = useUI.getState().preview;
         if (hh && (cur?.h !== hh || cur.zone !== zone.id)) useUI.setState({ preview: { h: hh, zone: zone.id } });
@@ -388,16 +396,16 @@ export function CardRow({
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     const r = ref.current!.getBoundingClientRect();
-    const i = hitIndexXY(Lfull, e.clientX - r.left, e.clientY - r.top, arc ? cardW * 0.3 : 0);
+    const i = hitIndexXY(Lfull, e.clientX - r.left, e.clientY - r.top, (arc ? cardW * 0.3 : 0) + padY);
     if (i !== null) onInfo(cards[i].h);
   };
 
-  const rowH = height ?? cardW * 1.4 + (arc ? cardW * 0.35 : 0) + 8;
+  const rowH = (height ?? cardW * 1.4 + (arc ? cardW * 0.35 : 0) + 8) + 2 * padY;
   return (
     <div
       ref={ref}
       className={`card-row ${arc ? 'arc' : ''}`}
-      style={{ height: rowH, ['--cw' as any]: `${cardW}px` }}
+      style={{ height: rowH, ['--cw' as any]: `${cardW}px`, ['--rot-y' as any]: `${padY}px` }}
       data-zone-id={zone.id}
       {...(strip ? { 'data-strip-zone': '1', 'data-count': cards.length } : {})}
       data-testid={testId ?? `row-${zone.kind === 'hand' ? 'hand' : zone.name}`}

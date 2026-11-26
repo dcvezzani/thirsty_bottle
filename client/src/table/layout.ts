@@ -14,11 +14,12 @@ export interface FanLayout {
   arc: boolean;
 }
 
-export function fanLayout(n: number, width: number, cardW: number, opts: { arc?: boolean; maxSpacing?: number; gapAt?: number | null } = {}): FanLayout {
+export function fanLayout(n: number, width: number, cardW: number, opts: { arc?: boolean; maxSpacing?: number; gapAt?: number | null; edge?: number } = {}): FanLayout {
   const cardH = cardW * 1.4;
   const max = opts.maxSpacing ?? cardW * 0.62;
   // rotated end cards of an arc swing outwards: keep them on screen
-  const pad = opts.arc ? cardW * 0.3 : 4;
+  // `edge` is room a rotated card needs beyond its slot at the ends of the fan (card-rotation)
+  const pad = Math.max(opts.arc ? cardW * 0.3 : 4, opts.edge ?? 0);
   const usable = Math.max(0, width - cardW - 2 * pad);
   const spacing = n > 1 ? Math.min(max, usable / (n - 1 + (opts.gapAt != null ? 1 : 0))) : 0;
   const total = n > 0 ? cardW + spacing * (n - 1 + (opts.gapAt != null ? 1 : 0)) : 0;

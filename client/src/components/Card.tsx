@@ -77,11 +77,11 @@ export function CardFace({
   large?: boolean;
   /** card-rotation: draw the card upright whatever its rotation (the card details, the loupe's Card and Details views). */
   upright?: boolean;
-  /** card-rotation: scale for a rotated card in place of the fit to its own portrait slot (the loupe's True full view). */
+  /** card-rotation: a scale for the rotated card; only the loupe's True full view uses one, to fit its fixed box. */
   turnFit?: number;
 }) {
   const def = findDef(decks, card);
-  const turn = upright ? undefined : rotationTransform(card.rot, undefined, turnFit);
+  const turn = upright ? undefined : rotationTransform(card.rot, turnFit);
   const showFace = card.known && (card.faceUp || !!def);
   // A known card that is face down (e.g. my hand, peeked) shows its face dimmed with a "face down" mark.
   const content =
@@ -103,7 +103,7 @@ export function CardFace({
       aria-label={label}
       role="img"
     >
-      {/* card-rotation: a rotated card turns as a whole (border and shadow too), scaled to stay inside its slot */}
+      {/* card-rotation: a rotated card turns as a whole (border and shadow too) at its normal size; its zone makes room */}
       {turn ? (
         <div className="card-turn" style={{ transform: turn }} data-testid="card-turn" data-rot={card.rot}>
           {content}

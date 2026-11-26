@@ -6,6 +6,7 @@ import { columnHit, columnLayout, columnMagnify, type ColumnLayout } from './col
 import { useUI } from './ui';
 import { finishScrub, placeLoupe, tapEndsViewing } from './CardRow';
 import { enterRegistry } from './scrubStrip';
+import { zonePad } from './rotation';
 import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
@@ -38,6 +39,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
   const dragSet = useMemo(() => new Set(drag?.handles ?? []), [drag]);
   const shown = useMemo(() => (drag ? cards.filter((c) => !dragSet.has(c.h)) : cards), [cards, drag, dragSet]);
   const cardH = cardW * 1.4;
+  const pad = zonePad({ layout: 'column', cards });
   const L = useMemo(() => columnLayout(shown.map((c) => c.faceUp), cardH), [shown, cardH]);
   const Lfull = useMemo(() => columnLayout(cards.map((c) => c.faceUp), cardH), [cards, cardH]);
   const focus = preview && preview.zone === zone.id ? shown.findIndex((c) => c.h === preview.h) : -1;
@@ -180,7 +182,8 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
     <div
       ref={ref}
       className={`column-cards ${focus >= 0 ? 'opened' : ''}`}
-      style={{ height: L.height }}
+      // card-rotation: room around the column for its most rotated card, as margin so the hit-test (relative to this box) is unchanged
+      style={{ height: L.height, margin: `${pad.y * cardW}px ${pad.x * cardW}px` }}
       data-zone-id={zone.id}
       data-drop-zone={zone.id}
       data-testid={`row-${zone.name}`}

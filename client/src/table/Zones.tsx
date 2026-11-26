@@ -11,6 +11,7 @@ import type { FlowItem } from './flow';
 import { useZoneHeader } from './headerScrub';
 import { registerHeader } from './scrubStrip';
 import { zoneFocusCard } from './focusCard';
+import { zonePad } from './rotation';
 import { quickFlip } from './flip';
 
 function vibrate(ms: number) {
@@ -119,10 +120,13 @@ export function Pile({
     return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() };
   };
   const depth = Math.min(4, Math.ceil(visible.length / 10));
+  // card-rotation: room around the pile for its top card when it is rotated (margin, so the gesture's coordinates are unchanged)
+  const pad = zonePad({ layout: 'pile', cards: visible });
   return (
     <div
       ref={ref}
       className="pile"
+      style={pad.x || pad.y ? { margin: `calc(var(--card-w) * ${pad.y}) calc(var(--card-w) * ${pad.x})` } : undefined}
       data-drop-zone={zone.id}
       data-zone-id={zone.id}
       data-testid={`pile-${zone.name}`}

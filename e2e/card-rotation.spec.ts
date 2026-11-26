@@ -40,14 +40,15 @@ test('rotate from the toolbar and the sheet: the slot does not change, the selec
   await bar.getByRole('button', { name: 'Rotate 45°' }).click();
   await expect.poll(() => rots(page, 'row-hand')).toEqual([0, 2, 0]);
   await expect(page.getByTestId('selection-count')).toHaveText('1 selected');
+  await page.mouse.move(2, 2); // the mouse hover would enlarge the card under it
   await settle(page);
   const after = await slot();
   expect(Math.abs(after.width - before.width)).toBeLessThan(1.5); // the slot never changes
   expect(Math.abs(after.height - before.height)).toBeLessThan(1.5);
-  // a card turned 90° is drawn smaller than the slot (scaled to fit)
+  // a card turned 90° is drawn at its normal size, not scaled down: its box is the slot's, swapped
   const turned = (await page.getByTestId('row-hand').locator('.card-turn').first().boundingBox())!;
-  expect(turned.width).toBeLessThanOrEqual(after.width + 1);
-  expect(turned.height).toBeLessThanOrEqual(after.height + 1);
+  expect(Math.abs(turned.width - after.height)).toBeLessThan(3);
+  expect(Math.abs(turned.height - after.width)).toBeLessThan(3);
 
   // the sheet: back 45°, then upright
   await bar.getByRole('button', { name: 'Actions…' }).click();

@@ -91,3 +91,32 @@ describe('opened zone (4.1)', () => {
     expect(flowRows([z('a', 'pile'), z('b', 'spread', 'half')], 375, 64, 'b')).toEqual(plain);
   });
 });
+
+describe('room for rotated cards in the flow (3.1)', () => {
+  const z = (id: string, layout: 'spread' | 'pile' | 'column', padX = 0) => ({ id, layout, width: 'fit', newRow: false, padX }) as any;
+  it('a fit zone with rotated cards is wider by the room on both sides', () => {
+    const plain = flowRows([z('a', 'column')], 375, 64)[0][0];
+    const turned = flowRows([z('a', 'column', 0.35)], 375, 64)[0][0];
+    expect(turned.cardW).toBe(plain.cardW);
+    expect(turned.w - plain.w).toBeGreaterThanOrEqual(Math.floor(2 * 0.35 * 64) - 1);
+    const pile = flowRows([z('p', 'pile')], 375, 64)[0][0];
+    const pileTurned = flowRows([z('p', 'pile', 0.2)], 375, 64)[0][0];
+    expect(pileTurned.w - pile.w).toBeGreaterThanOrEqual(Math.floor(2 * 0.2 * 64) - 1);
+  });
+  it('without padX nothing changes', () => {
+    const a = flowRows([z('a', 'pile'), z('b', 'spread'), z('c', 'column')], 375, 64);
+    const b = flowRows([z('a', 'pile', 0), z('b', 'spread', 0), z('c', 'column', 0)], 375, 64);
+    expect(b).toEqual(a);
+  });
+  it('a widened zone makes its row-mates shrink or wrap, and the row still fits the board', () => {
+    const base = [z('a', 'pile'), z('b', 'column'), z('c', 'pile'), z('d', 'column'), z('e', 'pile'), z('f', 'column')];
+    const tight = base.map((q, i) => (i === 1 ? { ...q, padX: 0.7 } : q));
+    const rows = flowRows(tight, 375, 64);
+    for (const row of rows) expect(row.reduce((t, i) => t + i.w, 0) + GAP * (row.length - 1)).toBeLessThanOrEqual(375);
+    const b = rows.flat().find((i) => i.id === 'b')!;
+    // the widened column holds its card plus the room on both sides (inner width = cardW * (1 + 2 * 0.7)), plus the zone's chrome
+    expect(b.w).toBeGreaterThanOrEqual(Math.floor(b.cardW * 2.4 + 8) - 1);
+    // and the others still fit: every card is at least the smallest card size
+    for (const i of rows.flat()) expect(i.cardW).toBeGreaterThanOrEqual(40);
+  });
+});

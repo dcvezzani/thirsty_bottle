@@ -9,6 +9,7 @@ import { CardFace } from '../components/Card';
 import { JoinTable } from './Lobby';
 import { CardRow } from '../table/CardRow';
 import { ZoneBox } from '../table/Zones';
+import { zonePad } from '../table/rotation';
 import { SeatBar } from '../table/Seats';
 import { HandDock } from '../table/HandDock';
 import { StopShowingHand } from '../table/HandControls';
@@ -199,7 +200,7 @@ function TableScreen({ view }: { view: TableView }) {
   const boardSize = useBoardSize(boardRef, zoom);
   const arranging = useUI((s) => s.arranging) && view.me.isHost;
   const openZone = useUI((s) => s.openZone);
-  const rows = boardSize ? flowRows(shared, boardSize.w, boardSize.cardW, openZone?.id) : [];
+  const rows = boardSize ? flowRows(shared.map((z) => ({ id: z.id, layout: z.layout, width: z.width, newRow: z.newRow, padX: zonePad(z).x })), boardSize.w, boardSize.cardW, openZone?.id) : [];
   const zoneById = new Map(shared.map((z) => [z.id, z]));
   const active = view.seats.find((s) => s.id === view.turn.active);
   const myTurn = view.mode === 'turn' && view.turn.active === view.me.seatId;

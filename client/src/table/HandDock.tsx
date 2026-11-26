@@ -4,6 +4,7 @@ import { CardRow } from './CardRow';
 import { handBadgeText, nextFocus, shownIncreased, viewedHandDisplay, type HandColumn } from './handFocus';
 import { AskToSee, StopShowingHand } from './HandControls';
 import { useUI } from './ui';
+import { zonePad } from './rotation';
 
 /**
  * shared-hand-dock: while viewing another table the hand area is one dock of constant height, as tall as a lone
@@ -37,8 +38,10 @@ export function HandDock({ view, viewed, mine, name, onInfo }: { view: TableView
   }, [d.shown.length]);
 
   const state = (col: HandColumn) => (!mine ? 'solo' : focus === col ? 'focused' : 'narrow');
+  // card-rotation: the dock stays one constant height, tall enough for the more rotated of the two hands
+  const roomY = Math.max(zonePad(viewed).y, mine ? zonePad(mine).y : 0);
   return (
-    <div className="hand-dock" data-testid="hand-dock">
+    <div className="hand-dock" data-testid="hand-dock" style={{ ['--rot-room' as any]: `calc(var(--card-w) * ${2 * roomY})` }}>
       <section className={`hand-col viewed ${state('viewed')} ${pulse ? 'pulse' : ''}`} aria-label={`${name}'s hand`} data-drop-zone={viewed.id} data-testid="viewed-col">
         <div className="hand-top">
           <span className="hand-badge">{handBadgeText(name, d)}</span>
