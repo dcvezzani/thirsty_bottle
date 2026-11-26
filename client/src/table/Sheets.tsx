@@ -12,6 +12,7 @@ import { moveCards } from './drag';
 import { canAskToSee } from './seeHand';
 import { flipCards, flipSelection } from './flip';
 import { rotateCards, rotateZone } from './rotate';
+import { reverseCards, reverseZone } from './reverse';
 import { playAgain } from './SetupSheets';
 import { CardRow } from './CardRow';
 import { CountField } from '../components/CountField';
@@ -182,6 +183,8 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
             <button onClick={() => rotateCards(handles, { by: -1 })}>↺ Rotate back 45°</button>
             <button onClick={() => rotateCards(handles, { by: 1 })}>↻ Rotate 45°</button>
             <button onClick={() => rotateCards(handles, { to: 0 })}>Upright</button>
+            {/* reverse-order: the selection is kept, so the reversed cards can be moved straight after */}
+            <button disabled={handles.length < 2} onClick={() => reverseCards(handles)}>Reverse order</button>
             {/* stable-selection-bar: the controls the one-line toolbar no longer carries */}
             <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>
             <button onClick={() => (useUI.getState().clear(), onClose())}>Clear</button>
@@ -257,6 +260,7 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}
           {mine && n > 0 && <button onClick={() => (rotateZone(zone.id, { by: 1 }), onClose())}>Rotate all</button>}
           {mine && n > 0 && <button onClick={() => (rotateZone(zone.id, { to: 0 }), onClose())}>Upright all</button>}
+          {mine && n > 1 && <button onClick={() => (reverseZone(zone.id), onClose())}>Reverse order</button>}
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'fanout', zone: zone.id })}>Fan out</button>}
           {n > 0 && <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>}
         </div>

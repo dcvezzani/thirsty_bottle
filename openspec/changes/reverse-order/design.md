@@ -15,7 +15,7 @@
 ## Decisions
 
 **D1. Reverse actions (shared).**
-- `reverse { cards }`: the cards are grouped by the zone they are in; in each zone the selected cards' positions are taken in list order and the cards are assigned back to those positions in reverse. The cards not selected do not move.
+- `reverseCards { cards }` (named so, because `reverse` already means reversing the turn direction): the cards are grouped by the zone they are in; in each zone the selected cards' positions are taken in list order and the cards are assigned back to those positions in reverse. The cards not selected do not move.
 - `reverseZone { zone }`: `zone.cards.reverse()`. Free-zone positions belong to the cards, so they follow them.
 - Fewer than two cards (after grouping, per zone, fewer than two selected) does nothing and is not logged.
 - Both follow the flip permission rules and the turn-mode `confined` rule (a player's own hand out of turn), are added to `UNDOABLE`, mark the cards touched so projections update, and log a card action: "Alex reversed 4 cards" (card names when all are public, like flipping) and "Alex reversed Discard" for a zone.

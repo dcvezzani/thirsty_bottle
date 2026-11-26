@@ -20,18 +20,18 @@ const view = (): TableView =>
   }) as any;
 const ids = (v: TableView, z: string) => v.zones.find((x) => x.id === z)!.cards.map((c) => c.h);
 
-describe('the preview of a group moved onto a pile (2.1)', () => {
-  it('a fanned hand lands with its last card on top, as the server decides', () => {
-    expect(ids(predictMove(view(), ['a', 'b', 'c', 'd'], 'dis'), 'dis')).toEqual(['d', 'c', 'b', 'a', 'x']);
+describe('the preview of a group moved onto a pile keeps the cards\' order (2.1)', () => {
+  it('a hand lands on a pile with its first card on top, as the server decides', () => {
+    expect(ids(predictMove(view(), ['a', 'b', 'c', 'd'], 'dis'), 'dis')).toEqual(['a', 'b', 'c', 'd', 'x']);
   });
-  it('a spread and a column follow the same rule', () => {
-    expect(ids(predictMove(view(), ['f', 'g'], 'dis'), 'dis')).toEqual(['g', 'f', 'x']);
-    expect(ids(predictMove(view(), ['h', 'i', 'j'], 'dis'), 'dis')).toEqual(['j', 'i', 'h', 'x']);
+  it('a spread and a column keep their order too', () => {
+    expect(ids(predictMove(view(), ['f', 'g'], 'dis'), 'dis')).toEqual(['f', 'g', 'x']);
+    expect(ids(predictMove(view(), ['h', 'i', 'j'], 'dis'), 'dis')).toEqual(['h', 'i', 'j', 'x']);
   });
-  it('the order does not depend on the order the cards were chosen in', () => {
-    expect(ids(predictMove(view(), ['d', 'a', 'c'], 'dis'), 'dis')).toEqual(['d', 'c', 'a', 'x']);
+  it('the cards go in the order they were given', () => {
+    expect(ids(predictMove(view(), ['d', 'a', 'c'], 'dis'), 'dis')).toEqual(['d', 'a', 'c', 'x']);
   });
-  it('one card, a move from a pile, cards from two zones, and other destinations are unchanged', () => {
+  it('one card, a move from a pile, cards from two zones, and other destinations are the same', () => {
     expect(ids(predictMove(view(), ['b'], 'dis'), 'dis')).toEqual(['b', 'x']);
     expect(ids(predictMove(view(), ['p', 'q'], 'dis'), 'dis')).toEqual(['p', 'q', 'x']);
     expect(ids(predictMove(view(), ['a', 'e'], 'dis'), 'dis')).toEqual(['a', 'e', 'x']);

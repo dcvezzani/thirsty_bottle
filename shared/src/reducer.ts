@@ -387,21 +387,6 @@ function insert(s: TableState, zone: Zone, ids: string[], index: number | undefi
   for (const id of ids) loc.set(id, zone.id);
 }
 
-/**
- * stack-order-to-pile: cards in a hand, spread, column or free zone are layered with the last on top. Moved onto a pile as a
- * group (no index), they keep the stack as seen: the last card lands on top. The order follows the cards' places in the
- * source, not the order they were chosen in. Cards from a pile, from several zones, or a single card keep their order.
- */
-export function stackedForPile(s: TableState, loc: Map<string, string>, ids: string[], to: Zone, index?: number): string[] {
-  if (to.layout !== 'pile' || index !== undefined || ids.length < 2) return ids;
-  const from = new Set(ids.map((id) => loc.get(id)));
-  if (from.size !== 1) return ids;
-  const src = s.zones[[...from][0]!];
-  if (!src || src.layout === 'pile') return ids;
-  const at = new Map(src.cards.map((c, i) => [c, i]));
-  return [...ids].sort((a, b) => (at.get(b) ?? 0) - (at.get(a) ?? 0));
-}
-
 function resolveCards(s: TableState, ids: string[]): string[] {
   const uniq = [...new Set(ids)];
   for (const id of uniq) if (!s.cards[id]) fail('NO_CARD', 'That card is no longer there');
@@ -572,10 +557,12 @@ export function authorize(s: TableState, action: AnyAction, actor: string | null
       break;
     case 'flip':
     case 'rotate':
+    case 'reverseCards':
       confined = action.cards.every((c) => own(loc.get(c)));
       break;
     case 'flipZone':
     case 'rotateZone':
+    case 'reverseZone':
     case 'shuffle':
     case 'cut':
       confined = own(action.zone) && !(action.type === 'cut' && action.mode === 'split');
@@ -681,7 +668,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         makeRequest(ids, hand, to.id);
         break;
       }
-      const from = doMove(stackedForPile(s, loc, ids, to, action.index), to, action);
+      const from = doMove(ids, to, action);
       logMove(ids, from, to);
       break;
     }
@@ -710,6 +697,42 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const upright = turnCards(s, ids, action, touched);
       const desc = publicDesc(s, ids, loc);
       log(s, now, actor, `${who} ${upright ? 'set' : 'rotated'} ${desc}${upright ? ' upright' : ''}`, 'action', undefined, true);
+      break;
+    }
+    case 'reverseCards': {
+      const ids = resolveCards(s, action.cards);
+      for (const id of ids) {
+        const z = s.zones[loc.get(id)!];
+        if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z, true);
+      }
+      // reverse-order: in each zone the selected cards swap places among the positions they occupy; the others stay put
+      const byZone = new Map<string, string[]>();
+      for (const id of ids) {
+        const zid = loc.get(id)!;
+        byZone.set(zid, [...(byZone.get(zid) ?? []), id]);
+      }
+      let moved = 0;
+      for (const [zid, sel] of byZone) {
+        if (sel.length < 2) continue;
+        const z = s.zones[zid];
+        const pick = new Set(sel);
+        const at = z.cards.flatMap((c, i) => (pick.has(c) ? [i] : []));
+        const reversed = at.map((i) => z.cards[i]).reverse();
+        at.forEach((i, k) => (z.cards[i] = reversed[k]));
+        for (const id of sel) touched.add(id);
+        moved += sel.length;
+      }
+      if (!moved) break; // fewer than two cards in a zone: nothing to reverse
+      log(s, now, actor, `${who} reversed ${publicDesc(s, ids, loc)}`, 'action', undefined, true);
+      break;
+    }
+    case 'reverseZone': {
+      const z = getZone(s, action.zone);
+      if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z);
+      if (z.cards.length < 2) break;
+      z.cards.reverse();
+      for (const id of z.cards) touched.add(id);
+      log(s, now, actor, `${who} reversed ${zoneLabel(s, z)}`, 'action', undefined, true);
       break;
     }
     case 'rotateZone': {

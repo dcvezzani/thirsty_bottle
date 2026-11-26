@@ -205,6 +205,9 @@ export const ActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('flipZone'), zone: id, face: z.enum(['up', 'down']).optional() }),
   // card-rotation: exactly one of `by` (steps of 45° clockwise, may be negative) or `to` (0..7, 0 = upright)
   z.object({ type: z.literal('rotate'), cards: cardList, by: z.number().int().min(-7).max(7).optional(), to: z.number().int().min(0).max(7).optional() }),
+  // reverse-order: reverse the selected cards among the places they occupy in their zone, or every card in a zone
+  z.object({ type: z.literal('reverseCards'), cards: cardList }),
+  z.object({ type: z.literal('reverseZone'), zone: id }),
   z.object({ type: z.literal('rotateZone'), zone: id, by: z.number().int().min(-7).max(7).optional(), to: z.number().int().min(0).max(7).optional() }),
   z.object({ type: z.literal('shuffle'), zone: id }),
   z.object({
@@ -341,6 +344,8 @@ export const UNDOABLE: ReadonlySet<string> = new Set([
   'flipZone',
   'rotate',
   'rotateZone',
+  'reverseCards',
+  'reverseZone',
   'shuffle',
   'cut',
   'draw',
