@@ -11,7 +11,7 @@ import type { FlowItem } from './flow';
 import { useZoneHeader } from './headerScrub';
 import { registerHeader } from './scrubStrip';
 import { zoneFocusCard } from './focusCard';
-import { pileShown, zonePad } from './rotation';
+import { pileCorner, pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
 
 function vibrate(ms: number) {
@@ -120,16 +120,27 @@ export function Pile({
     return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() };
   };
   const depth = Math.min(4, Math.ceil(visible.length / 10));
-  // card-rotation: room around the pile for its top card when it is rotated (margin, so the gesture's coordinates are unchanged)
-  const pad = zonePad({ layout: 'pile', cards: visible });
-  const beneath = pileShown(visible.map((c) => c.rot ?? 0)).slice(1).map((i) => visible[i]);
+  // card-rotation: room around the pile for the cards it draws (margin, so the gesture's coordinates are unchanged);
+  // pile-corner-stack: a pile with differently turned cards lines them up by their bottom-left corners, so its room is to the right and above only
+  const drawn = pileShown(visible.map((c) => c.rot ?? 0)).map((i) => visible[i]);
+  const beneath = drawn.slice(1);
+  const arr = pileCorner(drawn.map((c) => c.rot ?? 0));
+  const room = arr.corner ? { t: arr.top, r: arr.right, b: 0, l: 0 } : (() => { const p = zonePad({ layout: 'pile', cards: visible }); return { t: p.y, r: p.x, b: p.y, l: p.x }; })();
+  const calcOf = (f: number) => `calc(var(--card-w) * ${f})`;
+  const shiftOf = (c: { rot?: number }) => (arr.corner ? arr.place(c.rot ?? 0) : undefined);
   return (
     <div
       ref={ref}
       className="pile"
       style={
-        pad.x || pad.y
-          ? { margin: `calc(var(--card-w) * ${pad.y}) calc(var(--card-w) * ${pad.x})`, ['--pad-x' as any]: `calc(var(--card-w) * ${pad.x})`, ['--pad-y' as any]: `calc(var(--card-w) * ${pad.y})` }
+        room.t || room.r || room.b || room.l
+          ? {
+              margin: `${calcOf(room.t)} ${calcOf(room.r)} ${calcOf(room.b)} ${calcOf(room.l)}`,
+              ['--pad-t' as any]: calcOf(room.t),
+              ['--pad-r' as any]: calcOf(room.r),
+              ['--pad-b' as any]: calcOf(room.b),
+              ['--pad-l' as any]: calcOf(room.l),
+            }
           : undefined
       }
       data-drop-zone={zone.id}
@@ -160,9 +171,9 @@ export function Pile({
       {/* pile-shows-turned: the first card of each other outline beneath the top card, as it really is, so a differently turned
           card sticks out and can be seen. Deepest first; decoration only (no handle, not tappable). */}
       {[...beneath].reverse().map((c) => (
-        <CardFace key={c.h} card={c} decks={decks} decorative className="pile-beneath" />
+        <CardFace key={c.h} card={c} decks={decks} decorative turnShift={shiftOf(c)} className="pile-beneath" />
       ))}
-      {top ? <CardFace card={top} decks={decks} className={`pile-top ${selCount ? 'selected' : ''}`} /> : <div className="card slot" />}
+      {top ? <CardFace card={top} decks={decks} turnShift={shiftOf(top)} className={`pile-top ${selCount ? 'selected' : ''}`} /> : <div className="card slot" />}
       {selCount > 0 && (
         <span className="sel-count" data-testid="sel-count">
           {selCount}

@@ -69,6 +69,7 @@ export function CardFace({
   large = false,
   upright = false,
   turnFit,
+  turnShift,
   decorative = false,
 }: {
   card: CardView;
@@ -80,11 +81,13 @@ export function CardFace({
   upright?: boolean;
   /** card-rotation: a scale for the rotated card; only the loupe's True full view uses one, to fit its fixed box. */
   turnFit?: number;
+  /** pile-corner-stack: moves a rotated card (fractions of the card width) before it turns about its own centre. */
+  turnShift?: { dx: number; dy: number };
   /** pile-shows-turned: a card drawn only to be seen beneath another: no handle, no label, no marks, not announced or tappable. */
   decorative?: boolean;
 }) {
   const def = findDef(decks, card);
-  const turn = upright ? undefined : rotationTransform(card.rot, turnFit);
+  const turn = upright ? undefined : rotationTransform(card.rot, turnFit, turnShift);
   const showFace = card.known && (card.faceUp || !!def);
   // A known card that is face down (e.g. my hand, peeked) shows its face dimmed with a "face down" mark.
   const content =

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitInBox, outline, pileShown, rotationPad, rotationTransform, turnedRoom, zonePad } from './rotation';
+import { fitInBox, outline, pileCorner, pileShown, rotationPad, rotationTransform, turnedRoom, zonePad } from './rotation';
 
 describe('room for turned cards (1.1)', () => {
   it('an upright or upside-down card needs no room; 90 degrees needs sideways room only; the diagonals need both', () => {
@@ -91,5 +91,71 @@ describe('which cards a pile draws (1.1)', () => {
   it('the room follows the drawn cards and goes when they are upright', () => {
     expect(zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 0 }, { rot: 2 }] }).x).toBeCloseTo(0.2, 3);
     expect(zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 0 }, { rot: 0 }] })).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('the corner arrangement of a mixed pile (1.1)', () => {
+  it('one outline is not a corner pile: it stays centred with no one-sided room', () => {
+    for (const rots of [[0], [0, 4], [2, 6], [1, 5, 1], []]) {
+      const c = pileCorner(rots);
+      expect(c.corner).toBe(false);
+      expect(c.right).toBe(0);
+      expect(c.top).toBe(0);
+    }
+  });
+  it('an upright card over a 90 degree card: room 0.4 on the right and none above', () => {
+    const c = pileCorner([0, 2]);
+    expect(c.corner).toBe(true);
+    expect(c.right).toBeCloseTo(0.4, 6);
+    expect(c.top).toBe(0);
+  });
+  it('an upright card over a 45 degree card: room to the right and above (an L)', () => {
+    const c = pileCorner([0, 1]);
+    expect(c.corner).toBe(true);
+    expect(c.right).toBeCloseTo(0.697, 2);
+    expect(c.top).toBeCloseTo(0.297, 2);
+  });
+  it('a 90 degree top card over an upright card: room on the right (the landscape card is wider than the slot), none above', () => {
+    const c = pileCorner([2, 0]);
+    expect(c.corner).toBe(true);
+    expect(c.right).toBeCloseTo(0.4, 6);
+    expect(c.top).toBe(0);
+  });
+  it('the offsets put every box at the bottom-left corner of the slot', () => {
+    const c = pileCorner([0, 1, 2]);
+    expect(c.place(0)).toEqual({ dx: 0, dy: 0 });
+    expect(c.place(4)).toEqual({ dx: 0, dy: 0 });
+    // 90 degrees: a landscape box 1.4 wide and 1 high, its centre moves right by 0.2 and down by 0.2
+    expect(c.place(2).dx).toBeCloseTo(0.2, 6);
+    expect(c.place(2).dy).toBeCloseTo(0.2, 6);
+    // 45 degrees: a 1.697 square box, its centre moves right by 0.348 and up by 0.148
+    expect(c.place(1).dx).toBeCloseTo(0.348, 2);
+    expect(c.place(1).dy).toBeCloseTo(-0.148, 2);
+    // after the shift each box's left and bottom edges are the slot's: centre - half the box
+    for (const r of [0, 1, 2, 3]) {
+      const t = (r * Math.PI) / 4;
+      const w = Math.abs(Math.cos(t)) + 1.4 * Math.abs(Math.sin(t));
+      const h = Math.abs(Math.sin(t)) + 1.4 * Math.abs(Math.cos(t));
+      const p = c.place(r);
+      expect(0.5 + p.dx - w / 2).toBeCloseTo(0, 6); // left edge at 0
+      expect(0.7 + p.dy + h / 2).toBeCloseTo(1.4, 6); // bottom edge at the slot's bottom (CSS y = 1.4)
+    }
+  });
+  it('a corner pile reserves room only on the right and above, in the form the board flow doubles', () => {
+    const pad = zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 1 }] });
+    expect(pad.x * 2).toBeCloseTo(0.697, 2);
+    expect(pad.y * 2).toBeCloseTo(0.297, 2);
+  });
+  it('a pile with one outline keeps the symmetric room, and none when upright', () => {
+    expect(zonePad({ layout: 'pile', cards: [{ rot: 1 }, { rot: 5 }] }).x).toBeCloseTo(0.348, 2);
+    expect(zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 4 }] })).toEqual({ x: 0, y: 0 });
+  });
+  it('the room goes when the differently turned card is upright again', () => {
+    expect(zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 2 }] }).x).toBeGreaterThan(0);
+    expect(zonePad({ layout: 'pile', cards: [{ rot: 0 }, { rot: 0 }] })).toEqual({ x: 0, y: 0 });
+  });
+  it('the turn transform can carry a shift in card widths', () => {
+    expect(rotationTransform(1, undefined, { dx: 0.2, dy: -0.1 })).toBe('translate(calc(var(--card-w) * 0.2000), calc(var(--card-w) * -0.1000)) rotate(45deg)');
+    expect(rotationTransform(1, undefined, { dx: 0, dy: 0 })).toBe('rotate(45deg)');
   });
 });

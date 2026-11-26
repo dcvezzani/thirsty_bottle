@@ -429,4 +429,4 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 /* pile-shows-turned: cards drawn beneath a pile's top card are decoration */
 .pile .card.pile-beneath { pointer-events: none; z-index: 1; }
 /* the room around a pile for turned cards is part of the pile's tap area, so the part of a turned card that sticks out acts like the top card */
-.pile::before { content: ''; position: absolute; left: calc(var(--pad-x, 0px) * -1); right: calc(var(--pad-x, 0px) * -1); top: calc(var(--pad-y, 0px) * -1); bottom: calc(var(--pad-y, 0px) * -1); }
+.pile::before { content: ''; position: absolute; left: calc(var(--pad-l, 0px) * -1); right: calc(var(--pad-r, 0px) * -1); top: calc(var(--pad-t, 0px) * -1); bottom: calc(var(--pad-b, 0px) * -1); }

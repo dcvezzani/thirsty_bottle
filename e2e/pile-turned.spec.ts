@@ -47,7 +47,8 @@ test('a pile draws a differently turned card beneath its top card, as it really 
   await expect(pile.locator('.pile-beneath .card-turn[data-rot="2"]')).toHaveCount(1);
   const beneath = (await pile.locator('.pile-beneath .card-turn').boundingBox())!;
   const top = (await pile.locator('.pile-top').boundingBox())!;
-  expect(beneath.x).toBeLessThan(top.x - 3);
+  // (the pile lines mixed cards up by their bottom-left corner, so the turned card sticks out on the right)
+  expect(Math.abs(beneath.x - top.x)).toBeLessThan(3);
   expect(beneath.x + beneath.width).toBeGreaterThan(top.x + top.width + 3);
   await expect(pile.locator('.pile-beneath.face')).toHaveCount(1); // its real face, not a generic back
 
@@ -57,7 +58,7 @@ test('a pile draws a differently turned card beneath its top card, as it really 
   expect((await zone.boundingBox())!.width).toBeGreaterThan(upright + 8);
 
   // tapping the part that sticks out acts like the top card: the pile's actions open
-  await page.mouse.click(beneath.x + 3, beneath.y + beneath.height / 2);
+  await page.mouse.click(beneath.x + beneath.width - 3, beneath.y + beneath.height / 2);
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
 
@@ -74,7 +75,7 @@ test('a pile draws a differently turned card beneath its top card, as it really 
   await expect(beneathCards.first().locator('.card-turn')).toHaveCount(0); // an upright card beneath the turned top card
   const up = (await beneathCards.first().boundingBox())!;
   const turnedTop = (await pile.locator('.pile-top .card-turn').boundingBox())!;
-  expect(up.y).toBeLessThan(turnedTop.y - 3);
-  expect(up.y + up.height).toBeGreaterThan(turnedTop.y + turnedTop.height + 3);
+  expect(up.y).toBeLessThan(turnedTop.y - 3); // sticks out above the turned top card
+  expect(Math.abs(up.y + up.height - (turnedTop.y + turnedTop.height))).toBeLessThan(3); // and they share their bottom
   await ctx.close();
 });
