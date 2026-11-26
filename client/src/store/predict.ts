@@ -10,6 +10,9 @@ export function predictMove(
 ): TableView {
   const set = new Set(handles);
   const moving: CardView[] = [];
+  // stack-order-to-pile: where each moving card sits in its source zone, for the order a group takes onto a pile
+  const sourceOf = new Map<string, { zone: string; index: number; layout: string }>();
+  for (const z of v.zones) z.cards.forEach((c, i) => set.has(c.h) && sourceOf.set(c.h, { zone: z.id, index: i, layout: z.layout }));
   const zones = v.zones.map((z) => {
     const keep: CardView[] = [];
     for (const c of z.cards) (set.has(c.h) ? moving : keep).push(c);
@@ -19,6 +22,12 @@ export function predictMove(
   moving.sort((a, b) => handles.indexOf(a.h) - handles.indexOf(b.h));
   const target = zones.find((z) => z.id === to);
   if (!target) return v;
+  // a group from one hand, spread, column or free zone lands on a pile with its last card on top, as the server decides
+  if (target.layout === 'pile' && index === undefined && moving.length > 1) {
+    const srcs = new Set(moving.map((c) => sourceOf.get(c.h)?.zone));
+    const first = sourceOf.get(moving[0].h);
+    if (srcs.size === 1 && first && first.layout !== 'pile') moving.sort((a, b) => (sourceOf.get(b.h)?.index ?? 0) - (sourceOf.get(a.h)?.index ?? 0));
+  }
   const myHand = target.kind === 'hand' && target.seatId === v.me.seatId;
   const othersHand = target.kind === 'hand' && !myHand;
   const placed = moving.map((c) => {

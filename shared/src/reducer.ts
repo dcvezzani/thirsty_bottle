@@ -387,6 +387,21 @@ function insert(s: TableState, zone: Zone, ids: string[], index: number | undefi
   for (const id of ids) loc.set(id, zone.id);
 }
 
+/**
+ * stack-order-to-pile: cards in a hand, spread, column or free zone are layered with the last on top. Moved onto a pile as a
+ * group (no index), they keep the stack as seen: the last card lands on top. The order follows the cards' places in the
+ * source, not the order they were chosen in. Cards from a pile, from several zones, or a single card keep their order.
+ */
+export function stackedForPile(s: TableState, loc: Map<string, string>, ids: string[], to: Zone, index?: number): string[] {
+  if (to.layout !== 'pile' || index !== undefined || ids.length < 2) return ids;
+  const from = new Set(ids.map((id) => loc.get(id)));
+  if (from.size !== 1) return ids;
+  const src = s.zones[[...from][0]!];
+  if (!src || src.layout === 'pile') return ids;
+  const at = new Map(src.cards.map((c, i) => [c, i]));
+  return [...ids].sort((a, b) => (at.get(b) ?? 0) - (at.get(a) ?? 0));
+}
+
 function resolveCards(s: TableState, ids: string[]): string[] {
   const uniq = [...new Set(ids)];
   for (const id of uniq) if (!s.cards[id]) fail('NO_CARD', 'That card is no longer there');
@@ -666,7 +681,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
         makeRequest(ids, hand, to.id);
         break;
       }
-      const from = doMove(ids, to, action);
+      const from = doMove(stackedForPile(s, loc, ids, to, action.index), to, action);
       logMove(ids, from, to);
       break;
     }
