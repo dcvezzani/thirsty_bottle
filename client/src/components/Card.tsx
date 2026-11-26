@@ -69,6 +69,7 @@ export function CardFace({
   large = false,
   upright = false,
   turnFit,
+  decorative = false,
 }: {
   card: CardView;
   decks: TableDeckView[];
@@ -79,6 +80,8 @@ export function CardFace({
   upright?: boolean;
   /** card-rotation: a scale for the rotated card; only the loupe's True full view uses one, to fit its fixed box. */
   turnFit?: number;
+  /** pile-shows-turned: a card drawn only to be seen beneath another: no handle, no label, no marks, not announced or tappable. */
+  decorative?: boolean;
 }) {
   const def = findDef(decks, card);
   const turn = upright ? undefined : rotationTransform(card.rot, turnFit);
@@ -99,9 +102,7 @@ export function CardFace({
     <div
       className={`card ${showFace ? 'face' : 'back'} ${card.known && !card.faceUp ? 'known-down' : ''} ${turn ? 'rotated' : ''} ${className}`}
       style={style}
-      data-h={card.h}
-      aria-label={label}
-      role="img"
+      {...(decorative ? { 'aria-hidden': true } : { 'data-h': card.h, 'aria-label': label, role: 'img' })}
     >
       {/* card-rotation: a rotated card turns as a whole (border and shadow too) at its normal size; its zone makes room */}
       {turn ? (
@@ -111,13 +112,13 @@ export function CardFace({
       ) : (
         content
       )}
-      {showFace && card.copyOf !== undefined && card.copyOf > 1 && (
+      {!decorative && showFace && card.copyOf !== undefined && card.copyOf > 1 && (
         <span className="copy-badge" data-testid="copy-badge">
           {card.copyNo}/{card.copyOf}
         </span>
       )}
-      {card.shownTo && <span className="mark shown" title="Shown">👁</span>}
-      {card.peeked && <span className="mark peek" title="Peeking">🔍</span>}
+      {!decorative && card.shownTo && <span className="mark shown" title="Shown">👁</span>}
+      {!decorative && card.peeked && <span className="mark peek" title="Peeking">🔍</span>}
     </div>
   );
 }

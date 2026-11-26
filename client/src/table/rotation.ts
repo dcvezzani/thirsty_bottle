@@ -28,13 +28,37 @@ export function rotationPad(rots: number[], aspect = CARD_ASPECT): { x: number; 
 }
 
 /**
- * The room a zone reserves for the rotated cards in it: a pile shows only its top card, a free zone is a fixed area that
- * reserves nothing, any other zone looks at every card.
+ * pile-shows-turned: a card's outline is its rotation modulo 180° (a card turned 180° covers exactly the same area), so
+ * there are four outlines: 0°/180°, 45°/225°, 90°/270° and 135°/315°.
+ */
+export const outline = (rot: number) => (((rot % 4) + 4) % 4);
+
+/**
+ * Which cards of a pile are drawn, as indices from the top: the top card, then the first card beneath it of each outline
+ * that no card already drawn has (a card with an outline already drawn would be covered). At most four indices.
+ */
+export function pileShown(rots: number[]): number[] {
+  if (rots.length === 0) return [];
+  const seen = new Set<number>([outline(rots[0])]);
+  const out = [0];
+  for (let i = 1; i < rots.length && seen.size < 4; i++) {
+    const o = outline(rots[i]);
+    if (seen.has(o)) continue;
+    seen.add(o);
+    out.push(i);
+  }
+  return out;
+}
+
+/**
+ * The room a zone reserves for the rotated cards in it: a pile counts the cards it draws (its top card and the differently
+ * turned cards beneath), a free zone is a fixed area that reserves nothing, any other zone looks at every card.
  */
 export function zonePad(zone: { layout: string; cards: { rot?: number }[] }): { x: number; y: number } {
   if (zone.layout === 'free' || zone.cards.length === 0) return { x: 0, y: 0 };
-  const cards = zone.layout === 'pile' ? zone.cards.slice(0, 1) : zone.cards;
-  return rotationPad(cards.map((c) => c.rot ?? 0));
+  const rots = zone.cards.map((c) => c.rot ?? 0);
+  if (zone.layout === 'pile') return rotationPad(pileShown(rots).map((i) => rots[i]));
+  return rotationPad(rots);
 }
 
 /**

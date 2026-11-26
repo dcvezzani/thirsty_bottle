@@ -11,7 +11,7 @@ import type { FlowItem } from './flow';
 import { useZoneHeader } from './headerScrub';
 import { registerHeader } from './scrubStrip';
 import { zoneFocusCard } from './focusCard';
-import { zonePad } from './rotation';
+import { pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
 
 function vibrate(ms: number) {
@@ -122,11 +122,16 @@ export function Pile({
   const depth = Math.min(4, Math.ceil(visible.length / 10));
   // card-rotation: room around the pile for its top card when it is rotated (margin, so the gesture's coordinates are unchanged)
   const pad = zonePad({ layout: 'pile', cards: visible });
+  const beneath = pileShown(visible.map((c) => c.rot ?? 0)).slice(1).map((i) => visible[i]);
   return (
     <div
       ref={ref}
       className="pile"
-      style={pad.x || pad.y ? { margin: `calc(var(--card-w) * ${pad.y}) calc(var(--card-w) * ${pad.x})` } : undefined}
+      style={
+        pad.x || pad.y
+          ? { margin: `calc(var(--card-w) * ${pad.y}) calc(var(--card-w) * ${pad.x})`, ['--pad-x' as any]: `calc(var(--card-w) * ${pad.x})`, ['--pad-y' as any]: `calc(var(--card-w) * ${pad.y})` }
+          : undefined
+      }
       data-drop-zone={zone.id}
       data-zone-id={zone.id}
       data-testid={`pile-${zone.name}`}
@@ -151,6 +156,11 @@ export function Pile({
         >
           <div className="gen-back" />
         </div>
+      ))}
+      {/* pile-shows-turned: the first card of each other outline beneath the top card, as it really is, so a differently turned
+          card sticks out and can be seen. Deepest first; decoration only (no handle, not tappable). */}
+      {[...beneath].reverse().map((c) => (
+        <CardFace key={c.h} card={c} decks={decks} decorative className="pile-beneath" />
       ))}
       {top ? <CardFace card={top} decks={decks} className={`pile-top ${selCount ? 'selected' : ''}`} /> : <div className="card slot" />}
       {selCount > 0 && (
