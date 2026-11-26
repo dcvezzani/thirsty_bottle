@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultLoupeMode, getLoupeFace, getLoupeMode, setLoupeFace, setLoupeMode } from '../lib/loupePrefs';
-import { endsViewing, isQuickTap, showsDetails, toggleView, type ViewingEvent } from './loupeView';
+import { endsViewing, isQuickTap, secondFingerGesture, showsDetails, showsTrue, toggleView, type ViewingEvent } from './loupeView';
 
 afterEach(() => {
   localStorage.clear();
@@ -55,18 +55,31 @@ describe('loupe views (1.1)', () => {
   });
 });
 
-describe('tapping the loupe chooses a view (2.1)', () => {
+describe('tapping the loupe steps through the views (3.1)', () => {
   it('from the card to details', () => {
     expect(toggleView('auto', false)).toEqual({ face: 'details', peek: false });
     expect(toggleView('card', false)).toEqual({ face: 'details', peek: false });
   });
-  it('from chosen details back to the card', () => {
-    expect(toggleView('details', false)).toEqual({ face: 'card', peek: false });
+  it('from details to true full, and from true full back to the card', () => {
+    expect(toggleView('details', false)).toEqual({ face: 'true', peek: false });
+    expect(toggleView('true', false)).toEqual({ face: 'card', peek: false });
   });
-  it('from a pause that is peeking at details to the card, and the pause no longer peeks', () => {
+  it('a pause that is peeking at details counts as Details, so the next view is true full', () => {
     const t = toggleView('auto', true);
-    expect(t).toEqual({ face: 'card', peek: false });
+    expect(t).toEqual({ face: 'true', peek: false });
     expect(showsDetails(t.face, true)).toBe(false);
+  });
+  it('a full tour returns to where it began, and a pause never changes a chosen view', () => {
+    let f: ReturnType<typeof toggleView> = { face: 'card', peek: false };
+    const seen: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      f = toggleView(f.face, false);
+      seen.push(f.face);
+    }
+    expect(seen).toEqual(['details', 'true', 'card']);
+    expect(showsDetails('true', true)).toBe(false);
+    expect(showsTrue('true')).toBe(true);
+    expect(showsTrue('details')).toBe(false);
   });
   it('the chosen view is kept for the session', () => {
     expect(getLoupeFace()).toBe('auto');
@@ -74,7 +87,26 @@ describe('tapping the loupe chooses a view (2.1)', () => {
     expect(getLoupeFace()).toBe('card');
     setLoupeFace('details');
     expect(getLoupeFace()).toBe('details');
+    setLoupeFace('true');
+    expect(getLoupeFace()).toBe('true');
     sessionStorage.clear();
     setLoupeFace('auto');
+  });
+});
+
+describe('what a second finger does on the loupe (5.1)', () => {
+  const d = { t: 0, x: 100, y: 100 };
+  it('a quick tap switches the view', () => {
+    expect(secondFingerGesture(d, { t: 120, x: 103, y: 101 })).toBe('tap');
+  });
+  it('a quick sideways swipe rotates: right clockwise, left counter-clockwise', () => {
+    expect(secondFingerGesture(d, { t: 200, x: 150, y: 104 })).toBe('right');
+    expect(secondFingerGesture(d, { t: 200, x: 50, y: 96 })).toBe('left');
+  });
+  it('a slow drag, a hold, a short move or a mostly vertical swipe does nothing', () => {
+    expect(secondFingerGesture(d, { t: 900, x: 160, y: 100 })).toBeNull(); // too slow
+    expect(secondFingerGesture(d, { t: 450, x: 100, y: 100 })).toBeNull(); // a hold
+    expect(secondFingerGesture(d, { t: 200, x: 118, y: 100 })).toBeNull(); // between a tap and a swipe
+    expect(secondFingerGesture(d, { t: 200, x: 130, y: 190 })).toBeNull(); // mostly vertical
   });
 });

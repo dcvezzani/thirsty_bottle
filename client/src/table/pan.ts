@@ -11,6 +11,43 @@ const VELOCITY_WINDOW_MS = 100;
 export const GLIDE_DECAY = 0.95; // per 16 ms frame
 export const GLIDE_STOP = 0.02; // px per ms
 
+/**
+ * card-rotation: while a card or selection is carried, a second finger on the board is not a pan at once. It waits: lifted
+ * quickly without moving it is a tap (the carried cards turn 45°); moved past the slop it becomes the two-finger pan as before.
+ */
+export const PENDING_TAP_MS = 250;
+export const PENDING_SLOP = 10;
+export class PendingSecond {
+  private p: { id: number; x: number; y: number; t: number } | null = null;
+  get active() {
+    return this.p !== null;
+  }
+  isFor(id: number) {
+    return this.p?.id === id;
+  }
+  start(id: number, x: number, y: number, t: number) {
+    this.p = { id, x, y, t };
+  }
+  /** 'pan' once the finger has moved past the slop (the wait ends); otherwise 'wait'. */
+  move(id: number, x: number, y: number): 'pan' | 'wait' {
+    if (!this.p || this.p.id !== id) return 'wait';
+    if (Math.hypot(x - this.p.x, y - this.p.y) > PENDING_SLOP) {
+      this.p = null;
+      return 'pan';
+    }
+    return 'wait';
+  }
+  /** The finger lifted: 'tap' when it was quick and still, else 'cancel'. */
+  up(id: number, t: number): 'tap' | 'cancel' {
+    const p = this.p;
+    this.p = null;
+    return p && p.id === id && t - p.t <= PENDING_TAP_MS ? 'tap' : 'cancel';
+  }
+  clear() {
+    this.p = null;
+  }
+}
+
 export class TwoFingerPan {
   private pts = new Map<number, { x: number; y: number }>();
   private samples: { t: number; x: number; y: number }[] = [];

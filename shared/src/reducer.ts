@@ -1,6 +1,7 @@
 import { cardLabel } from './cards.js';
 import {
   MAX_SEATS,
+  rotNorm,
   UNDO_WINDOW_MS,
   UNDOABLE,
   type AnyAction,
@@ -403,6 +404,22 @@ function isOthersHand(s: TableState, zone: Zone, actor: string | null) {
   return owner !== null && owner !== actor;
 }
 
+/**
+ * card-rotation: turn cards by `by` steps or set them to `to`. Exactly one must be given. Returns true when it set them upright.
+ * A rotation of 0 is stored as no field at all.
+ */
+function turnCards(s: TableState, ids: string[], a: { by?: number; to?: number }, touched: Set<string>): boolean {
+  if ((a.by === undefined) === (a.to === undefined) || a.by === 0) fail('BAD_ACTION', 'Say how far to rotate, or to set upright');
+  for (const id of ids) {
+    const c = s.cards[id];
+    const next = a.to !== undefined ? a.to : rotNorm((c.rot ?? 0) + a.by!);
+    if (next === 0) delete c.rot;
+    else c.rot = next;
+    touched.add(id);
+  }
+  return a.to === 0;
+}
+
 /** A hand or per-player zone of another seated player: the hand rules for taking and handling apply. */
 function isOthersOwned(s: TableState, zone: Zone, actor: string | null) {
   if (zone.kind === 'shared') return false;
@@ -539,9 +556,11 @@ export function authorize(s: TableState, action: AnyAction, actor: string | null
       confined = own(action.to) && action.cards.every((c) => own(loc.get(c)));
       break;
     case 'flip':
+    case 'rotate':
       confined = action.cards.every((c) => own(loc.get(c)));
       break;
     case 'flipZone':
+    case 'rotateZone':
     case 'shuffle':
     case 'cut':
       confined = own(action.zone) && !(action.type === 'cut' && action.mode === 'split');
@@ -665,6 +684,26 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       const allUp = ids.every((i) => s.cards[i].faceUp);
       const desc = publicDesc(s, ids, loc);
       log(s, now, actor, `${who} flipped ${desc}${allUp ? ' face up' : ''}`, 'action', undefined, true);
+      break;
+    }
+    case 'rotate': {
+      const ids = resolveCards(s, action.cards);
+      for (const id of ids) {
+        const z = s.zones[loc.get(id)!];
+        if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z, true);
+      }
+      const upright = turnCards(s, ids, action, touched);
+      const desc = publicDesc(s, ids, loc);
+      log(s, now, actor, `${who} ${upright ? 'set' : 'rotated'} ${desc}${upright ? ' upright' : ''}`, 'action', undefined, true);
+      break;
+    }
+    case 'rotateZone': {
+      const z = getZone(s, action.zone);
+      if (isOthersOwned(s, z, actor) && !s.settings.openHands) othersZoneError(s, z);
+      if (!z.cards.length) break;
+      const ids = [...z.cards];
+      const upright = turnCards(s, ids, action, touched);
+      log(s, now, actor, `${who} ${upright ? 'set every card in' : 'rotated every card in'} ${zoneLabel(s, z)}${upright ? ' upright' : ''}`, 'action', undefined, true);
       break;
     }
     case 'flipZone': {
@@ -881,7 +920,11 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (deck) for (const id of ids) delete to.pos[id];
       else to.pos = {};
       for (const id of ids) loc.set(id, to.id);
-      for (const id of to.cards) if (inScope(id)) s.cards[id].faceUp = false;
+      for (const id of to.cards) {
+        if (!inScope(id)) continue;
+        s.cards[id].faceUp = false;
+        delete s.cards[id].rot; // card-rotation: gathered cards come back upright
+      }
       // Gathering ends every show and peek on the table (on the gathered deck only, for a deck gather).
       for (const c of Object.values(s.cards)) if (inScope(c.id)) clearReveal(c);
       if (ids.length) anims.push({ kind: 'move', actor, items: ids.map((card) => ({ card, from: from.get(card)!, to: to.id })) });

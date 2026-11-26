@@ -37,6 +37,8 @@ export interface CardInst {
   copyNo: number;
   copyOf: number;
   faceUp: boolean;
+  /** card-rotation: steps of 45° clockwise, 1..7; absent = upright. Public, like faceUp. */
+  rot?: number;
   /** Player ids the card is currently shown to; '*' = everyone. */
   shownTo: string[];
   shownBy: string | null;
@@ -95,6 +97,10 @@ export interface LogEntry {
   /** Card-action entries can be hidden by players who turn off card-action messages in room chat. */
   cardAction?: boolean;
 }
+
+/** card-rotation: a card turns in eight 45° steps. */
+export const ROT_STEPS = 8;
+export const rotNorm = (n: number) => ((Math.trunc(n) % ROT_STEPS) + ROT_STEPS) % ROT_STEPS;
 
 /** request-expiry: how long a request to take cards or to see a hand waits for an answer. */
 export const REQUEST_TTL_MS = 5000;
@@ -197,6 +203,9 @@ export const ActionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('flip'), cards: cardList }),
   z.object({ type: z.literal('flipZone'), zone: id, face: z.enum(['up', 'down']).optional() }),
+  // card-rotation: exactly one of `by` (steps of 45° clockwise, may be negative) or `to` (0..7, 0 = upright)
+  z.object({ type: z.literal('rotate'), cards: cardList, by: z.number().int().min(-7).max(7).optional(), to: z.number().int().min(0).max(7).optional() }),
+  z.object({ type: z.literal('rotateZone'), zone: id, by: z.number().int().min(-7).max(7).optional(), to: z.number().int().min(0).max(7).optional() }),
   z.object({ type: z.literal('shuffle'), zone: id }),
   z.object({
     type: z.literal('cut'),
@@ -330,6 +339,8 @@ export const UNDOABLE: ReadonlySet<string> = new Set([
   'move',
   'flip',
   'flipZone',
+  'rotate',
+  'rotateZone',
   'shuffle',
   'cut',
   'draw',

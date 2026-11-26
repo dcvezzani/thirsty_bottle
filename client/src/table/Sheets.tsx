@@ -11,6 +11,7 @@ import { boardZones, findCard, isOthersZone, orderedSelection, useUI, viewingOf,
 import { moveCards } from './drag';
 import { canAskToSee } from './seeHand';
 import { flipCards, flipSelection } from './flip';
+import { rotateCards, rotateZone } from './rotate';
 import { playAgain } from './SetupSheets';
 import { CardRow } from './CardRow';
 import { CountField } from '../components/CountField';
@@ -67,9 +68,15 @@ export function SelectionBar({ view, unread = 0 }: { view: TableView; unread?: n
           {view.settings.openHands ? 'Take' : 'Ask to take'}
         </button>
       ) : (
-        <button className="small" onClick={() => flipSelection()}>
-          Flip
-        </button>
+        <>
+          <button className="small" onClick={() => flipSelection()}>
+            Flip
+          </button>
+          {/* card-rotation: 45° clockwise per tap; the selection is kept so it can be tapped again */}
+          <button className="small icon" aria-label="Rotate 45°" title="Rotate 45°" onClick={() => rotateCards(handles, { by: 1 })}>
+            ↻
+          </button>
+        </>
       )}
       {!others && lastZone && (
         <button className="small primary send-again" onClick={() => moveCards(handles, selZone!, lastZone.id)} title={`Send to ${zoneLabel(view, lastZone)}`} aria-label={`Send again to ${zoneLabel(view, lastZone)}`}>
@@ -171,6 +178,10 @@ export function CardsSheet({ view, onClose }: { view: TableView; onClose: () => 
           <>
             <button onClick={() => setMode('move')}>Move to…</button>
             <button onClick={() => (useUI.getState().clear(), flipCards(handles), done())}>Flip</button>
+            {/* card-rotation: the selection is kept, so a card can be turned a few steps and then moved */}
+            <button onClick={() => rotateCards(handles, { by: -1 })}>↺ Rotate back 45°</button>
+            <button onClick={() => rotateCards(handles, { by: 1 })}>↻ Rotate 45°</button>
+            <button onClick={() => rotateCards(handles, { to: 0 })}>Upright</button>
             {/* stable-selection-bar: the controls the one-line toolbar no longer carries */}
             <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>
             <button onClick={() => (useUI.getState().clear(), onClose())}>Clear</button>
@@ -244,6 +255,8 @@ export function ZoneSheet({ view, zoneId, onClose }: { view: TableView; zoneId: 
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id })}>Flip all</button>}
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'up' })}>All face up</button>}
           {mine && n > 0 && <button onClick={() => act({ type: 'flipZone', zone: zone.id, face: 'down' })}>All face down</button>}
+          {mine && n > 0 && <button onClick={() => (rotateZone(zone.id, { by: 1 }), onClose())}>Rotate all</button>}
+          {mine && n > 0 && <button onClick={() => (rotateZone(zone.id, { to: 0 }), onClose())}>Upright all</button>}
           {n > 0 && <button onClick={() => useUI.getState().setSheet({ kind: 'fanout', zone: zone.id })}>Fan out</button>}
           {n > 0 && <button onClick={() => (useUI.getState().select(zone.id, zone.cards.map((c) => c.h)), onClose())}>Select all</button>}
         </div>
@@ -476,7 +489,7 @@ export function CardInfoSheet({ view, h, onClose }: { view: TableView; h: string
     return (
       <Sheet title="Face-down card" onClose={onClose}>
         <div className="row" style={{ alignItems: 'flex-start' }}>
-          <CardFace card={card} decks={view.decks} style={{ ['--card-w' as any]: '140px' }} large />
+          <CardFace card={card} decks={view.decks} style={{ ['--card-w' as any]: '140px' }} large upright />
           <p data-testid="hidden-info">{where}</p>
         </div>
       </Sheet>
@@ -486,7 +499,7 @@ export function CardInfoSheet({ view, h, onClose }: { view: TableView; h: string
     <Sheet title={def.name} onClose={onClose}>
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <div className="card face" style={{ ['--card-w' as any]: '170px' }}>
-          {def.frontImageId ? <img className="card-img" src={imageUrl(def.frontImageId)} alt={def.name} /> : <CardFace card={{ ...card, faceUp: true }} decks={view.decks} style={{ ['--card-w' as any]: '170px' }} />}
+          {def.frontImageId ? <img className="card-img" src={imageUrl(def.frontImageId)} alt={def.name} /> : <CardFace card={{ ...card, faceUp: true }} decks={view.decks} style={{ ['--card-w' as any]: '170px' }} upright />}
         </div>
         <div className="grow" data-testid="card-info">
           <p style={{ marginTop: 0 }}>

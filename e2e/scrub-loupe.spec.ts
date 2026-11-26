@@ -233,40 +233,48 @@ test('second finger: a quick tap on the loupe switches card and details while th
   const at = center((await loupe.boundingBox())!);
   const f2 = { ...at, id: 2 };
 
-  // holding still shows details as a peek; a tap of the second finger then goes back to the card, and a pause does not peek again until the finger moves
+  const tap2 = async (on: { x: number; y: number }) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(on), f2] });
+    await page.waitForTimeout(60);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
+  };
+  const details = page.getByTestId('loupe-details');
+  const trueFull = page.getByTestId('loupe-true');
+
+  // holding still shows details as a peek; a tap of the second finger then goes on to the true full view,
+  // and a pause does not peek again, even on the next card
   await page.waitForTimeout(450);
-  await expect(page.getByTestId('loupe-details')).toBeVisible();
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });
-  await page.waitForTimeout(60);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
-  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await expect(details).toBeVisible();
+  await tap2(pts[2]);
+  await expect(details).toHaveCount(0);
+  await expect(trueFull).toBeVisible();
   await page.waitForTimeout(450);
-  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
-  // the chosen card view is kept: on the next card a pause does not bring the details back
+  await expect(details).toHaveCount(0);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[3])] });
   await page.waitForTimeout(450);
-  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await expect(details).toHaveCount(0);
+  await expect(trueFull).toBeVisible();
 
-  // a quick tap of the second finger: details, and the next card scrubbed shows details too
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[2]), f2] });
-  await page.waitForTimeout(60);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
-  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  // the next tap goes back to the card, the one after to details, and the details stay on the next card scrubbed
+  await tap2(pts[3]);
+  await expect(trueFull).toHaveCount(0);
+  await expect(details).toHaveCount(0);
+  await tap2(pts[3]);
+  await expect(details).toBeVisible();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[4])] });
-  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await expect(details).toBeVisible();
 
   // a second finger that holds does nothing
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[4]), f2] });
   await page.waitForTimeout(450);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
-  await expect(page.getByTestId('loupe-details')).toBeVisible();
+  await expect(details).toBeVisible();
 
-  // a quick tap again (after moving on, so a pause is not peeking at details): back to the card
+  // a quick tap again (after moving on, so a pause is not peeking at details): on to the true full view
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [f1(pts[5])] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [f1(pts[5]), f2] });
-  await page.waitForTimeout(60);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f2] });
-  await expect(page.getByTestId('loupe-details')).toHaveCount(0);
+  await tap2(pts[5]);
+  await expect(details).toHaveCount(0);
+  await expect(trueFull).toBeVisible();
   await expect(loupe).toBeVisible(); // the scrub never stopped
 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f1(pts[5])] });
@@ -370,7 +378,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pts[3]] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(page.getByRole('dialog', { name: /./ }).getByRole('button', { name: 'Details' })).toBeVisible();
-    for (const [state, action] of [['stay-open loupe', async () => {}], ['stay-open details', async () => page.getByRole('button', { name: 'Details' }).click()]] as const) {
+    for (const [state, action] of [['stay-open loupe', async () => {}], ['stay-open details', async () => page.getByRole('button', { name: 'Details' }).click()], ['stay-open true full', async () => page.getByRole('button', { name: 'True full' }).click()]] as const) {
       await action();
       const issues = await lowContrast(page);
       expect(issues, `${state}: ${issues.map((i) => `${i.kind} ${i.element} "${i.text}" ${i.ratio} < ${i.required}`).join('\n')}`).toEqual([]);

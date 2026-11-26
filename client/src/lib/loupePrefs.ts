@@ -24,14 +24,14 @@ export function getLoupeMode(): LoupeMode {
 }
 
 /** The chosen loupe view lasts for the browser tab's session (a reload keeps it); 'auto' means nothing chosen yet. */
-export type StoredFace = 'auto' | 'card' | 'details';
+export type StoredFace = 'auto' | 'card' | 'details' | 'true';
 const FACE_KEY = 'vct.loupeFace';
 let faceMemory: StoredFace = 'auto';
 
 export function getLoupeFace(): StoredFace {
   try {
     const v = sessionStorage.getItem(FACE_KEY);
-    if (v === 'card' || v === 'details' || v === 'auto') return v;
+    if (v === 'card' || v === 'details' || v === 'auto' || v === 'true') return v;
   } catch {
     /* in-memory only */
   }

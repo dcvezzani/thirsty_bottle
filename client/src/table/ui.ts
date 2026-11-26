@@ -46,7 +46,7 @@ interface UIState {
   viewed: { h: string; zone: string } | null;
   flipLoupe(): void;
   /** Choose the loupe's view (and keep it for the session). */
-  chooseFace(f: 'card' | 'details'): void;
+  chooseFace(f: 'card' | 'details' | 'true'): void;
   sheet: Sheet;
   faceDown: boolean;
   drawer: DrawerTab | null;

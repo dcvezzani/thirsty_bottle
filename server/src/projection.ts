@@ -101,6 +101,7 @@ export class Viewer {
     const deck = s.decks[c.deckId];
     const def = deck?.defs.find((d) => d.id === c.defId);
     const v: CardView = { h: this.i2h.get(c.id) ?? this.assign(c.id), faceUp: c.faceUp, known };
+    if (c.rot) v.rot = c.rot;
     const back = def?.backImageId ?? deck?.backImageId;
     if (back) v.back = back;
     if (known) {

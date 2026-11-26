@@ -23,6 +23,8 @@ export interface CardView {
   /** Opaque per-viewer handle. */
   h: string;
   faceUp: boolean;
+  /** card-rotation: steps of 45° clockwise (1..7); absent = upright. Public: sent for every card the viewer sees, hidden ones too. */
+  rot?: number;
   /** Back image for this card (card-specific or deck default); undefined = generated back. */
   back?: string;
   /** True when the viewer can see the face. Identity fields are present only then. */

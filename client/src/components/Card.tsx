@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { CardDef, CardView, TableDeckView } from '@vct/shared';
 import { imageUrl } from '../lib/api';
+import { rotationTransform } from '../table/rotation';
 
 const SUIT: Record<string, { sym: string; red: boolean }> = {
   Spades: { sym: '♠', red: false },
@@ -66,33 +67,49 @@ export function CardFace({
   style,
   className = '',
   large = false,
+  upright = false,
+  turnFit,
 }: {
   card: CardView;
   decks: TableDeckView[];
   style?: CSSProperties;
   className?: string;
   large?: boolean;
+  /** card-rotation: draw the card upright whatever its rotation (the card details, the loupe's Card and Details views). */
+  upright?: boolean;
+  /** card-rotation: scale for a rotated card in place of the fit to its own portrait slot (the loupe's True full view). */
+  turnFit?: number;
 }) {
   const def = findDef(decks, card);
+  const turn = upright ? undefined : rotationTransform(card.rot, undefined, turnFit);
   const showFace = card.known && (card.faceUp || !!def);
   // A known card that is face down (e.g. my hand, peeked) shows its face dimmed with a "face down" mark.
+  const content =
+    showFace && def ? (
+      def.frontImageId ? (
+        <img className="card-img" src={imageUrl(def.frontImageId, !large)} alt="" draggable={false} />
+      ) : (
+        <TextFace def={def} />
+      )
+    ) : (
+      <CardBack imageId={card.back} />
+    );
   const label = def ? (card.copyOf && card.copyOf > 1 ? `${def.name} #${card.copyNo}` : def.name) : 'Face-down card';
   return (
     <div
-      className={`card ${showFace ? 'face' : 'back'} ${card.known && !card.faceUp ? 'known-down' : ''} ${className}`}
+      className={`card ${showFace ? 'face' : 'back'} ${card.known && !card.faceUp ? 'known-down' : ''} ${turn ? 'rotated' : ''} ${className}`}
       style={style}
       data-h={card.h}
       aria-label={label}
       role="img"
     >
-      {showFace && def ? (
-        def.frontImageId ? (
-          <img className="card-img" src={imageUrl(def.frontImageId, !large)} alt="" draggable={false} />
-        ) : (
-          <TextFace def={def} />
-        )
+      {/* card-rotation: a rotated card turns as a whole (border and shadow too), scaled to stay inside its slot */}
+      {turn ? (
+        <div className="card-turn" style={{ transform: turn }} data-testid="card-turn" data-rot={card.rot}>
+          {content}
+        </div>
       ) : (
-        <CardBack imageId={card.back} />
+        content
       )}
       {showFace && card.copyOf !== undefined && card.copyOf > 1 && (
         <span className="copy-badge" data-testid="copy-badge">

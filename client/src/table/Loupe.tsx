@@ -2,7 +2,9 @@ import type { TableView } from '@vct/shared';
 import { CardFace, findDef } from '../components/Card';
 import { MetaList } from '../pages/DeckEditor';
 import { findCard, useUI, zoneLabel } from './ui';
-import { isQuickTap, showsDetails } from './loupeView';
+import { secondFingerGesture, showsDetails, showsTrue } from './loupeView';
+import { fitInBox } from './rotation';
+import { canRotateIn, rotateCards } from './rotate';
 import { useRef } from 'react';
 
 /** Where a hidden card is, as the card details view says it. */
@@ -36,6 +38,11 @@ export function Loupe({ view }: { view: TableView }) {
   const cardW = Math.min(Math.floor((loupe.h - capH) / 1.4), 200);
   const stay = !!viewed && !preview; // released in 'stay' mode: the loupe has buttons
   const showDetails = showsDetails(face, loupe.details);
+  // the true full view: the card at full size with its rotation, in a square box so a diagonal card is not shrunk to a portrait slot
+  const trueView = showsTrue(face) && !showDetails;
+  const cardH = cardW * 1.4;
+  const canRotate = canRotateIn(view, zone);
+  const turnFit = fitInBox(card.rot ?? 0, cardW, cardH, cardH, cardH);
   return (
     <div
       className={`loupe ${stay ? 'stay' : 'scrubbing'}`}
@@ -48,30 +55,61 @@ export function Loupe({ view }: { view: TableView }) {
       onPointerDown={(e) => {
         if (stay) return;
         tap.current = { id: e.pointerId, t: performance.now(), x: e.clientX, y: e.clientY };
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId); // a swipe may leave the loupe before it lifts
+        } catch {
+          /* ignore */
+        }
       }}
       onPointerUp={(e) => {
         const d = tap.current;
         tap.current = null;
-        if (!stay && d && d.id === e.pointerId && isQuickTap(d, { t: performance.now(), x: e.clientX, y: e.clientY })) useUI.getState().flipLoupe();
+        if (stay || !d || d.id !== e.pointerId) return;
+        // a quick tap switches the view; a quick sideways swipe rotates the card shown (when the player may)
+        const g = secondFingerGesture(d, { t: performance.now(), x: e.clientX, y: e.clientY });
+        if (g === 'tap') useUI.getState().flipLoupe();
+        else if (g && canRotate) {
+          try {
+            navigator.vibrate?.(10);
+          } catch {
+            /* unsupported */
+          }
+          void rotateCards([card.h], { by: g === 'right' ? 1 : -1 });
+        }
       }}
       onPointerCancel={() => (tap.current = null)}
     >
       {stay && (
         <div className="loupe-controls" role="group" aria-label="Loupe view">
-          <button className={`small${!showDetails ? ' primary' : ''}`} aria-pressed={!showDetails} onClick={() => useUI.getState().chooseFace('card')}>
+          <button className={`small${!showDetails && !trueView ? ' primary' : ''}`} aria-pressed={!showDetails && !trueView} onClick={() => useUI.getState().chooseFace('card')}>
             Card
           </button>
           <button className={`small${showDetails ? ' primary' : ''}`} aria-pressed={showDetails} onClick={() => useUI.getState().chooseFace('details')}>
             Details
           </button>
+          <button className={`small${trueView ? ' primary' : ''}`} aria-pressed={trueView} onClick={() => useUI.getState().chooseFace('true')}>
+            True full
+          </button>
           <span className="grow" />
+          <button className="small icon" aria-label="Rotate back 45°" disabled={!canRotate} onClick={() => rotateCards([card.h], { by: -1 })}>
+            ↺
+          </button>
+          <button className="small icon" aria-label="Rotate 45°" disabled={!canRotate} onClick={() => rotateCards([card.h], { by: 1 })}>
+            ↻
+          </button>
           <button className="small icon" aria-label="Close loupe" onClick={() => useUI.setState({ viewed: null, loupe: null, preview: null })}>
             ✕
           </button>
         </div>
       )}
       <div className={`loupe-body ${showDetails ? 'details' : ''}`}>
-        <CardFace card={card} decks={view.decks} large style={{ ['--card-w' as any]: `${showDetails ? Math.floor(cardW * 0.7) : cardW}px` }} />
+        {trueView ? (
+          <div className="loupe-true" data-testid="loupe-true" style={{ width: cardH, height: cardH }}>
+            <CardFace card={card} decks={view.decks} large turnFit={turnFit} style={{ ['--card-w' as any]: `${cardW}px` }} />
+          </div>
+        ) : (
+          <CardFace card={card} decks={view.decks} large upright style={{ ['--card-w' as any]: `${showDetails ? Math.floor(cardW * 0.7) : cardW}px` }} />
+        )}
         {showDetails && (
           <div className="loupe-text" data-testid="loupe-details">
             {known ? (

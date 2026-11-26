@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GLIDE_STOP, TwoFingerPan, cancelCardGestures, glideSteps, onCancelCardGestures, velocity } from './pan';
+import { GLIDE_STOP, PendingSecond, TwoFingerPan, cancelCardGestures, glideSteps, onCancelCardGestures, velocity } from './pan';
 
 describe('two-finger pan (table-scrolling 2.1)', () => {
   it('starts only on the second finger and reports midpoint deltas', () => {
@@ -59,5 +59,38 @@ describe('two-finger pan (table-scrolling 2.1)', () => {
     cancelCardGestures();
     offB();
     expect([a, b]).toEqual([1, 2]);
+  });
+});
+
+describe('a second finger while a card is carried (card-rotation 5.1)', () => {
+  it('lifted quickly without moving it is a tap', () => {
+    const p = new PendingSecond();
+    p.start(2, 100, 100, 1000);
+    expect(p.active).toBe(true);
+    expect(p.move(2, 103, 102)).toBe('wait');
+    expect(p.up(2, 1120)).toBe('tap');
+    expect(p.active).toBe(false);
+  });
+  it('moved past the slop it becomes the pan, and the wait ends', () => {
+    const p = new PendingSecond();
+    p.start(2, 100, 100, 1000);
+    expect(p.move(2, 130, 100)).toBe('pan');
+    expect(p.active).toBe(false);
+    expect(p.up(2, 1100)).toBe('cancel');
+  });
+  it('held too long is not a tap', () => {
+    const p = new PendingSecond();
+    p.start(2, 100, 100, 1000);
+    expect(p.up(2, 1400)).toBe('cancel');
+  });
+  it('other fingers are not its business, and clear() drops the wait', () => {
+    const p = new PendingSecond();
+    p.start(2, 100, 100, 1000);
+    expect(p.isFor(1)).toBe(false);
+    expect(p.move(1, 500, 500)).toBe('wait');
+    expect(p.up(1, 1100)).toBe('cancel');
+    p.start(3, 10, 10, 2000);
+    p.clear();
+    expect(p.active).toBe(false);
   });
 });
