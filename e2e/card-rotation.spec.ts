@@ -141,6 +141,8 @@ test('a second-finger swipe on the loupe rotates the card shown, a tap still swi
   await touch('touchMove', [f1(pts[1])]); // the scrub is on the middle card
   const loupe = page.getByTestId('loupe');
   await expect(loupe).toBeVisible();
+  // let the holding finger's pause settle first (its details peek and zone pin land about 300 ms in), so the swipes do not race it
+  await expect(page.getByTestId('loupe-details')).toBeVisible();
   const at = center((await loupe.boundingBox())!);
 
   const swipe = async (dx: number, ms = 80) => {
@@ -151,8 +153,10 @@ test('a second-finger swipe on the loupe rotates the card shown, a tap still swi
   };
   await swipe(60); // right: clockwise
   await expect.poll(() => rots(page, 'row-hand')).toEqual([0, 1, 0]);
+  await settle(page);
   await swipe(60);
   await expect.poll(() => rots(page, 'row-hand')).toEqual([0, 2, 0]);
+  await settle(page);
   await swipe(-60); // left: back
   await expect.poll(() => rots(page, 'row-hand')).toEqual([0, 1, 0]);
   // a swipe is not a tap: no view was chosen (the holding finger's pause may peek at details, which is not a choice)
