@@ -43,17 +43,15 @@ describe('presence, grace period and auto-transfer (3.6)', () => {
     b2.close();
   });
 
-  it('after the grace period the active player loses the turn and the host role transfers', async () => {
+  it('after the grace period in a real-time table the seat is released and the host role transfers', async () => {
     const { a, b, c, tid } = await fakeSetup();
-    await a.act({ type: 'setMode', mode: 'turn' }); // Alex (host) is active
     await a.act({ type: 'draw', zone: a.zone('Standard').id, count: 2, from: 'top' });
     a.close();
     await vi.advanceTimersByTimeAsync(121_000);
     const s = srv.app.tables.get(tid)!;
     await until(() => s.state.hostId === b.id);
-    // Sam sat before Kim → Sam becomes host; turn passes to next connected seat
+    // Sam sat before Kim → Sam becomes host
     expect(s.state.hostId).toBe(b.id);
-    expect(s.state.turn.active).toBe(s.state.seats.find((x) => x.playerId === b.id)!.id);
     // Alex's hand stays at the vacated seat for the host to resolve
     await until(() => b.table!.vacated.length === 1);
     expect(b.table!.vacated[0]).toMatchObject({ playerName: 'Alex' });

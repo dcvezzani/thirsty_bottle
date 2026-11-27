@@ -14,6 +14,7 @@ import {
   type TableState,
   type TakeRequest,
   type Zone,
+  DEFAULT_IDLE_DAYS,
 } from './table.js';
 import { boardSlots, canSee, handZoneId, isPublic, locate, perPlayerZoneId, playerName, seatOfPlayer, zoneOwner } from './visibility.js';
 import type { PlanTarget } from './setups.js';
@@ -87,6 +88,7 @@ export function createTableState(o: CreateTableOptions): TableState {
     spectatorsAllowed: o.spectatorsAllowed,
     openHands: false,
     playersMaySwitchMode: false,
+    idleDays: DEFAULT_IDLE_DAYS,
     locked: false,
     hasPassword: o.hasPassword,
   };
@@ -136,6 +138,7 @@ export function createTableState(o: CreateTableOptions): TableState {
  */
 export function migrateState(s: TableState): TableState {
   if (!s.seeRequests) s.seeRequests = []; // request-hand-view: tables saved before it existed
+  if (s.settings.idleDays === undefined) s.settings.idleDays = DEFAULT_IDLE_DAYS; // async-turns
   if ((s.zoneLayoutVersion ?? 0) >= 1) return s;
   const shared = s.zoneOrder
     .filter((id) => s.zones[id]?.kind === 'shared')
@@ -434,7 +437,8 @@ function othersZoneError(s: TableState, z: Zone, card = false): never {
   return fail('OTHERS_HAND', card ? `That card is in ${owner}'s ${z.name}` : `That is ${owner}'s ${z.name}`);
 }
 
-function nextSeat(s: TableState, from: string | null, connected: ReadonlySet<string>, steps = 1): string | null {
+/** async-turns: the next seat with a player in the turn direction, whether or not that player is connected. */
+function nextSeat(s: TableState, from: string | null, steps = 1): string | null {
   const n = s.seats.length;
   if (!n) return null;
   let idx = from ? s.seats.findIndex((x) => x.id === from) : -1;
@@ -442,7 +446,7 @@ function nextSeat(s: TableState, from: string | null, connected: ReadonlySet<str
   let remaining = steps;
   for (let i = 1; i <= n * (steps + 1); i++) {
     const cand = s.seats[(((idx + i * s.turn.direction) % n) + n) % n];
-    if (cand.playerId && connected.has(cand.playerId)) {
+    if (cand.playerId) {
       remaining -= 1;
       if (remaining === 0) return cand.id;
     }
@@ -1178,7 +1182,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
     case 'endTurn':
     case 'autoPass': {
       if (s.mode !== 'turn') break;
-      s.turn.active = nextSeat(s, s.turn.active, ctx.connected);
+      s.turn.active = nextSeat(s, s.turn.active);
       log(s, now, actor, `${activePlayerName(s)}'s turn`, 'turn');
       break;
     }
@@ -1188,7 +1192,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       break;
     case 'skip':
       if (s.mode !== 'turn') fail('NOT_TURN_MODE', 'The table is in real-time mode');
-      s.turn.active = nextSeat(s, s.turn.active, ctx.connected, 2);
+      s.turn.active = nextSeat(s, s.turn.active, 2);
       log(s, now, actor, `${who} skipped a seat: ${activePlayerName(s)}'s turn`, 'turn');
       break;
     case 'setActive': {
@@ -1228,6 +1232,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (action.spectatorsAllowed !== undefined) st.spectatorsAllowed = action.spectatorsAllowed;
       if (action.openHands !== undefined) st.openHands = action.openHands;
       if (action.playersMaySwitchMode !== undefined) st.playersMaySwitchMode = action.playersMaySwitchMode;
+      if (action.idleDays !== undefined) st.idleDays = action.idleDays;
       if (action.locked !== undefined && action.locked !== st.locked) {
         st.locked = action.locked;
         log(s, now, actor, `${who} ${st.locked ? 'locked' : 'unlocked'} the table`, 'system');
@@ -1468,7 +1473,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       if (held) s.vacated.push({ seatId: seat.id, playerId: pid, playerName: name });
       else if (s.settings.seatLimit === null) removeSeat(s, seat.id);
       if (wasActive && s.mode === 'turn') {
-        s.turn.active = nextSeat(s, seat.id, ctx.connected);
+        s.turn.active = nextSeat(s, seat.id);
         if (s.turn.active === seat.id) s.turn.active = null;
         log(s, now, null, `${activePlayerName(s)}'s turn`, 'turn');
       }

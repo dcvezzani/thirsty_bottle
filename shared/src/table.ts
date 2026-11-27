@@ -130,6 +130,10 @@ export interface Vacated {
   playerName: string;
 }
 
+export const MIN_IDLE_DAYS = 1;
+export const MAX_IDLE_DAYS = 30;
+export const DEFAULT_IDLE_DAYS = 1;
+
 export interface TableSettings {
   name: string;
   seatLimit: number | null;
@@ -137,6 +141,8 @@ export interface TableSettings {
   spectatorsAllowed: boolean;
   openHands: boolean;
   playersMaySwitchMode: boolean;
+  /** async-turns: a turn-based table closes after this many days without an action. */
+  idleDays: number;
   locked: boolean;
   hasPassword: boolean;
 }
@@ -300,6 +306,7 @@ export const ActionSchema = z.discriminatedUnion('type', [
     spectatorsAllowed: z.boolean().optional(),
     openHands: z.boolean().optional(),
     playersMaySwitchMode: z.boolean().optional(),
+    idleDays: z.number().int().min(MIN_IDLE_DAYS).max(MAX_IDLE_DAYS).optional(),
     locked: z.boolean().optional(),
   }),
   z.object({ type: z.literal('moveSeat'), seat: id, toIndex: z.number().int().min(0) }),

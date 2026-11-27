@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CardView, RequestView, TableView, ZoneView } from '@vct/shared';
+import { MAX_IDLE_DAYS, MIN_IDLE_DAYS } from '@vct/shared';
 import { useCountdown } from './requestCountdown';
 import { Sheet } from '../components/ui';
 import { CardFace, findDef } from '../components/Card';
@@ -833,6 +834,11 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
       </div>
       <LoupeSetting />
       {!host && <p className="small-text muted">Only the host can change table settings.</p>}
+      {!host && (
+        <p className="small-text muted" data-testid="idle-days-readonly">
+          Turn-based tables close after {st.idleDays} {st.idleDays === 1 ? 'day' : 'days'} without an action.
+        </p>
+      )}
       {host && (
         <>
           <label htmlFor="sname">Name</label>
@@ -877,6 +883,17 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
             <option value="public">Public</option>
             <option value="private">Private (invite link)</option>
           </select>
+          <label htmlFor="sidle">Inactive table lifetime</label>
+          <select id="sidle" value={st.idleDays} onChange={(e) => send({ type: 'settings', idleDays: Number(e.target.value) })}>
+            {Array.from({ length: MAX_IDLE_DAYS - MIN_IDLE_DAYS + 1 }, (_, i) => i + MIN_IDLE_DAYS).map((n) => (
+              <option key={n} value={n}>
+                {n} {n === 1 ? 'day' : 'days'}
+              </option>
+            ))}
+          </select>
+          <p className="small-text muted" style={{ margin: '2px 0 0' }}>
+            A turn-based table closes after this long without an action, even when nobody is connected.
+          </p>
           <h4 style={{ margin: '14px 0 4px' }}>Add a zone</h4>
           <div className="row">
             <input aria-label="New zone name" placeholder="e.g. Discard" value={zoneName} maxLength={40} onChange={(e) => setZoneName(e.target.value)} />

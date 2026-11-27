@@ -326,14 +326,16 @@ describe('turns (2.8)', () => {
     expect(eng.state.turn.active).toBe(eng.state.seats[0].id);
     expect(eng.state.log.at(-1)!.text).toBe("Alex switched to turn-based play: Alex's turn");
   });
-  it('end turn passes clockwise; reverse, skip and setActive work; skips disconnected and empty seats', () => {
+  it('end turn passes clockwise; reverse, skip and setActive work; skips empty seats but not disconnected players', () => {
     const { eng } = setup([SAM, KIM, LEE], undefined, 6);
     const seats = eng.state.seats; // 6 seats: Alex, Sam, Kim, Lee, empty, empty
     eng.dispatch({ type: 'setMode', mode: 'turn', active: seats[1].id }, ALEX.playerId, ctx());
     eng.dispatch({ type: 'endTurn' }, SAM.playerId, ctx());
     expect(eng.state.turn.active).toBe(seats[2].id);
-    // Lee disconnected: Kim ending passes to Alex (skipping Lee and empty seats)
+    // Lee disconnected: Kim ending still passes to Lee (async-turns), skipping only the empty seats after Lee
     eng.dispatch({ type: 'endTurn' }, KIM.playerId, ctx({ connected: new Set([ALEX.playerId, SAM.playerId, KIM.playerId]) }));
+    expect(eng.state.turn.active).toBe(seats[3].id);
+    eng.dispatch({ type: 'endTurn' }, LEE.playerId, ctx());
     expect(eng.state.turn.active).toBe(seats[0].id);
     eng.dispatch({ type: 'reverse' }, ALEX.playerId, ctx());
     eng.dispatch({ type: 'endTurn' }, ALEX.playerId, ctx());
@@ -343,6 +345,27 @@ describe('turns (2.8)', () => {
     eng.dispatch({ type: 'setActive', seat: seats[2].id }, ALEX.playerId, ctx());
     expect(eng.state.turn.active).toBe(seats[2].id);
     expect(() => eng.dispatch({ type: 'endTurn' }, SAM.playerId, ctx())).toThrow("It's Kim's turn");
+  });
+  it('async-turns: the turn waits on an offline player; a lone player keeps the turn; the host can skip an absent one', () => {
+    const { eng } = setup([SAM]);
+    const seats = eng.state.seats;
+    const away = ctx({ connected: new Set([ALEX.playerId]) });
+    eng.dispatch({ type: 'setMode', mode: 'turn' }, ALEX.playerId, away);
+    eng.dispatch({ type: 'endTurn' }, ALEX.playerId, away);
+    expect(eng.state.turn.active).toBe(seats[1].id); // Sam is offline, the turn is Sam's
+    eng.dispatch({ type: 'skip' }, ALEX.playerId, away);
+    expect(eng.state.turn.active).toBe(seats[1].id); // only two seats: skipping one lands back on Sam
+    eng.dispatch({ type: 'setActive', seat: seats[0].id }, ALEX.playerId, away);
+    eng.dispatch({ type: 'seatLeave', playerId: SAM.playerId, reason: 'left' }, null, away);
+    eng.dispatch({ type: 'endTurn' }, ALEX.playerId, away);
+    expect(eng.state.turn.active).toBe(seats[0].id); // the only seated player keeps the turn
+  });
+  it('async-turns: idleDays is a host setting from 1 to 30 days, default 1', () => {
+    const { eng } = setup([SAM]);
+    expect(eng.state.settings.idleDays).toBe(1);
+    eng.dispatch({ type: 'settings', idleDays: 7 }, ALEX.playerId, ctx());
+    expect(eng.state.settings.idleDays).toBe(7);
+    expect(() => eng.dispatch({ type: 'settings', idleDays: 7 }, SAM.playerId, ctx())).toThrow();
   });
   it('switching back to real-time lets everyone act', () => {
     const { eng, deckZone } = setup();

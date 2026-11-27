@@ -66,3 +66,10 @@ describe('action and message schemas', () => {
     expect(ClientMessageSchema.safeParse({ t: 'nope' }).success).toBe(false);
   });
 });
+
+describe('async-turns idleDays schema', () => {
+  it('accepts 1 to 30 whole days and refuses the rest', () => {
+    for (const ok of [1, 7, 30]) expect(ActionSchema.safeParse({ type: 'settings', idleDays: ok }).success).toBe(true);
+    for (const bad of [0, 31, 1.5, -1]) expect(ActionSchema.safeParse({ type: 'settings', idleDays: bad }).success).toBe(false);
+  });
+});

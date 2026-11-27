@@ -19,6 +19,8 @@ import type { App } from './app.js';
 import { Viewer, type ProjectionExtras } from './projection.js';
 import { RecordingRng, ReplayRng, randomId } from './util.js';
 
+/** setTimeout cannot wait longer than 2^31-1 ms; long waits go in chunks of this size. */
+export const MAX_TIMER_MS = 24 * 86_400_000;
 const SNAPSHOT_EVERY = 50;
 
 interface RecordedCtx {
@@ -46,14 +48,18 @@ export class TableSession {
   private marked = new Set<string>();
   private timers = new Map<string, NodeJS.Timeout[]>();
   private emptyTimer: NodeJS.Timeout | null = null;
+  /** async-turns: when the table last had an action, and the timer that closes it when idle. */
+  lastActionAt: number;
+  private idleTimer: NodeJS.Timeout | null = null;
   private sinceSnapshot = 0;
 
   constructor(
     private app: App,
     state: TableState,
     version: number,
-    opts: { passwordHash: string | null; roomMuted?: string[]; undo?: UndoInfo | null },
+    opts: { passwordHash: string | null; roomMuted?: string[]; undo?: UndoInfo | null; lastActionAt?: number },
   ) {
+    this.lastActionAt = opts.lastActionAt ?? Date.now();
     this.engine = new TableEngine(state);
     this.engine.undo = opts.undo ?? null;
     this.version = version;
@@ -191,6 +197,7 @@ export class TableSession {
       this.broadcastPresence();
     }, markMs);
     const expire = setTimeout(() => {
+      if (this.state.mode === 'turn') return; // async-turns: seats are kept in turn-based mode
       this.timers.delete(pid);
       this.marked.delete(pid);
       if (!this.closed && this.isParticipant(pid) && !this.app.hub.isConnected(pid)) {
@@ -205,9 +212,56 @@ export class TableSession {
 
   checkEmpty() {
     if (this.closed || this.emptyTimer) return;
+    if (this.state.mode === 'turn') return; // async-turns: an idle turn-based table closes by its own lifetime instead
     if (this.connectedSet().size > 0) return;
     this.app.db.prepare('UPDATE game_tables SET empty_since = ? WHERE id = ?').run(Date.now(), this.id);
     this.emptyTimer = setTimeout(() => this.app.tables.close(this.id, 'expired'), this.app.opts.emptyTtlMs);
+  }
+
+
+  // ------------------------------------------------------------------ async-turns: idle lifetime
+
+  /** A player acted: remember when, durably, and restart the idle countdown. */
+  private touchActivity(now: number) {
+    this.lastActionAt = now;
+    this.app.db.prepare('UPDATE game_tables SET last_action_at = ? WHERE id = ?').run(now, this.id);
+    this.armIdle();
+  }
+
+  /** When an idle turn-based table closes. */
+  idleDeadline() {
+    return this.lastActionAt + this.state.settings.idleDays * 86_400_000;
+  }
+
+  /**
+   * One timer per turn-based table, aimed at the deadline derived from the saved last-action time (never from time spent
+   * running, so a spin-down and restart keep it). setTimeout overflows above ~24.8 days, so it waits in chunks and re-checks.
+   */
+  armIdle() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    if (this.closed || this.state.mode !== 'turn') return;
+    const wait = Math.min(Math.max(0, this.idleDeadline() - Date.now()), MAX_TIMER_MS);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (this.closed || this.state.mode !== 'turn') return;
+      if (Date.now() >= this.idleDeadline()) this.app.tables.close(this.id, 'expired');
+      else this.armIdle();
+    }, wait);
+  }
+
+  /** The table switched mode: each mode has its own closing and seat rules. */
+  private onModeChanged() {
+    if (this.emptyTimer) {
+      clearTimeout(this.emptyTimer);
+      this.emptyTimer = null;
+      this.app.db.prepare('UPDATE game_tables SET empty_since = NULL WHERE id = ?').run(this.id);
+    }
+    if (this.state.mode === 'realtime') {
+      for (const pid of this.participants()) if (!this.app.hub.isConnected(pid)) this.onDisconnected(pid); // real-time grace starts now
+      this.checkEmpty();
+    }
+    this.armIdle();
   }
 
   /** request-expiry: one timer per pending request, armed from its start time so a restart keeps the remaining time. */
@@ -265,6 +319,9 @@ export class TableSession {
     this.persist(action, actor, { now: ctx.now, draws: rng!.draws, connected: [...ctx.connected] });
     this.broadcast(res);
     this.armRequestTimers();
+    if (actor !== null || action.type === 'seatJoin') this.touchActivity(ctx.now);
+    if (action.type === 'setMode') this.onModeChanged();
+    else if (action.type === 'settings') this.armIdle();
     this.pruneLooking();
     this.app.lobbyChanged();
     this.app.metrics.record(performance.now() - t0);
@@ -392,6 +449,8 @@ export class TableSession {
     this.expiry.clear();
     if (this.emptyTimer) clearTimeout(this.emptyTimer);
     this.emptyTimer = null;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
   }
 
   summary(): TableSummary {
@@ -434,6 +493,7 @@ export class Tables {
         passwordHash: row.password_hash,
         roomMuted: JSON.parse(row.room_muted),
         undo: row.undo ? JSON.parse(row.undo) : null,
+        lastActionAt: row.last_action_at ?? Date.now(),
       });
       const actions = this.app.db
         .prepare('SELECT * FROM table_actions WHERE table_id = ? ORDER BY version')
@@ -447,6 +507,7 @@ export class Tables {
       for (const pid of session.participants()) this.app.playerTables.set(pid, row.id);
       session.armAllGrace();
       session.armRequestTimers();
+      session.armIdle();
     }
   }
 
@@ -469,8 +530,8 @@ export class Tables {
       layout: input.layout,
     });
     this.app.db
-      .prepare('INSERT INTO game_tables (id, state, version, password_hash, created_at) VALUES (?, ?, 0, ?, ?)')
-      .run(id, JSON.stringify(state), input.passwordHash, now);
+      .prepare('INSERT INTO game_tables (id, state, version, password_hash, created_at, last_action_at) VALUES (?, ?, 0, ?, ?, ?)')
+      .run(id, JSON.stringify(state), input.passwordHash, now, now);
     const session = new TableSession(this.app, state, 0, { passwordHash: input.passwordHash });
     this.sessions.set(id, session);
     return session;

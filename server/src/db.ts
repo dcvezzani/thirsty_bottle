@@ -174,6 +174,12 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX library_images_image ON library_images(image_id);
   `,
+  // 5: async-turns
+  `
+  -- async-turns: when a table last had an action, to close an idle turn-based table
+  ALTER TABLE game_tables ADD COLUMN last_action_at INTEGER;
+  UPDATE game_tables SET last_action_at = CAST(strftime('%s','now') AS INTEGER) * 1000;
+  `,
 ];
 
 /** Image ids a deck's content uses, each with a readable name: "<card> (front)", "<card> (back)" or "Deck back". */
