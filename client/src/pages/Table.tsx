@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { useNavigate, useParams } from 'react-router-dom';
 import type { TableSummary, TableView } from '@vct/shared';
 import { useTable } from '../store/table';
-import { getSocket, useApp } from '../store/app';
+import { getSocket, switchPerson, useApp } from '../store/app';
 import { api } from '../lib/api';
 import { Chat } from '../components/Chat';
 import { CardFace } from '../components/Card';
@@ -23,6 +23,10 @@ import { flowRows } from '../table/flow';
 import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
 import { Loupe } from '../table/Loupe';
+import { SharedCover, useSharedPhone } from '../table/SharedPhone';
+import { useShared } from '../table/sharedPhone';
+import { forgetPhoneTable, isGuestToken, phonePeople, phoneTable } from '../lib/guests';
+import { getTabToken } from '../lib/identity';
 
 export function TablePage() {
   const { id } = useParams();
@@ -35,8 +39,13 @@ export function TablePage() {
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    if (left) nav('/');
-  }, [left, nav]);
+    if (!left) return;
+    // pass-and-play: when the table ends or a guest is removed, a guest on this phone goes back to being the host
+    const t = id ? phoneTable(id) : null;
+    if (t && isGuestToken(getTabToken() ?? '')) switchPerson(t.host);
+    if (id) forgetPhoneTable(id);
+    nav('/');
+  }, [left, nav, id]);
 
   useEffect(() => {
     if (status !== 'online' || !id) return;
@@ -54,6 +63,11 @@ export function TablePage() {
         }
       });
   }, [status, id]);
+
+  // pass-and-play: covers and the switch to the next person on this phone
+  useSharedPhone(view);
+  const cover = useShared((s) => s.cover);
+  if (cover && id) return <SharedCover tableId={id} />;
 
   if (err)
     return (
@@ -224,6 +238,11 @@ function TableScreen({ view }: { view: TableView }) {
         >
           {view.mode === 'turn' ? 'Turns' : 'Real-time'}
         </button>
+        {phonePeople(view.id).length > 1 && (
+          <button aria-label="Who's playing" data-testid="who-playing" onClick={() => useShared.getState().setCover({ kind: 'pick' })}>
+            👥
+          </button>
+        )}
         {view.canUndo && <UndoButton ms={view.undoMsLeft} version={view.version} />}
         <button aria-label="Table settings" onClick={() => setSheet({ kind: 'settings' })}>
           ⚙

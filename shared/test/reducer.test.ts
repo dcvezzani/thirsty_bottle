@@ -367,6 +367,16 @@ describe('turns (2.8)', () => {
     expect(eng.state.settings.idleDays).toBe(7);
     expect(() => eng.dispatch({ type: 'settings', idleDays: 7 }, SAM.playerId, ctx())).toThrow();
   });
+  it('pass-and-play: a guest takes a seat, is listed as a guest and never becomes host', () => {
+    const { eng } = setup([SAM]);
+    eng.dispatch({ type: 'seatJoin', player: KIM, guest: true }, null, ctx());
+    expect(eng.state.guests).toEqual([KIM.playerId]);
+    expect(eng.state.seatedOrder).not.toContain(KIM.playerId);
+    eng.dispatch({ type: 'seatLeave', playerId: ALEX.playerId, reason: 'left' }, null, ctx({ connected: new Set([KIM.playerId, SAM.playerId]) }));
+    expect(eng.state.hostId).toBe(SAM.playerId); // Kim is connected and seated, but a guest
+    eng.dispatch({ type: 'seatLeave', playerId: KIM.playerId, reason: 'kicked' }, null, ctx());
+    expect(eng.state.guests).toEqual([]);
+  });
   it('switching back to real-time lets everyone act', () => {
     const { eng, deckZone } = setup();
     eng.dispatch({ type: 'setMode', mode: 'turn' }, ALEX.playerId, ctx());

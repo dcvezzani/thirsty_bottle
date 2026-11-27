@@ -68,6 +68,8 @@ export interface SeatView {
   connected: boolean;
   /** Disconnected for longer than the 5 s grace before marking. */
   disconnected: boolean;
+  /** pass-and-play: a guest on the host's phone. */
+  guest: boolean;
   handCount: number;
   /** Card count of each of the seat's per-player zones, in board order. */
   zoneCounts: { zone: string; name: string; count: number }[];

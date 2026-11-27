@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CardView, RequestView, TableView, ZoneView } from '@vct/shared';
 import { MAX_IDLE_DAYS, MIN_IDLE_DAYS } from '@vct/shared';
 import { useCountdown } from './requestCountdown';
-import { Sheet } from '../components/ui';
+import { PLAYER_COLORS, Sheet } from '../components/ui';
+import { addPhoneGuest, phonePeople, phoneTable, removePhoneGuest } from '../lib/guests';
+import { getTabToken } from '../lib/identity';
 import { CardFace, findDef } from '../components/Card';
 import { useTable } from '../store/table';
 import { getSocket, useApp } from '../store/app';
@@ -563,7 +565,7 @@ export function SeatSheet({ view, seatId, onClose }: { view: TableView; seatId: 
       {(() => {
         const status = [
           view.hostId === seat.playerId && seat.playerId ? 'host' : '',
-          seat.disconnected ? 'disconnected' : seat.playerId && !seat.connected ? 'reconnecting' : '',
+          seat.guest && !seat.connected ? 'on a shared phone' : seat.disconnected ? 'disconnected' : seat.playerId && !seat.connected ? 'reconnecting' : '',
           viewingOf(view, seat.playerId) ?? '',
         ].filter(Boolean);
         return status.length ? (
@@ -807,6 +809,73 @@ function LoupeSetting() {
   );
 }
 
+/** pass-and-play: the host adds and removes guests who play on this phone. */
+function PhonePlayers({ view }: { view: TableView }) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(PLAYER_COLORS[3]);
+  const [busy, setBusy] = useState(false);
+  const [, bump] = useState(0);
+  const toast = useApp((s) => s.toast);
+  const me = useApp((s) => s.me);
+  const people = phonePeople(view.id);
+  const guestSeats = view.seats.filter((x) => x.guest);
+  const hostToken = phoneTable(view.id)?.host.token ?? getTabToken();
+  const full = !view.seats.some((x) => !x.playerId) && view.seats.length >= (view.settings.seatLimit ?? 12);
+  const add = async () => {
+    if (!name.trim() || !me || !hostToken) return;
+    setBusy(true);
+    try {
+      const r = await api<{ token: string; player: { id: string; name: string; color: string }; seatId?: string }>('POST', `/api/tables/${view.id}/guests`, { name: name.trim(), color }, hostToken);
+      addPhoneGuest(view.id, { token: hostToken, id: me.id, name: me.name, color: me.color }, { token: r.token, ...r.player, seatId: r.seatId });
+      setName('');
+      bump((n) => n + 1);
+    } catch (e: any) {
+      toast(e.message ?? 'Could not add the player', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (id: string) => {
+    try {
+      await api('DELETE', `/api/tables/${view.id}/guests/${id}`, undefined, hostToken ?? undefined);
+      removePhoneGuest(view.id, id);
+      bump((n) => n + 1);
+    } catch (e: any) {
+      toast(e.message ?? 'Could not remove the player', 'error');
+    }
+  };
+  return (
+    <>
+      <h4 style={{ margin: '14px 0 4px' }}>Players on this phone</h4>
+      <p className="small-text muted" style={{ margin: '0 0 4px' }}>
+        Add friends who share this phone. They pass it around on their turns; no sign-in needed.
+      </p>
+      {guestSeats.map((g) => (
+        <div key={g.id} className="row" data-testid={`phone-guest-${g.name}`}>
+          <span className="grow">
+            {g.name}
+            {!people.some((p) => p.id === g.playerId) && <span className="small-text muted"> · not on this phone</span>}
+          </span>
+          <button className="small" aria-label={`Remove ${g.name}`} onClick={() => remove(g.playerId!)}>
+            Remove
+          </button>
+        </div>
+      ))}
+      <div className="row">
+        <input aria-label="Name of a player on this phone" placeholder="Name" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} />
+        <button aria-label="Add player on this phone" disabled={!name.trim() || busy || full} onClick={add}>
+          Add
+        </button>
+      </div>
+      <div className="colors" role="group" aria-label="Color of the new player">
+        {PLAYER_COLORS.map((c) => (
+          <button type="button" key={c} aria-label={`Guest color ${c}`} aria-pressed={c === color} style={{ background: c }} onClick={() => setColor(c)} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () => void }) {
   const st = view.settings;
   const [name, setName] = useState(st.name);
@@ -883,6 +952,7 @@ export function SettingsSheet({ view, onClose }: { view: TableView; onClose: () 
             <option value="public">Public</option>
             <option value="private">Private (invite link)</option>
           </select>
+          <PhonePlayers view={view} />
           <label htmlFor="sidle">Inactive table lifetime</label>
           <select id="sidle" value={st.idleDays} onChange={(e) => send({ type: 'settings', idleDays: Number(e.target.value) })}>
             {Array.from({ length: MAX_IDLE_DAYS - MIN_IDLE_DAYS + 1 }, (_, i) => i + MIN_IDLE_DAYS).map((n) => (

@@ -59,8 +59,8 @@ Other participants SHALL see a guest's seat as a normal seat. While a guest is n
 - **THEN** remote players see Sam's seat marked "on a shared phone"
 
 ### Requirement: Lost guest identity
-If a guest's identity is lost from the phone, its seat SHALL become a vacated seat with its hand kept, for the host to resolve.
+If a guest's identity is lost from the phone, the host SHALL see that guest marked as not on this phone and SHALL be able to remove it. Removing a guest whose seat holds cards SHALL leave the seat vacated with its cards kept, for the host to resolve.
 
 #### Scenario: Phone storage cleared
 - **WHEN** the phone's storage is cleared while Sam is a guest
-- **THEN** Sam's seat is shown to the host as vacated with Sam's hand kept
+- **THEN** the host's list of players on this phone marks Sam as not on this phone, and removing Sam frees the seat, or vacates it with Sam's cards kept

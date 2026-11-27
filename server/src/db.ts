@@ -180,6 +180,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE game_tables ADD COLUMN last_action_at INTEGER;
   UPDATE game_tables SET last_action_at = CAST(strftime('%s','now') AS INTEGER) * 1000;
   `,
+  // 6: pass-and-play guests (a guest belongs to a host and to one table)
+  `
+  ALTER TABLE players ADD COLUMN guest_of TEXT;
+  ALTER TABLE players ADD COLUMN guest_table TEXT;
+  CREATE INDEX players_guest_table ON players(guest_table);
+  `,
 ];
 
 /** Image ids a deck's content uses, each with a readable name: "<card> (front)", "<card> (back)" or "Deck back". */

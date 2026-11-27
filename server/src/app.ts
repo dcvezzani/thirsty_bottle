@@ -117,6 +117,7 @@ export class App {
     this.purgeTimer.unref();
     this.deckio.seedBuiltIns();
     this.setups.seedBuiltIns();
+    this.players.purgeOrphanGuests();
     this.tables.loadAll();
     await this.routes();
     this.http.server.on('upgrade', (req, socket, head) => {
@@ -157,9 +158,22 @@ export class App {
       s.apply({ type: 'seatLeave', playerId: pid, reason }, null);
       s.detachViewer(pid);
     }
+    // pass-and-play: a host's guests go with them
+    for (const g of this.players.guestsOfTable(tableId)) if (this.players.get(g)?.guestOf === pid) this.removeGuest(s, g);
     this.playerLeftTable(pid, tableId);
     this.hub.send(pid, { t: 'table.left', tableId, reason });
     s?.checkEmpty();
+  }
+
+  /** pass-and-play: release a guest's seat and delete the guest. */
+  removeGuest(s: TableSession | undefined, guestId: string) {
+    if (s && s.isParticipant(guestId)) {
+      s.apply({ type: 'seatLeave', playerId: guestId, reason: 'kicked' }, null);
+      s.detachViewer(guestId);
+    }
+    if (s) this.playerLeftTable(guestId, s.id);
+    this.hub.send(guestId, { t: 'table.left', tableId: s?.id ?? '', reason: 'kicked' });
+    this.players.deleteGuest(guestId);
   }
 
   async loadDeckOntoTable(s: TableSession, pid: string, deckId: string, shareToken?: string): Promise<void> {
@@ -214,6 +228,34 @@ export class App {
       const body = z.object({ name: DisplayNameSchema, color: PlayerColorSchema }).parse(req.body);
       const { token, player } = this.players.create(body.name, body.color);
       return { token, player: { id: player.id, name: player.name, color: player.color }, imageKey: this.imageKey(player.id) };
+    });
+
+    // pass-and-play: the host adds guests to play on their phone
+    app.post('/api/tables/:id/guests', async (req) => {
+      const me = this.auth(req)!;
+      const s = this.tables.get((req.params as any).id);
+      if (!s) throw new HttpError(404, 'NO_TABLE', 'That table no longer exists');
+      if (s.state.hostId !== me.id || me.guestOf) throw new HttpError(403, 'NOT_HOST', 'Only the host can add players on this phone');
+      const body = z.object({ name: DisplayNameSchema, color: PlayerColorSchema }).parse(req.body);
+      if (!Tables.seatAvailable(s.state)) throw new HttpError(409, 'TABLE_FULL', 'All seats are taken');
+      const { token, player } = this.players.createGuest(body.name, body.color, me.id, s.id);
+      s.apply({ type: 'seatJoin', player: { playerId: player.id, name: player.name, color: player.color }, guest: true }, null);
+      this.playerTables.set(player.id, s.id);
+      s.onDisconnected(player.id); // not connected yet: shown as on a shared phone
+      this.lobbyChanged();
+      return { token, player: { id: player.id, name: player.name, color: player.color }, seatId: s.state.seats.find((x) => x.playerId === player.id)?.id };
+    });
+
+    app.delete('/api/tables/:id/guests/:pid', async (req) => {
+      const me = this.auth(req)!;
+      const { id, pid } = req.params as { id: string; pid: string };
+      const s = this.tables.get(id);
+      if (!s) throw new HttpError(404, 'NO_TABLE', 'That table no longer exists');
+      if (s.state.hostId !== me.id) throw new HttpError(403, 'NOT_HOST', 'Only the host can remove players on this phone');
+      const g = this.players.get(pid);
+      if (!g || g.guestTable !== id) throw new HttpError(404, 'NO_GUEST', 'That guest is not at this table');
+      this.removeGuest(s, pid);
+      return { ok: true };
     });
 
     app.get('/api/me', async (req) => {

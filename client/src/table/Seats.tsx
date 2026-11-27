@@ -18,7 +18,7 @@ export function SeatBar({ view, shown = view.me.seatId }: { view: TableView; sho
         return (
           <button
             key={s.id}
-            className={`seat ${active ? 'active' : ''} ${s.disconnected ? 'away' : ''} ${!s.playerId ? 'empty' : ''} ${isOver ? 'drop-over' : ''}`}
+            className={`seat ${active ? 'active' : ''} ${s.disconnected && !s.guest ? 'away' : ''} ${!s.playerId ? 'empty' : ''} ${isOver ? 'drop-over' : ''}`}
             style={{ ['--seat-color' as any]: s.color }}
             data-drop-seat={s.playerId || hand?.cards.length !== undefined ? s.id : undefined}
             data-seat-zone={hand?.id}
@@ -50,7 +50,8 @@ export function seatStatus(view: TableView, s: SeatView, viewing: string | null,
   if (s.id === view.me.seatId) parts.push('you');
   if (s.playerId && view.hostId === s.playerId) parts.push('host');
   if (active) parts.push('their turn');
-  if (s.disconnected) parts.push('disconnected');
+  if (s.guest && !s.connected) parts.push('on a shared phone');
+  else if (s.disconnected) parts.push('disconnected');
   else if (s.playerId && !s.connected) parts.push('reconnecting');
   if (viewing) parts.push(viewing);
   return `${parts.join(', ')}: ${s.handCount} card${s.handCount === 1 ? '' : 's'} in hand`;

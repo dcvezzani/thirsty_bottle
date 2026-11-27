@@ -158,6 +158,7 @@ export class Viewer {
       color: st.color,
       connected: !!st.playerId && x.connected.has(st.playerId),
       disconnected: !!st.playerId && x.markedDisconnected.has(st.playerId),
+      guest: !!st.playerId && s.guests.includes(st.playerId),
       handCount: s.zones[handZoneId(st.id)]?.cards.length ?? 0,
       zoneCounts: s.zoneOrder
         .map((id) => s.zones[id])

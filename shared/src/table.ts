@@ -170,6 +170,8 @@ export interface TableState {
   idSeq: number;
   /** Seat ids in the order players first sat, used for host auto-transfer. */
   seatedOrder: string[];
+  /** pass-and-play: players that are guests on the host's phone (never host, never in seatedOrder). Older tables lack it. */
+  guests: string[];
   /** The setup last applied to this table (table-setups: Play again). */
   lastSetup?: { id: string; versionId: string; name: string; slots?: Record<string, string> };
   /** request-hand-view: pending asks to see a hand (defaults to empty for older stored tables). */
@@ -319,7 +321,7 @@ export type ActionType = Action['type'];
 
 /** Actions only the server issues (seating changes, deck loading); never accepted from clients. */
 export type SystemAction =
-  | { type: 'seatJoin'; player: Participant; seatId?: string }
+  | { type: 'seatJoin'; player: Participant; seatId?: string; guest?: boolean }
   | { type: 'spectate'; player: Participant }
   | { type: 'seatLeave'; playerId: string; reason: 'left' | 'kicked' | 'expired' }
   | { type: 'loadDeck'; deck: z.infer<typeof TableDeckSchema>; zone?: string }

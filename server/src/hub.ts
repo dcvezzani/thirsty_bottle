@@ -141,6 +141,7 @@ export class Hub {
         return ok({ player: this.publicPlayer(me) });
       }
       case 'table.create': {
+        if (me.guestOf) throw new ActionError('GUEST', 'A guest cannot create a table');
         const hash = msg.password ? await argon2.hash(msg.password) : null;
         const prev = app.playerTables.get(me.id);
         if (prev) app.leaveTable(me.id, prev, 'left');
@@ -177,6 +178,7 @@ export class Hub {
         return ok({ tableId: s.id, ...(setupError ? { setupError } : {}) });
       }
       case 'table.join': {
+        if (me.guestTable && me.guestTable !== msg.tableId) throw new ActionError('GUEST', 'A guest can only be at its own table');
         const s = app.tables.get(msg.tableId);
         if (!s) throw new ActionError('NO_TABLE', 'That table no longer exists');
         const p = { playerId: me.id, name: me.name, color: me.color };
@@ -327,7 +329,7 @@ export class Hub {
 
   presence(): PlayerPublic[] {
     const list = [...this.conns.values()]
-      .filter((c) => c.player)
+      .filter((c) => c.player && !c.player.guestOf) // pass-and-play: guests are not in the lobby
       .sort((a, b) => a.connectedAt - b.connectedAt)
       .map((c) => c.player!);
     const seen = new Map<string, number>();

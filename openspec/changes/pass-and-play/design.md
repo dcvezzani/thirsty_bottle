@@ -17,7 +17,7 @@ A seat belongs to one account (`seat.playerId`), a device is one account with on
 - **Marking.** The seat view carries `guest: true`. When a guest seat is disconnected, remote clients show "on a shared phone" instead of "disconnected".
 - **Handoff cover.** A client-side state machine watches the turn: when `turn.active` becomes a seat on this phone other than the connected person, it raises the cover at once, switches identity, and waits for a tap; when it becomes a remote seat, it shows the waiting cover over the current view without rendering the hand. The cover renders in place of the table so nothing underneath is in the DOM.
 - **Real-time.** No watcher; a "Who's playing" sheet lists the phone's people, shows the cover, and switches on tap.
-- **Lost identity.** If a guest's token is gone from the phone, the seat is not reconnectable; after the usual grace it becomes vacated (turn mode keeps the seat until the host resolves it).
+- **Lost identity.** If a guest's token is gone from the phone, the seat cannot be reconnected. A guest's seat never expires by grace (the phone is one identity at a time, so guests are normally disconnected), so the host's "Players on this phone" list flags the guest as not on this phone and offers Remove, which vacates the seat when it holds cards.
 
 ## Risks / Trade-offs
 

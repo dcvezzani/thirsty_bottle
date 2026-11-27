@@ -114,6 +114,7 @@ export function createTableState(o: CreateTableOptions): TableState {
     vacated: [],
     idSeq: 0,
     seatedOrder: [],
+    guests: [],
     zoneLayoutVersion: 1,
   };
   if ((o.layout ?? 'standard') === 'standard') {
@@ -138,6 +139,7 @@ export function createTableState(o: CreateTableOptions): TableState {
  */
 export function migrateState(s: TableState): TableState {
   if (!s.seeRequests) s.seeRequests = []; // request-hand-view: tables saved before it existed
+  if (!s.guests) s.guests = []; // pass-and-play
   if (s.settings.idleDays === undefined) s.settings.idleDays = DEFAULT_IDLE_DAYS; // async-turns
   if ((s.zoneLayoutVersion ?? 0) >= 1) return s;
   const shared = s.zoneOrder
@@ -1427,9 +1429,12 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       seat.color = p.color;
       s.vacated = s.vacated.filter((v) => v.seatId !== seat!.id);
       s.spectators = s.spectators.filter((x) => x.playerId !== p.playerId);
-      s.seatedOrder = s.seatedOrder.filter((x) => x !== p.playerId).concat(p.playerId);
+      if (action.guest) {
+        // pass-and-play: a guest on the host's phone is never the host and never inherits the host role
+        if (!s.guests.includes(p.playerId)) s.guests.push(p.playerId);
+      } else s.seatedOrder = s.seatedOrder.filter((x) => x !== p.playerId).concat(p.playerId);
       log(s, now, p.playerId, `${p.name} joined seat ${s.seats.indexOf(seat) + 1}`, 'system');
-      if (!seatOfPlayer(s, s.hostId)) {
+      if (!action.guest && !seatOfPlayer(s, s.hostId)) {
         s.hostId = p.playerId;
         log(s, now, null, `${p.name} is now the host`, 'system');
       }
@@ -1452,6 +1457,7 @@ export function reduce(prev: TableState, action: AnyAction, actor: string | null
       }
       const seat = seatOfPlayer(s, pid);
       if (!seat) break;
+      s.guests = s.guests.filter((x) => x !== pid);
       const name = seat.name;
       const wasActive = s.turn.active === seat.id;
       seat.playerId = null;

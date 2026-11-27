@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ChatMessage, PlayerPublic, ServerMessage, TableSummary } from '@vct/shared';
 import { Socket, type ConnStatus } from '../net/socket';
 import { getTabToken, holdToken, saveIdentity, setTabToken } from '../lib/identity';
+import { isGuestToken } from '../lib/guests';
 import { setImageKey } from '../lib/api';
 import { useTable } from './table';
 
@@ -101,7 +102,7 @@ export function connect(token: string) {
     onHello: (data) => {
       setImageKey(data.imageKey);
       useApp.setState({ me: data.player, myTableId: data.tableId, myTableHost: !!data.tableHost });
-      saveIdentity({ token, id: data.player.id, name: data.player.name, color: data.player.color });
+      if (!isGuestToken(token)) saveIdentity({ token, id: data.player.id, name: data.player.name, color: data.player.color }); // guests are not offered in the picker
       useTable.getState().onReconnected();
     },
   });
@@ -121,6 +122,12 @@ export function switchIdentity(token: string | null) {
   setTabToken(token);
   useApp.setState({ me: null, status: 'offline', chat: {}, unread: {}, players: [], tables: [] });
   useTable.getState().reset();
+}
+
+/** pass-and-play: connect as another person on this phone (the previous person's view leaves memory with the old connection). */
+export function switchPerson(p: { token: string }) {
+  switchIdentity(p.token);
+  connect(p.token);
 }
 
 if (typeof window !== 'undefined') {

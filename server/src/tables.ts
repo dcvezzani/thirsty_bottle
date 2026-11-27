@@ -198,6 +198,7 @@ export class TableSession {
     }, markMs);
     const expire = setTimeout(() => {
       if (this.state.mode === 'turn') return; // async-turns: seats are kept in turn-based mode
+      if (this.state.guests.includes(pid)) return; // pass-and-play: a guest's seat stays until the host removes it
       this.timers.delete(pid);
       this.marked.delete(pid);
       if (!this.closed && this.isParticipant(pid) && !this.app.hub.isConnected(pid)) {
@@ -557,6 +558,7 @@ export class Tables {
       this.app.playerLeftTable(pid, id);
     }
     this.app.db.prepare('UPDATE game_tables SET closed_at = ? WHERE id = ?').run(Date.now(), id);
+    for (const g of this.app.players.guestsOfTable(id)) this.app.players.deleteGuest(g); // pass-and-play
     this.app.db.prepare('DELETE FROM table_decks WHERE table_id = ?').run(id);
     this.app.chat.deleteChannel(`table:${id}`);
     this.sessions.delete(id);
