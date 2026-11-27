@@ -30,6 +30,13 @@ test('scrubbing shows the card large in a loupe that does not cover the row; a p
   expect(lb.y + lb.height).toBeLessThanOrEqual(rb.y); // never over the zone being scrubbed
   const card = (await loupe.locator('.card').boundingBox())!;
   expect(card.width).toBeGreaterThan(110); // a lot bigger than a card in the row
+  // loupe-viewport-size: docked at the very top of the view, nearly full width, tall (up to 60% of the screen), covering the header
+  const vp = page.viewportSize()!;
+  expect(lb.y).toBeLessThanOrEqual(12);
+  expect(lb.width).toBeGreaterThan(vp.width - 24);
+  expect(lb.height).toBeGreaterThanOrEqual(vp.height * 0.35 - 2);
+  expect(lb.height).toBeLessThanOrEqual(vp.height * 0.6 + 2);
+  expect(card.height).toBeGreaterThan(lb.height - 80); // the card fills the box
   await expect(page.getByTestId('loupe-details')).toHaveCount(0);
 
   // hold still: the loupe fills in the details; moving on returns to the large card
@@ -409,5 +416,30 @@ test('second finger on a board zone: hold pins the zone, a tap on the loupe stil
   await expect(page.locator('section.zone[aria-label="B"]')).toHaveClass(/is-open/);
   await expect(page.locator('.card.selected')).toHaveCount(0);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [f1(b[1])] });
+  await ctx.close();
+});
+
+test('loupe-viewport-size: a board zone scrub docks the loupe on the roomier edge, inside the view, clear of the zone (2.1)', async ({ browser }) => {
+  const { ctx, page } = await startHand(browser, `Dock ${Date.now() % 100000}`, 1);
+  await twoSpreads(page);
+  await settle(page);
+  const b = await stripCenters(page, 'row-B');
+  const zb = (await page.locator('section.zone[aria-label="B"]').boundingBox())!;
+  const vp = page.viewportSize()!;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [b[0]] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: b[0].x + 10, y: b[0].y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [b[1]] });
+  const loupe = page.getByTestId('loupe');
+  await expect(loupe).toBeVisible();
+  const lb = (await loupe.boundingBox())!;
+  const side = await loupe.getAttribute('data-side');
+  expect(lb.y).toBeGreaterThanOrEqual(0);
+  expect(lb.y + lb.height).toBeLessThanOrEqual(vp.height);
+  const roomier = zb.y >= vp.height - (zb.y + zb.height) ? 'top' : 'bottom';
+  expect(side).toBe(roomier);
+  if (side === 'top') expect(lb.y + lb.height).toBeLessThanOrEqual(zb.y + 1);
+  else expect(lb.y).toBeGreaterThanOrEqual(zb.y + zb.height - 1);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await ctx.close();
 });

@@ -4,6 +4,7 @@ import { MetaList } from '../pages/DeckEditor';
 import { findCard, useUI, zoneLabel } from './ui';
 import { secondFingerGesture, showsDetails, showsTrue } from './loupeView';
 import { fitInBox } from './rotation';
+import { loupeSizes, loupeWidth } from './loupe';
 import { canRotateIn, rotateCards } from './rotate';
 import { useRef } from 'react';
 
@@ -34,12 +35,12 @@ export function Loupe({ view }: { view: TableView }) {
   const ambiguous = def && view.decks.some((d) => d.id !== card.deck && d.defs.some((x) => x.name === def.name));
   const where = zoneLabel(view, zone);
   const title = loupe.row ? `${loupe.row}` : where;
-  const capH = 44;
-  const cardW = Math.min(Math.floor((loupe.h - capH) / 1.4), 200);
   const stay = !!viewed && !preview; // released in 'stay' mode: the loupe has buttons
   const showDetails = showsDetails(face, loupe.details);
   // the true full view: the card at full size with its rotation, in a square box so a diagonal card is not shrunk to a portrait slot
   const trueView = showsTrue(face) && !showDetails;
+  const sizes = loupeSizes(loupe.h, loupeWidth(window.innerWidth), stay);
+  const cardW = trueView ? sizes.trueCard : showDetails ? sizes.details : sizes.card;
   const cardH = cardW * 1.4;
   const canRotate = canRotateIn(view, zone);
   const turnFit = fitInBox(card.rot ?? 0, cardW, cardH, cardH, cardH);
@@ -108,7 +109,7 @@ export function Loupe({ view }: { view: TableView }) {
             <CardFace card={card} decks={view.decks} large turnFit={turnFit} style={{ ['--card-w' as any]: `${cardW}px` }} />
           </div>
         ) : (
-          <CardFace card={card} decks={view.decks} large upright style={{ ['--card-w' as any]: `${showDetails ? Math.floor(cardW * 0.7) : cardW}px` }} />
+          <CardFace card={card} decks={view.decks} large upright style={{ ['--card-w' as any]: `${cardW}px` }} />
         )}
         {showDetails && (
           <div className="loupe-text" data-testid="loupe-details">

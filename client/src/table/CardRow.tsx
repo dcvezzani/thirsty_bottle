@@ -8,7 +8,7 @@ import { useUI } from './ui';
 import { dropRegistry, endDrag, moveDrag, startDrag, cancelDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import { quickFlip } from './flip';
-import { pickLoupe } from './loupe';
+import { pickLoupe, viewBox } from './loupe';
 import { enterRegistry, registerStrip, StripRun } from './scrubStrip';
 import { getLoupeMode } from '../lib/loupePrefs';
 
@@ -44,14 +44,11 @@ export function tapEndsViewing(h: string | undefined) {
   return true;
 }
 
-/** scrub-loupe: choose the loupe's side from the pressed zone and the board, once, when a touch scrub starts. */
+/** loupe-viewport-size: choose the loupe's edge (top or bottom of the whole view) from the pressed zone, once, when a touch scrub starts. */
 export function placeLoupe(el: HTMLElement | null, pointerType: string) {
   if (!el || pointerType === 'mouse') return;
-  const board = el.closest('.board') ?? document.querySelector('.board');
-  const b = board?.getBoundingClientRect();
   const zr = (el.closest('.zone') ?? el).getBoundingClientRect();
-  if (!b) return;
-  const p = pickLoupe({ top: zr.top, bottom: zr.bottom }, { top: b.top, bottom: b.bottom });
+  const p = pickLoupe({ top: zr.top, bottom: zr.bottom }, viewBox());
   useUI.setState({ loupe: { ...p, details: false, row: null }, viewed: null });
 }
 
