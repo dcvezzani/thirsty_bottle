@@ -13,7 +13,7 @@ On narrow screens the client SHALL show the player's own hand as a fanned arc al
 - **THEN** all 20 cards stay reachable in the fanned hand, with overlap increased and the selected card raised
 
 ### Requirement: Scrub to preview
-Pressing and sliding along a fanned hand or spread SHALL show the card under the finger large in a loupe, at a fixed place that does not cover the zone being scrubbed. The loupe is at the top of the screen, or at the bottom when the pressed zone lies in the upper part of the board, chosen when the press starts and kept until it is dismissed. A scrub never changes the cards or the selection. On release the loupe goes away, unless the player's Card loupe preference is "Stay open".
+Pressing and sliding along a fanned hand or spread SHALL show the card under the finger large in a loupe docked at the top or the bottom edge of the screen, full width, covering whatever is there, the header and footer included, but not the zone being scrubbed. A scrub never changes the cards or the selection. On release the loupe goes away, unless the player's Card loupe preference is "Stay open".
 
 #### Scenario: Scrub through own hand
 - **WHEN** a player presses on their hand and slides sideways across 6 overlapping cards
@@ -26,6 +26,13 @@ Pressing and sliding along a fanned hand or spread SHALL show the card under the
 #### Scenario: Haptic tick
 - **WHEN** the scrub moves onto a new card on a device that supports vibration
 - **THEN** the device gives a short haptic tick
+
+### Requirement: Loupe side is chosen at press
+When the press starts, the loupe SHALL go on the side with more free room beyond the pressed zone, the top on a tie, and stay there until it is dismissed.
+
+#### Scenario: Zone near the top
+- **WHEN** a player scrubs a zone in the upper part of the screen
+- **THEN** the loupe docks at the bottom edge and stays there for the whole gesture
 
 ### Requirement: Fan out a pile for scrubbing
 A player SHALL be able to temporarily fan out any pile to scrub through it, then collapse it again. Fanning out SHALL NOT change card order or face state, and hidden cards SHALL show only their backs.
@@ -656,3 +663,29 @@ The room a mixed pile reserves SHALL be to the right and above, as much as its l
 #### Scenario: Tapping the L
 - **WHEN** a player taps the part of a card that sticks out above or to the right of the top card
 - **THEN** the pile's own action runs
+
+### Requirement: The loupe fills the room beyond the zone
+The loupe SHALL be as tall as the free room on its side of the pressed zone, at most 60% of the screen height; when neither side has about 35% it takes the larger side at that minimum. It SHALL be as wide as the screen with a small margin, at most about 720 px, and stay clear of the notch and home-indicator areas.
+
+#### Scenario: A hand on a phone
+- **WHEN** a player scrubs the hand at the bottom of a phone screen
+- **THEN** the loupe is docked at the top, spans the screen's width, covers the header, is no more than 60% of the screen high, and shows the card larger than 220 px wide
+
+#### Scenario: A zone in the middle
+- **WHEN** a player scrubs a zone in the middle of the screen
+- **THEN** the loupe takes the side with more room at a reduced height of at least about 35% of the screen, and stays on that side throughout
+
+#### Scenario: A wide screen
+- **WHEN** a player scrubs on a screen wider than 720 px
+- **THEN** the loupe is about 720 px wide and centred
+
+### Requirement: The card fills the loupe
+The card SHALL fill the loupe's height up to the width available. Details SHALL put the card on the left and the text beside it, and True full SHALL show the card in a square box as tall as the loupe.
+
+#### Scenario: Details and True full
+- **WHEN** the loupe shows Details, and then True full, for a rotated card
+- **THEN** Details has the card on the left and its text on the right, and True full shows the card rotated in a square as tall as the loupe
+
+#### Scenario: A big card
+- **WHEN** a player scrubs a card on a phone
+- **THEN** the card in the loupe is as tall as the loupe leaves room for, not capped at a small size
