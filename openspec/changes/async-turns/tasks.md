@@ -10,4 +10,4 @@
 ## 3. Client and verification
 
 - [x] 3.1 Add the host's "Inactive table lifetime (days)" field to the table settings sheet, shown to players read-only, using the shared limits.
-- [ ] 3.2 Add e2e tests: End turn with two players moves the indicator; with the next player offline the turn moves to them and they keep their seat after the grace period. Run lint, unit and the full e2e suites.
+- [x] 3.2 Add e2e tests: End turn with two players moves the indicator; with the next player offline the turn moves to them and they keep their seat after the grace period. Run lint, unit and the full e2e suites.
