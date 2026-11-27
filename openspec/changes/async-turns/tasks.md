@@ -5,7 +5,7 @@
 ## 2. Keep seats and close idle tables
 
 - [ ] 2.1 Add the `idleDays` setting (1 to 30, default 1, host only, validated) to the shared schema, defaults and the settings action, with unit tests for range and permissions.
-- [ ] 2.2 In the server, arm the seat-grace expiry only in real-time mode, switch the timers on a mode change, limit the empty-table close to real-time tables, and add the per-table idle timer re-armed on each action, setting or mode change and rebuilt after a restart. Server tests with short timers for each scenario.
+- [ ] 2.2 In the server, arm the seat-grace expiry only in real-time mode, switch the timers on a mode change, limit the empty-table close to real-time tables, and add the per-table idle timer re-armed on each action, setting or mode change and rebuilt after a restart. Server tests with short timers for each scenario. Include a restart test (a table past its lifetime closes on load, one with time left keeps the remainder) and a test that a 30-day lifetime does not fire early.
 
 ## 3. Client and verification
 
