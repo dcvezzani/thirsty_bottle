@@ -18,7 +18,7 @@ Pressing and sliding along a fanned hand or spread SHALL show the card under the
 ## ADDED Requirements
 
 ### Requirement: The loupe fills the room beyond the zone
-The loupe SHALL be as tall as the free room on its side of the pressed zone, at most 60% of the screen height; when neither side has about 35% it takes the larger side at that minimum. It SHALL be as wide as the screen with a small margin, at most about 720 px, and stay clear of the notch and home-indicator areas. The card SHALL fill the loupe's height up to the width available; Details SHALL put the card on the left and the text beside it, and True full SHALL show the card in a square box as tall as the loupe.
+The loupe SHALL be as tall as the free room on its side of the pressed zone, at most 60% of the screen height; when neither side has about 35% it takes the larger side at that minimum. It SHALL be as wide as the screen with a small margin, at most about 720 px, and stay clear of the notch and home-indicator areas.
 
 #### Scenario: A hand on a phone
 - **WHEN** a player scrubs the hand at the bottom of a phone screen
@@ -32,6 +32,13 @@ The loupe SHALL be as tall as the free room on its side of the pressed zone, at 
 - **WHEN** a player scrubs on a screen wider than 720 px
 - **THEN** the loupe is about 720 px wide and centred
 
+### Requirement: The card fills the loupe
+The card SHALL fill the loupe's height up to the width available. Details SHALL put the card on the left and the text beside it, and True full SHALL show the card in a square box as tall as the loupe.
+
 #### Scenario: Details and True full
 - **WHEN** the loupe shows Details, and then True full, for a rotated card
 - **THEN** Details has the card on the left and its text on the right, and True full shows the card rotated in a square as tall as the loupe
+
+#### Scenario: A big card
+- **WHEN** a player scrubs a card on a phone
+- **THEN** the card in the loupe is as tall as the loupe leaves room for, not capped at a small size
