@@ -571,7 +571,7 @@ A zone SHALL grow so that the cards in it, at their rotations, are not clipped: 
 - **THEN** that zone is wider, and the other zones in the row shrink or wrap to make room
 
 ### Requirement: Room follows the rotations of drawn cards
-The room a zone reserves SHALL follow the cards currently drawn in it and SHALL go away when they are upright again or gathered. A pile SHALL count the cards it draws: its top card and the differently turned cards drawn beneath it. Card slots, fan spacing and tap areas SHALL NOT change.
+The room a zone reserves SHALL follow the cards currently drawn in it and SHALL go away when they are upright again or gathered. A pile SHALL count the cards it draws: its top card and the differently turned cards drawn beneath it, and a pile with cards of more than one outline reserves room only to the right and above. Card slots, fan spacing and tap areas SHALL NOT change.
 
 #### Scenario: Back to upright
 - **WHEN** the only rotated card in a spread is set upright
@@ -590,11 +590,11 @@ Beneath its top card a pile SHALL draw the first card of each outline that no ca
 
 #### Scenario: A differently turned card under three alike
 - **WHEN** a pile holds, from the top, three upright cards and then a card rotated 90°
-- **THEN** the rotated card is drawn beneath the top card, sticking out at its sides
+- **THEN** the rotated card is drawn beneath the top card, sticking out on its right
 
 #### Scenario: A turned top card over an upright one
 - **WHEN** the top card of a pile is rotated 90° and the card under it is face up and upright
-- **THEN** the upright card is drawn beneath, and the parts of it above and below the top card show its real face
+- **THEN** the upright card is drawn beneath, and the part of it above the top card shows its real face
 
 #### Scenario: The same outline is not drawn
 - **WHEN** the top card is upright and the card under it is upside down
@@ -622,3 +622,37 @@ The selection actions sheet SHALL offer Reverse order for the selected cards, an
 #### Scenario: Not in another player's zone
 - **WHEN** a player has selected cards in another player's hand
 - **THEN** Reverse order is not offered
+
+### Requirement: Mixed piles line up at the bottom-left corner
+When a pile draws cards of more than one outline, the rotated outline of every drawn card, the top card included, SHALL be placed with its bottom-left corner at the bottom-left corner of the pile's slot, so that a larger outline sticks out along the top and the right and the exposed part forms an L. A pile whose drawn cards share one outline SHALL stay centred.
+
+#### Scenario: A landscape card under an upright one
+- **WHEN** the top card of a pile is upright and the card under it is rotated 90°
+- **THEN** the two share their bottom-left corner and the rotated card sticks out only on the right
+
+#### Scenario: A diagonal card under an upright one
+- **WHEN** the top card of a pile is upright and the card under it is rotated 45°
+- **THEN** the two share their bottom-left corner and the diagonal card sticks out along the top and the right, forming an L
+
+#### Scenario: A turned top card
+- **WHEN** the top card of a pile is rotated 90° over an upright card
+- **THEN** the turned top card sits in the bottom-left corner of the pile and the upright card sticks out above it
+
+#### Scenario: One outline stays centred
+- **WHEN** every card a pile draws has the same outline
+- **THEN** the pile looks as it did before, with its card centred
+
+#### Scenario: Back to one outline
+- **WHEN** the differently turned card of a mixed pile is made upright
+- **THEN** the pile returns to being centred and to its normal size
+
+### Requirement: Room for a mixed pile
+The room a mixed pile reserves SHALL be to the right and above, as much as its largest outline needs, and none below or to the left; in a row of fit-width zones its zone is wider by that amount. The pile's tap area SHALL cover the whole of the drawn area.
+
+#### Scenario: Room on two sides only
+- **WHEN** a pile gets a card turned 45° under its upright top card
+- **THEN** the pile's box grows to the right and above and does not grow below or to the left
+
+#### Scenario: Tapping the L
+- **WHEN** a player taps the part of a card that sticks out above or to the right of the top card
+- **THEN** the pile's own action runs
