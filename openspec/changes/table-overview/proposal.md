@@ -6,7 +6,7 @@ There is no single place to see everything that is public at the table. The boar
 
 - An Overview button in the table header opens a full-screen scrolling page over the table, and closing it returns to the table as it was.
 - The page lists, in order: the turn marker (turn-based mode), the shared zones in board order, each player (name, host crown, whose turn it is, hand count, and their per-player zones), the counters, and the shared notes.
-- Each zone shows its cards as a compact strip, face-up or as backs as they are; a pile shows its top card and the count.
+- Each zone is drawn as it is defined on the table (its layout and width), with face-up cards showing faces and the rest as backs.
 - Only public information appears. Hands show as counts, except cards their owner has shown to everyone, which appear under that player. The viewer's own hand appears as a count.
 - The page is read-only. Scrubbing a strip shows the loupe and tapping a card opens its info sheet. Spectators can use it. It updates live while open.
 - To tell "shown to everyone" from "shown only to me", cards the viewer can see publicly carry a `public` flag in the table view.
