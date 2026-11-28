@@ -24,7 +24,7 @@ const center = async (l: ReturnType<typeof deck>) => {
   const b = (await l.boundingBox())!;
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 };
-async function touchDrag(page: Page, from: { x: number; y: number }, to: () => Promise<{ x: number; y: number }>, opts: { tapFirst?: boolean } = {}) {
+async function touchDrag(page: Page, from: { x: number; y: number }, to: () => Promise<{ x: number; y: number }>, opts: { tapFirst?: boolean; pullFirst?: boolean } = {}) {
   const cdp = await page.context().newCDPSession(page);
   const t = (type: string, p?: { x: number; y: number }) => cdp.send('Input.dispatchTouchEvent', { type: type as any, touchPoints: p ? [p] : [] });
   if (opts.tapFirst) {
@@ -34,6 +34,13 @@ async function touchDrag(page: Page, from: { x: number; y: number }, to: () => P
     await page.waitForTimeout(80);
   }
   await t('touchStart', from);
+  if (opts.pullFirst) {
+    // pile-scrub: a sideways slide on an unselected pile scrubs it, so a drag to a neighbour starts by pulling up
+    await page.waitForTimeout(20);
+    await t('touchMove', { x: from.x, y: from.y - 16 });
+    await page.waitForTimeout(20);
+    await t('touchMove', { x: from.x, y: from.y - 30 });
+  }
   const end = await to();
   for (let i = 1; i <= 10; i++) {
     await page.waitForTimeout(20);
@@ -58,7 +65,7 @@ test('select a pile and drag it onto Discard: all cards on top in order, one log
   await zoneAction(page, deck(page), 'All face up');
   const order = await fanLabels(page, deck(page));
   // a plain drag of the (unselected) deck takes only the top card
-  await touchDrag(page, await center(deck(page)), () => center(discard(page)));
+  await touchDrag(page, await center(deck(page)), () => center(discard(page)), { pullFirst: true });
   await expect.poll(() => pileCount(discard(page))).toBe(1);
   expect(await pileCount(deck(page))).toBe(51);
   await page.getByRole('button', { name: 'Undo' }).click();

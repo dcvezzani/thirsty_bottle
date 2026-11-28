@@ -217,7 +217,11 @@ export function Pile({
               ref.current!.setPointerCapture(e.pointerId);
               anchor.current = ref.current!.getBoundingClientRect();
               pointer.current = e.pointerType;
-              g.g.allowScrub(e.pointerType !== 'mouse'); // the mouse keeps its drag; touch and pen scrub
+              // the mouse keeps its drag; touch and pen scrub, except a selected pile, whose sideways drag still carries its selection
+              const st = useUI.getState();
+              const top = live.current.zone.cards[0];
+              const selected = st.selZone === live.current.zone.id && !!top && st.selected.includes(top.h);
+              g.g.allowScrub(e.pointerType !== 'mouse' && !selected);
               g.g.down(local(e));
             },
             onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),

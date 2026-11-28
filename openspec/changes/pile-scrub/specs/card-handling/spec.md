@@ -9,7 +9,11 @@ A sideways slide on a pile SHALL fan the pile out into a spread in place and scr
 
 #### Scenario: Pull still takes the top card
 - **WHEN** a player pulls up or out from a pile instead of sliding sideways
-- **THEN** the top card is picked up for dragging, as before
+- **THEN** the top card is picked up for dragging, as before; a sideways drag of an unselected pile is a scrub, so a card is taken to a neighbouring zone by pulling up first
+
+#### Scenario: A selected pile still carries its selection
+- **WHEN** a pile whose cards are selected is dragged sideways toward another zone
+- **THEN** the selected cards are carried, as before, instead of scrubbing
 
 #### Scenario: Other gestures unchanged
 - **WHEN** a player taps, double-taps or holds on a pile
