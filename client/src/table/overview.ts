@@ -78,7 +78,7 @@ export function overviewSections(view: TableView): Overview {
         active: view.mode === 'turn' && view.turn.active === s.id,
         handCount: s.handCount,
         shown,
-        shownZone: shown.length && hand ? { ...hand, id: `ov:shown:${s.id}`, name: 'Shown to everyone', kind: 'shared', seatId: null, layout: 'spread', cards: shown } : null,
+        shownZone: shown.length && hand ? { ...hand, id: `ov:shown:${s.id}`, name: 'Shown to everyone', kind: 'shared', seatId: null, layout: 'spread', width: 'full', newRow: false, cards: shown } : null,
         zones: groups.map(mine).filter((z): z is ZoneView => !!z).map(zoneOf),
       };
     });

@@ -1,45 +1,55 @@
-import { useEffect, useMemo } from 'react';
-import type { TableView } from '@vct/shared';
-import { CardFace } from '../components/Card';
-import { CardRow } from './CardRow';
-import { overviewSections, type OverviewZone } from './overview';
+import { useEffect, useMemo, useRef } from 'react';
+import type { TableView, ZoneView } from '@vct/shared';
+import { ZoneBox } from './Zones';
+import { flowRows } from './flow';
+import { overviewSections } from './overview';
+import { zonePad } from './rotation';
+import { useBoardSize } from './useBoardSize';
 import { useUI } from './ui';
 
-function ZoneStrip({ z, view }: { z: OverviewZone; view: TableView }) {
-  const onInfo = (h: string) => useUI.getState().setSheet({ kind: 'info', h });
+const onInfo = (h: string) => useUI.getState().setSheet({ kind: 'info', h });
+
+/** The zones as the table draws them: each in its own layout and width, wrapped into rows to fit, read-only. */
+function ZoneRows({ zones, w, cardW, view }: { zones: ZoneView[]; w: number; cardW: number; view: TableView }) {
+  const rows = flowRows(zones.map((z) => ({ id: z.id, layout: z.layout, width: z.width, newRow: z.newRow, padX: zonePad(z).x })), w, cardW);
+  const byId = new Map(zones.map((z) => [z.id, z]));
   return (
-    <div className="ov-zone" data-testid={`ov-zone-${z.name}`}>
-      <h4>
-        {z.name} <span className="ov-count">{z.count}</span>
-      </h4>
-      {z.layout === 'pile' ? (
-        <div className="ov-pile" data-testid={`ov-pile-${z.name}`}>
-          {z.top ? <CardFace card={z.top} decks={view.decks} /> : <div className="row-empty">Empty</div>}
-          <span className="ov-count">{z.count} {z.count === 1 ? 'card' : 'cards'}</span>
+    <>
+      {rows.map((row) => (
+        <div className="zone-row" key={row[0].id}>
+          {row.map((it) => (
+            <ZoneBox key={it.id} view={view} zone={byId.get(it.id)!} onInfo={onInfo} flow={it} readOnly />
+          ))}
         </div>
-      ) : (
-        <CardRow zone={z.zone} decks={view.decks} interactive={false} draggable={false} onInfo={onInfo} onTapCard={onInfo} testId={`ov-row-${z.name}`} emptyText="Empty" />
-      )}
-    </div>
+      ))}
+    </>
   );
 }
 
 /** table-overview: everything public at the table on one scrolling page, read-only, over the table. */
 export function OverviewLayer({ view }: { view: TableView }) {
   const open = useUI((s) => s.overview);
+  return open ? <OverviewPage view={view} /> : null;
+}
+
+function OverviewPage({ view }: { view: TableView }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const zoom = useUI((s) => s.zoom);
+  const size = useBoardSize(ref, zoom);
   const close = () => useUI.setState({ overview: false, preview: null, loupe: null, viewed: null });
   const o = useMemo(() => overviewSections(view), [view]);
   useEffect(() => {
-    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !useUI.getState().sheet) close();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
-  if (!open) return null;
+  }, []);
+  const w = size?.w ?? 0;
+  const cardW = size?.cardW ?? 64;
+  const playerW = Math.max(120, w - 16); // a player's block has a stripe and padding on its left
   return (
-    <div className="overview" role="dialog" aria-label="Table overview" data-testid="overview">
+    <div className="overview" ref={ref} role="dialog" aria-label="Table overview" data-testid="overview">
       <header className="ov-top">
         <h2>Overview</h2>
         {o.turn && (
@@ -54,7 +64,8 @@ export function OverviewLayer({ view }: { view: TableView }) {
       </header>
       <section aria-label="On the table">
         <h3>On the table</h3>
-        {o.shared.length ? o.shared.map((z) => <ZoneStrip key={z.id} z={z} view={view} />) : <p className="muted">No zones yet.</p>}
+        {!o.shared.length && <p className="muted">No zones yet.</p>}
+        {size && <ZoneRows zones={o.shared.map((z) => z.zone)} w={w} cardW={cardW} view={view} />}
       </section>
       <section aria-label="Players">
         <h3>Players</h3>
@@ -69,17 +80,7 @@ export function OverviewLayer({ view }: { view: TableView }) {
                 {p.handCount} in hand
               </span>
             </h4>
-            {p.shownZone && (
-              <div className="ov-zone">
-                <h4>
-                  Shown to everyone <span className="ov-count">{p.shown.length}</span>
-                </h4>
-                <CardRow zone={p.shownZone} decks={view.decks} interactive={false} draggable={false} onInfo={(h) => useUI.getState().setSheet({ kind: 'info', h })} onTapCard={(h) => useUI.getState().setSheet({ kind: 'info', h })} testId={`ov-shown-${p.name}`} />
-              </div>
-            )}
-            {p.zones.map((z) => (
-              <ZoneStrip key={z.id} z={z} view={view} />
-            ))}
+            {size && <ZoneRows zones={[...(p.shownZone ? [p.shownZone] : []), ...p.zones.map((z) => z.zone)]} w={playerW} cardW={cardW} view={view} />}
           </div>
         ))}
         {!o.players.length && <p className="muted">Nobody is seated.</p>}

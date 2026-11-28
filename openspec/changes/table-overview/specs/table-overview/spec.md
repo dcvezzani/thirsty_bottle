@@ -23,11 +23,15 @@ The Overview SHALL list, in order, the turn marker in turn-based mode, the share
 - **THEN** the Overview shows that it is Sam's turn and marks Sam in the players list
 
 ### Requirement: Zones in the overview
-Each zone SHALL show its name, its card count and its cards as a compact strip, with face-up cards showing their faces and face-down cards their backs. A pile SHALL show its top card and its count.
+Each zone SHALL be drawn in the overview as it is defined on the table: in its own layout (pile, spread, column or free) and width, with its name and card count, and with face-up cards showing their faces and face-down cards their backs.
 
-#### Scenario: Spread and pile
-- **WHEN** a spread holds four cards and a pile holds twenty
-- **THEN** the spread shows four cards in a strip and the pile shows its top card with the count 20
+#### Scenario: Layouts as defined
+- **WHEN** a table has a pile, a spread, a column and a free zone
+- **THEN** the overview draws each in its own layout and width, as the table does
+
+#### Scenario: Pile
+- **WHEN** a pile holds twenty cards
+- **THEN** the overview shows the pile as the table does, with its top card and the count 20
 
 ### Requirement: Only public information
 The Overview SHALL show only what is public. Hands SHALL appear as counts, except cards their owner has shown to everyone, which SHALL appear under that player. The viewer's own hand SHALL appear as a count. A card only the viewer can see, such as one they peeked at or one shown only to them, SHALL appear as a back.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { TableSummary, TableView } from '@vct/shared';
 import { useTable } from '../store/table';
@@ -24,6 +24,7 @@ import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
 import { Loupe } from '../table/Loupe';
 import { OverviewLayer } from '../table/Overview';
+import { useBoardSize } from '../table/useBoardSize';
 import { SharedCover, useSharedPhone } from '../table/SharedPhone';
 import { useShared } from '../table/sharedPhone';
 import { forgetPhoneTable, isGuestToken, phonePeople, phoneTable } from '../lib/guests';
@@ -88,27 +89,6 @@ export function TablePage() {
       </div>
     );
   return <TableScreen view={view} />;
-}
-
-/** Board content width (inside its padding) and the table's base card width at the current zoom. */
-function useBoardSize(ref: RefObject<HTMLDivElement>, zoom: number) {
-  const [size, setSize] = useState<{ w: number; cardW: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      const cs = getComputedStyle(el);
-      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const base = parseFloat(cs.getPropertyValue('--base-card-w')) || 64;
-      const next = { w: Math.floor(w), cardW: Math.round(base * zoom * 10) / 10 };
-      setSize((cur) => (cur && cur.w === next.w && cur.cardW === next.cardW ? cur : next));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref, zoom]);
-  return size;
 }
 
 function TableScreen({ view }: { view: TableView }) {

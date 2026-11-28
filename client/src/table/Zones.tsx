@@ -28,11 +28,16 @@ export function Pile({
   decks,
   onInfo,
   canAct,
+  readOnly = false,
+  testId,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
   onInfo: (h: string) => void;
   canAct: boolean;
+  /** table-overview: drawn as on the table, but nothing can be pressed, dragged or dropped on it. */
+  readOnly?: boolean;
+  testId?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useUI((s) => s.drag);
@@ -143,21 +148,25 @@ export function Pile({
             }
           : undefined
       }
-      data-drop-zone={zone.id}
-      data-zone-id={zone.id}
-      data-testid={`pile-${zone.name}`}
-      onPointerDown={(e) => {
-        if (e.button === 2 || isBoardPanning()) return;
-        ref.current!.setPointerCapture(e.pointerId);
-        g.g.down(local(e));
-      }}
-      onPointerMove={(e) => g.g.state !== 'idle' && g.g.move(local(e))}
-      onPointerUp={(e) => g.g.up(local(e))}
-      onPointerCancel={() => g.g.cancel()}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        if (top) onInfo(top.h);
-      }}
+      data-testid={testId ?? `pile-${zone.name}`}
+      {...(readOnly
+        ? { onClick: () => top && onInfo(top.h) }
+        : {
+            'data-drop-zone': zone.id,
+            'data-zone-id': zone.id,
+            onPointerDown: (e: React.PointerEvent) => {
+              if (e.button === 2 || isBoardPanning()) return;
+              ref.current!.setPointerCapture(e.pointerId);
+              g.g.down(local(e));
+            },
+            onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),
+            onPointerUp: (e: React.PointerEvent) => g.g.up(local(e)),
+            onPointerCancel: () => g.g.cancel(),
+            onContextMenu: (e: React.MouseEvent) => {
+              e.preventDefault();
+              if (top) onInfo(top.h);
+            },
+          })}
     >
       {Array.from({ length: depth }, (_, i) => (
         <div
@@ -192,17 +201,21 @@ export function FreeZone({
   decks,
   onInfo,
   canAct,
+  readOnly = false,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
   onInfo: (h: string) => void;
   canAct: boolean;
+  /** table-overview: drawn as on the table, but nothing can be pressed, dragged or dropped on it. */
+  readOnly?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const selZone = useUI((s) => s.selZone);
   const selected = useUI((s) => s.selected);
   const drag = useUI((s) => s.drag);
   useEffect(() => {
+    if (readOnly) return;
     dropRegistry.set(zone.id, (x, y) => {
       const r = ref.current!.getBoundingClientRect();
       return {
@@ -215,7 +228,7 @@ export function FreeZone({
     return () => {
       dropRegistry.delete(zone.id);
     };
-  }, [zone.id]);
+  }, [zone.id, readOnly]);
   const live = useRef({ zone, canAct });
   live.current = { zone, canAct };
   const g = useMemo(() => {
@@ -285,16 +298,20 @@ export function FreeZone({
     <div
       ref={ref}
       className="free-zone"
-      data-drop-zone={zone.id}
-      data-zone-id={zone.id}
-      onPointerDown={(e) => {
-        if (e.button === 2 || isBoardPanning()) return;
-        ref.current!.setPointerCapture(e.pointerId);
-        g.g.down(local(e));
-      }}
-      onPointerMove={(e) => g.g.state !== 'idle' && g.g.move(local(e))}
-      onPointerUp={(e) => g.g.up(local(e))}
-      onPointerCancel={() => g.g.cancel()}
+      {...(readOnly
+        ? { onClick: (e: React.MouseEvent) => { const h = (e.target as Element).closest('[data-h]')?.getAttribute('data-h'); if (h) onInfo(h); } }
+        : {
+            'data-drop-zone': zone.id,
+            'data-zone-id': zone.id,
+            onPointerDown: (e: React.PointerEvent) => {
+              if (e.button === 2 || isBoardPanning()) return;
+              ref.current!.setPointerCapture(e.pointerId);
+              g.g.down(local(e));
+            },
+            onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),
+            onPointerUp: (e: React.PointerEvent) => g.g.up(local(e)),
+            onPointerCancel: () => g.g.cancel(),
+          })}
     >
       {zone.cards
         .filter((c) => !drag?.handles.includes(c.h))
@@ -322,11 +339,14 @@ export function ZoneBox({
   zone,
   onInfo,
   flow,
+  readOnly = false,
 }: {
   view: TableView;
   zone: ZoneView;
   onInfo: (h: string) => void;
   flow?: FlowItem;
+  /** table-overview: the zone drawn as it is on the table (its layout and width), with nothing to press, drag or drop. */
+  readOnly?: boolean;
 }) {
   const setSheet = useUI((s) => s.setSheet);
   const canAct = !view.me.spectator;
@@ -341,7 +361,7 @@ export function ZoneBox({
   const headerName = `${zone.kind === 'player' ? zoneLabel(view, zone) : zone.name} · ${zone.cards.length}`;
   useEffect(() => {
     const el = sectionRef.current;
-    if (!el || !focus) return;
+    if (readOnly || !el || !focus) return;
     return registerHeader(zone.id, {
       el,
       name: headerName,
@@ -354,11 +374,11 @@ export function ZoneBox({
         useUI.setState({ preview: { h: focus.h, zone: zone.id }, ...(l?.details ? { loupe: { ...l, details: false } } : {}) });
       },
     });
-  }, [zone.id, focus?.h, headerName]);
+  }, [zone.id, focus?.h, headerName, readOnly]);
   return (
     <section
       ref={sectionRef}
-      data-header-zone={zone.id}
+      {...(readOnly ? { 'data-testid': `ov-zone-${zone.name}` } : { 'data-header-zone': zone.id, 'data-drop-zone': zone.id })}
       data-count={zone.cards.length}
       className={`zone zone-${zone.layout} ${flow ? `w-${flow.width}` : ''} ${slim ? 'slim' : ''} ${isOver ? 'drop-over' : ''} ${opened ? 'is-open' : ''}`}
       style={{
@@ -366,17 +386,19 @@ export function ZoneBox({
         ...(flow ? { width: flow.w, ['--card-w' as any]: `${flow.cardW}px` } : {}),
       }}
       aria-label={zone.name}
-      data-drop-zone={zone.id}
     >
-      <button
-        className="zone-label"
-        aria-label={`${zone.name} actions`}
-        {...header.handlers}
-      >
-        {/* table-play "Zone card count": the name shortens, the count never does */}
-        <span className="zone-name">{zone.kind === 'player' ? zoneLabel(view, zone) : zone.name}</span>
-        <span className="zone-count muted">· {zone.cards.length}</span>
-      </button>
+      {readOnly ? (
+        <div className="zone-label">
+          <span className="zone-name">{zone.name}</span>
+          <span className="zone-count muted">· {zone.cards.length}</span>
+        </div>
+      ) : (
+        <button className="zone-label" aria-label={`${zone.name} actions`} {...header.handlers}>
+          {/* table-play "Zone card count": the name shortens, the count never does */}
+          <span className="zone-name">{zone.kind === 'player' ? zoneLabel(view, zone) : zone.name}</span>
+          <span className="zone-count muted">· {zone.cards.length}</span>
+        </button>
+      )}
       {slim ? (
         // card-handling "Slim empty zones": a tap-height bar that opens while cards are dragged over it
         <div className="slim-drop" data-testid={`row-${zone.name}`}>
@@ -384,13 +406,16 @@ export function ZoneBox({
         </div>
       ) : (
         <>
-          {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />}
-          {zone.layout === 'spread' && (
-            <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} strip />
-          )}
-          {zone.layout === 'column' && <ColumnZone zone={zone} decks={view.decks} interactive={canAct} onInfo={onInfo} />}
+          {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} readOnly={readOnly} testId={readOnly ? `ov-pile-${zone.name}` : undefined} />}
+          {zone.layout === 'spread' &&
+            (readOnly ? (
+              <CardRow zone={zone} decks={view.decks} interactive={false} draggable={false} onInfo={onInfo} onTapCard={onInfo} testId={`ov-row-${zone.name}`} emptyText="Empty" />
+            ) : (
+              <CardRow zone={zone} decks={view.decks} interactive={canAct} dropId={zone.id} onInfo={onInfo} strip />
+            ))}
+          {zone.layout === 'column' && <ColumnZone zone={zone} decks={view.decks} interactive={canAct && !readOnly} onInfo={onInfo} onTapCard={readOnly ? onInfo : undefined} />}
           {zone.layout === 'free' && (
-            <FreeZone zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} />
+            <FreeZone zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct && !readOnly} readOnly={readOnly} />
           )}
         </>
       )}

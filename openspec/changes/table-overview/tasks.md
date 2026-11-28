@@ -5,7 +5,7 @@
 ## 2. The overview page
 
 - [x] 2.1 Add the pure `overviewSections(view)` (turn marker, shared zones in board order, each player with their per-player zones and publicly shown hand cards, counters, notes; hidden and privately visible cards as backs) with unit tests for each requirement of "Overview sections", "Zones in the overview" and "Only public information".
-- [x] 2.2 Add the Overview layer and its header button: the sections with compact strips and piles, the loupe on scrub and card info on tap, no selection, drag or flip, live updates, spectator access, and return to the table unchanged on close.
+- [x] 2.2 Add the Overview layer and its header button: the sections with each zone drawn in its own layout and width through the board's zone renderers in a read-only mode, the loupe on scrub and card info on tap, no selection, drag or flip, live updates, spectator access, and return to the table unchanged on close.
 
 ## 3. Verification
 

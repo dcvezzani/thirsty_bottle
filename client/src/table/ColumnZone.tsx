@@ -27,7 +27,7 @@ function drawnHit(l: ColumnLayout, cards: { h: string }[], zoneId: string, y: nu
  * out = pick up that card and everything below it (or the selection) · tap = select · hold = info.
  * Dropped cards always go on the end.
  */
-export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneView; decks: TableDeckView[]; interactive: boolean; onInfo: (h: string) => void }) {
+export function ColumnZone({ zone, decks, interactive, onInfo, onTapCard }: { zone: ZoneView; decks: TableDeckView[]; interactive: boolean; onInfo: (h: string) => void; onTapCard?: (h: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(64);
   const selZone = useUI((s) => s.selZone);
@@ -68,8 +68,8 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
     };
   }, [zone.id]);
 
-  const live = useRef({ cards, zone, onInfo, interactive, Lfull });
-  live.current = { cards, zone, onInfo, interactive, Lfull };
+  const live = useRef({ cards, zone, onInfo, interactive, Lfull, onTapCard });
+  live.current = { cards, zone, onInfo, interactive, Lfull, onTapCard };
   const paint = useRef<'preview' | 'select' | 'deselect'>('preview');
   const pointer = useRef<string>('touch');
   const gesture = useMemo(() => {
@@ -91,6 +91,7 @@ export function ColumnZone({ zone, decks, interactive, onInfo }: { zone: ZoneVie
         {
           hit: (_x, y) => drawnHit(live.current.Lfull, live.current.cards, live.current.zone.id, y),
           onTap: (i) => {
+            if (i !== null && !live.current.interactive && live.current.onTapCard) return live.current.onTapCard(h(i)!);
             if (i === null || !live.current.interactive) return;
             if (tapEndsViewing(h(i))) return;
             useUI.getState().toggle(live.current.zone.id, h(i)!);

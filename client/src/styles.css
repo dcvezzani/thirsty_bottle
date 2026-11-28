@@ -441,7 +441,10 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .handoff-cover button { border: 3px solid #fff; }
 
 /* table-overview: a full-screen, scrolling, read-only page of everything public at the table (under the loupe, which is z-index 60) */
-.overview { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--bg); color: #fff; padding: 0 12px 24px; --card-w: 52px; touch-action: pan-y; }
+.overview { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--bg); color: #fff; padding: 0 12px 24px; touch-action: pan-y; }
+.overview .card-row, .overview .pile { touch-action: pan-y; }
+.overview .free-zone { touch-action: pan-x pan-y; }
+.overview .card { touch-action: none; }
 .overview .ov-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 10px 0; background: var(--bg); }
 .overview h2, .overview h3, .overview h4 { margin: 0; color: #fff; }
 .overview h3 { margin: 16px 0 6px; font-size: 18px; border-bottom: 2px solid rgba(255,255,255,0.5); padding-bottom: 4px; }
@@ -451,7 +454,6 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .overview .muted { color: rgba(255,255,255,0.9); }
 .overview .ov-player { border-left: 6px solid var(--seat-color, #888); padding-left: 10px; margin: 10px 0; }
 .overview .ov-player.active { border-left-width: 10px; }
-.overview .ov-pile { display: flex; align-items: center; gap: 10px; min-height: calc(var(--card-w) * 1.4 + 8px); }
 .overview .ov-counters { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .overview .ov-notes { white-space: pre-wrap; margin: 0; }
 .overview button { border: 2px solid #fff; }
