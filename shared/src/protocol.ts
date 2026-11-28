@@ -39,6 +39,8 @@ export interface CardView {
   shownBy?: string;
   /** Viewer is privately peeking at it. */
   peeked?: boolean;
+  /** table-overview: every participant can see this card's face (face-up outside a hand, or shown to everyone). Absent otherwise; never set for a card only the viewer can see. */
+  public?: boolean;
   x?: number;
   y?: number;
 }

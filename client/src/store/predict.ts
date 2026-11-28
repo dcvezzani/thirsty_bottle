@@ -23,7 +23,7 @@ export function predictMove(
   const othersHand = target.kind === 'hand' && !myHand;
   const placed = moving.map((c) => {
     const faceUp = face ? face === 'up' : c.faceUp;
-    const n: CardView = { ...c, faceUp, shownTo: undefined, shownBy: undefined, peeked: undefined };
+    const n: CardView = { ...c, faceUp, shownTo: undefined, shownBy: undefined, peeked: undefined, public: target.kind !== 'hand' && faceUp ? true : undefined };
     if (othersHand || (target.kind !== 'hand' && !faceUp)) {
       // will be hidden from me after the move
       return { h: c.h, faceUp, known: false, ...(c.back ? { back: c.back } : {}) } as CardView;
@@ -49,7 +49,7 @@ export function predictFlip(v: TableView, handles: string[]): TableView {
               const faceUp = !c.faceUp;
               // flipping a face-up card face down outside a hand hides it from me (shared and per-player zones)
               if (z.kind !== 'hand' && !faceUp && !c.shownTo && !c.peeked) return { h: c.h, faceUp, known: false, ...(c.back ? { back: c.back } : {}) };
-              return { ...c, faceUp };
+              return { ...c, faceUp, public: z.kind !== 'hand' && faceUp ? true : undefined };
             }),
           }
         : z,

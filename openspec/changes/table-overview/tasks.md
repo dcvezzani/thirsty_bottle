@@ -1,11 +1,11 @@
 ## 1. The public flag
 
-- [ ] 1.1 Add `public` to `CardView` and set it in the projection from `isPublic`, omitted when false. Projection tests: face-up shared and per-player cards, cards shown to everyone, and that hand cards, peeked cards and cards shown only to one player are never flagged for anyone else.
+- [x] 1.1 Add `public` to `CardView` and set it in the projection from `isPublic`, omitted when false. Projection tests: face-up shared and per-player cards, cards shown to everyone, and that hand cards, peeked cards and cards shown only to one player are never flagged for anyone else.
 
 ## 2. The overview page
 
-- [ ] 2.1 Add the pure `overviewSections(view)` (turn marker, shared zones in board order, each player with their per-player zones and publicly shown hand cards, counters, notes; hidden and privately visible cards as backs) with unit tests for each requirement of "Overview sections", "Zones in the overview" and "Only public information".
-- [ ] 2.2 Add the Overview layer and its header button: the sections with compact strips and piles, the loupe on scrub and card info on tap, no selection, drag or flip, live updates, spectator access, and return to the table unchanged on close.
+- [x] 2.1 Add the pure `overviewSections(view)` (turn marker, shared zones in board order, each player with their per-player zones and publicly shown hand cards, counters, notes; hidden and privately visible cards as backs) with unit tests for each requirement of "Overview sections", "Zones in the overview" and "Only public information".
+- [x] 2.2 Add the Overview layer and its header button: the sections with compact strips and piles, the loupe on scrub and card info on tap, no selection, drag or flip, live updates, spectator access, and return to the table unchanged on close.
 
 ## 3. Verification
 

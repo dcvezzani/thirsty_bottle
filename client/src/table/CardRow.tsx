@@ -70,6 +70,7 @@ export function CardRow({
   emptyText,
   onScrubStart,
   strip = false,
+  onTapCard,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
@@ -88,6 +89,8 @@ export function CardRow({
   onScrubStart?: () => void;
   /** scrub-loupe: a board zone, part of the strip a scrub can slide along. */
   strip?: boolean;
+  /** table-overview: a read-only row; a tap on a card calls this instead of selecting it. */
+  onTapCard?: (h: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
@@ -145,8 +148,8 @@ export function CardRow({
   }, [dropId, Lfull]);
 
   // gesture recognizer (kept across renders; reads fresh state through refs)
-  const live = useRef({ cards, zone, onInfo, draggable, interactive, onScrubStart, strip });
-  live.current = { cards, zone, onInfo, draggable, interactive, onScrubStart, strip };
+  const live = useRef({ cards, zone, onInfo, draggable, interactive, onScrubStart, strip, onTapCard });
+  live.current = { cards, zone, onInfo, draggable, interactive, onScrubStart, strip, onTapCard };
   // the row can resize mid-gesture (hand dock columns): the gesture must survive it, so it reads width through a ref
   const widthRef = useRef(width);
   widthRef.current = width;
@@ -185,6 +188,7 @@ export function CardRow({
       g: new ZoneGesture({
         hit: (x, y) => hit(x, y),
         onTap: (i) => {
+          if (i !== null && !live.current.interactive && live.current.onTapCard) return live.current.onTapCard(h(i)!);
           if (i === null || !live.current.interactive) return;
           if (tapEndsViewing(h(i))) return;
           useUI.getState().toggle(live.current.zone.id, h(i)!);
@@ -341,7 +345,7 @@ export function CardRow({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button === 2 || isBoardPanning()) return;
-    if (e.pointerType === 'mouse' && e.shiftKey) {
+    if (e.pointerType === 'mouse' && e.shiftKey && interactive) {
       // desktop range select
       const s = local(e);
       const i = hitIndexXY(Lfull, s.x, s.y, (arc ? cardW * 0.3 : 0) + padY);

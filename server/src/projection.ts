@@ -3,6 +3,7 @@ import {
   canSee,
   defaultZoneWidth,
   handZoneId,
+  isPublic,
   locate,
   type AnimView,
   type Anim,
@@ -114,6 +115,7 @@ export class Viewer {
     if (isHolder && c.shownTo.length) v.shownTo = [...c.shownTo];
     if (!isHolder && c.shownBy && (c.shownTo.includes('*') || c.shownTo.includes(this.playerId))) v.shownBy = c.shownBy;
     if (c.peekedBy.includes(this.playerId)) v.peeked = true;
+    if (isPublic(c, zone)) v.public = true;
     const p = zone.pos[c.id];
     if (p) {
       v.x = p.x;

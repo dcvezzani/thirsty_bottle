@@ -23,6 +23,7 @@ import { flowRows } from '../table/flow';
 import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
 import { Loupe } from '../table/Loupe';
+import { OverviewLayer } from '../table/Overview';
 import { SharedCover, useSharedPhone } from '../table/SharedPhone';
 import { useShared } from '../table/sharedPhone';
 import { forgetPhoneTable, isGuestToken, phonePeople, phoneTable } from '../lib/guests';
@@ -189,7 +190,7 @@ function TableScreen({ view }: { view: TableView }) {
     if (oz && !view.zones.some((z) => z.id === oz.id && z.cards.length > 0)) useUI.setState({ openZone: null });
   }, [view]);
 
-  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, loupe: null, openZone: null, selZone: null, selected: [], arranging: false, viewSeat: null }), []);
+  useEffect(() => () => useUI.setState({ sheet: null, drag: null, preview: null, loupe: null, openZone: null, selZone: null, selected: [], arranging: false, viewSeat: null, overview: false }), []);
 
   const myHand = view.zones.find((z) => z.kind === 'hand' && z.seatId === view.me.seatId);
   // zone-arrangement: the server's zone order drives the board; each device wraps it into rows
@@ -237,6 +238,9 @@ function TableScreen({ view }: { view: TableView }) {
           data-testid="mode-chip"
         >
           {view.mode === 'turn' ? 'Turns' : 'Real-time'}
+        </button>
+        <button aria-label="Overview" data-testid="overview-btn" onClick={() => useUI.setState({ overview: true })}>
+          ▤
         </button>
         {phonePeople(view.id).length > 1 && (
           <button aria-label="Who's playing" data-testid="who-playing" onClick={() => useShared.getState().setCover({ kind: 'pick' })}>
@@ -352,6 +356,7 @@ function TableScreen({ view }: { view: TableView }) {
       )}
       {drawer && <Drawer view={view} tab={drawer} />}
       <DragGhost view={view} />
+      <OverviewLayer view={view} />
       <Loupe view={view} />
       {sheet?.kind === 'cards' && <CardsSheet view={view} onClose={closeSheet} />}
       {sheet?.kind === 'zone' && <ZoneSheet view={view} zoneId={sheet.zone} onClose={closeSheet} />}

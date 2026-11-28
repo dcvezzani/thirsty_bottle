@@ -51,6 +51,8 @@ interface UIState {
   faceDown: boolean;
   drawer: DrawerTab | null;
   zoom: number;
+  /** table-overview: the full-table overview page is open. */
+  overview: boolean;
   /** Host arrange mode (zone-arrangement): zones shown as draggable tiles, cards locked. */
   arranging: boolean;
   /** player-views: the seat whose table is shown; null = my own. */
@@ -93,6 +95,7 @@ export const useUI = create<UIState>((set, get) => ({
   faceDown: false,
   drawer: null,
   zoom: 1,
+  overview: false,
   arranging: false,
   viewSeat: null,
   handFocus: 'viewed',
