@@ -15,6 +15,7 @@ import { zoneFocusCard } from './focusCard';
 import { pileCorner, pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
 import { RelativeScrub } from './scrubGain';
+import { slotCount, slotToIndex } from './pileDrop';
 
 function vibrate(ms: number) {
   try {
@@ -57,6 +58,8 @@ export function Pile({
   /** pile-scrub: where the pile was when the press began; the pile can move (the zone widening or collapsing) during a press. */
   const anchor = useRef<{ left: number; top: number } | null>(null);
   const rel = useRef<RelativeScrub | null>(null);
+  /** pile-drop-slot: the gap's travel while a carried card is held over this open pile. */
+  const dropRel = useRef<RelativeScrub | null>(null);
   const lastPreview = useRef<string | null>(null);
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
@@ -161,6 +164,28 @@ export function Pile({
       g.cancelTap();
     };
   }, [g]);
+  // pile-drop-slot: while a carried card is held over this pile and it has opened, the drop slot follows how far the finger
+  // travels (the scrub's speed-dependent gain), starting on top; otherwise a drop lands on top as before
+  useEffect(() => {
+    if (readOnly) return;
+    dropRegistry.set(zone.id, (x) => {
+      const st = useUI.getState();
+      if (!st.drag || st.openZone?.id !== zone.id) {
+        dropRel.current = null;
+        return {};
+      }
+      const carried = new Set(st.drag.handles);
+      const cards = live.current.zone.cards;
+      const now = performance.now();
+      // the finger has to stay over the zone, so a fast sweep covers the pile in a sweep of about two fifths of the screen
+      if (!dropRel.current) dropRel.current = new RelativeScrub(slotCount(cards, carried), 0, st.openZone.from ?? { x, t: now }, window.innerWidth * 0.4);
+      return { index: slotToIndex(cards, carried, dropRel.current.update({ x, t: now })) };
+    });
+    return () => {
+      dropRegistry.delete(zone.id);
+      dropRel.current = null;
+    };
+  }, [zone.id, readOnly]);
   const local = (e: React.PointerEvent) => {
     const r = anchor.current ?? ref.current!.getBoundingClientRect();
     g.origin({ x: r.left, y: r.top });
@@ -409,7 +434,10 @@ export function ZoneBox({
   const over = useUI((s) => s.drag?.over);
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
   const opened = useUI((s) => s.openZone?.id === zone.id);
-  const fanned = useUI((s) => s.pileScrub?.zone === zone.id);
+  const scrubFan = useUI((s) => s.pileScrub?.zone === zone.id);
+  // pile-drop-slot: a pile also fans out while a carried card is held over it
+  const dropFan = useUI((s) => !!s.drag && s.openZone?.id === zone.id && zone.layout === 'pile' && zone.cards.length > 0);
+  const fanned = scrubFan || dropFan;
   const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
   const sectionRef = useRef<HTMLElement>(null);
   const header = useZoneHeader({ zoneId: zone.id, sectionRef, host: view.me.isHost, onTap: () => setSheet({ kind: 'zone', zone: zone.id }) });

@@ -39,7 +39,7 @@ interface UIState {
   drag: DragState | null;
   /** scrub-loupe: set while a touch scrub shows the loupe; `details` after a pause, `row` names the strip row. */
   /** scrub-loupe: the zone widened in place (while carrying cards, or pinned open after a pause). */
-  openZone: { id: string; pinned: boolean } | null;
+  openZone: { id: string; pinned: boolean; /** pile-drop-slot: where the carrying finger rested when a held drag opened the zone */ from?: { x: number; t: number } } | null;
   loupe: { y: number; h: number; side: 'top' | 'bottom'; details: boolean; row: string | null } | null;
   /** loupe-view-modes: the chosen loupe view for this session, and (mode 'stay') the card left viewed after release. */
   loupeFace: LoupeFace;

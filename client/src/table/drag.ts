@@ -88,9 +88,10 @@ const OPEN_EXIT_MARGIN = 16;
 let rest = { x: 0, y: 0, t: 0 };
 let dwellTimer: ReturnType<typeof setInterval> | null = null;
 
-/** A zone can open in place only when it is a spread with room to give (a fit-width card row on the board). */
-function openable(id: string) {
-  return !!document.querySelector(`.zone.zone-spread.w-fit[data-drop-zone="${CSS.escape(id)}"]`);
+/** A zone can open in place when it is a spread with room to give (a fit-width card row on the board), or a pile that has cards. */
+export function openable(id: string) {
+  const q = CSS.escape(id);
+  return !!document.querySelector(`.zone.zone-spread.w-fit[data-drop-zone="${q}"]`) || !!document.querySelector(`.zone.zone-pile:not([data-count="0"])[data-drop-zone="${q}"]`);
 }
 
 function dwellTick() {
@@ -107,7 +108,7 @@ function dwellTick() {
     if (!inside && !open.pinned) useUI.setState({ openZone: null });
   }
   if (now - rest.t >= OPEN_DWELL_MS && d.over?.kind === 'zone' && d.over.zone !== open?.id && openable(d.over.zone)) {
-    useUI.setState({ openZone: { id: d.over.zone, pinned: false } });
+    useUI.setState({ openZone: { id: d.over.zone, pinned: false, from: { x: d.x, t: now } } });
   }
 }
 function stopDwell() {
