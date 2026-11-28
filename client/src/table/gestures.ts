@@ -80,6 +80,11 @@ export class ZoneGesture {
     this.cfg = { ...DEFAULTS, ...cfg };
   }
 
+  /** pile-scrub: whether the next press may scrub (a pile scrubs for touch and pen, and keeps the mouse's drag). */
+  allowScrub(on: boolean) {
+    this.cfg.scrub = on;
+  }
+
   down(s: Sample) {
     this.state = 'pressed';
     this.start = s;

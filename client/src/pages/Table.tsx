@@ -24,6 +24,7 @@ import { ArrangeBar, ArrangeBoard } from '../table/Arrange';
 import { ApplySetupSheet, SaveSetupSheet } from '../table/SetupSheets';
 import { Loupe } from '../table/Loupe';
 import { OverviewLayer } from '../table/Overview';
+import { endFaceDown } from '../table/pileFaceDown';
 import { useBoardSize } from '../table/useBoardSize';
 import { SharedCover, useSharedPhone } from '../table/SharedPhone';
 import { useShared } from '../table/sharedPhone';
@@ -107,6 +108,13 @@ function TableScreen({ view }: { view: TableView }) {
   const closeSheet = useCallback(() => setSheet(null), [setSheet]);
   const onInfo = useCallback((h: string) => setSheet({ kind: 'info', h }), [setSheet]);
   useFlip(view);
+  // pile-scrub: "See face-down" lasts only while the loupe shows a card of that pile
+  const fdZone = useUI((s) => s.seeFaceDown?.zone ?? null);
+  const loupeZone = useUI((s) => (s.loupe ? (s.preview?.zone ?? s.viewed?.zone ?? null) : null));
+  useEffect(() => {
+    if (fdZone && fdZone !== loupeZone) endFaceDown();
+  }, [fdZone, loupeZone]);
+  useEffect(() => () => endFaceDown(), []);
 
   useBoardPan(boardRef);
   useLayoutEffect(() => {

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { CardView, TableDeckView, TableView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
-import { CardRow } from './CardRow';
+import { CardRow, finishScrub, placeLoupe } from './CardRow';
+import { endFaceDown } from './pileFaceDown';
 import { ColumnZone } from './ColumnZone';
 import { ZoneGesture } from './gestures';
 import { useUI, zoneLabel } from './ui';
@@ -30,6 +31,7 @@ export function Pile({
   canAct,
   readOnly = false,
   testId,
+  fanned = false,
 }: {
   zone: ZoneView;
   decks: TableDeckView[];
@@ -38,6 +40,8 @@ export function Pile({
   /** table-overview: drawn as on the table, but nothing can be pressed, dragged or dropped on it. */
   readOnly?: boolean;
   testId?: string;
+  /** pile-scrub: the pile is shown fanned out above it while it is scrubbed; it stays here to carry the finger. */
+  fanned?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useUI((s) => s.drag);
@@ -48,8 +52,39 @@ export function Pile({
   const selCount = selZone === zone.id ? zone.cards.filter((c) => selected.includes(c.h)).length : 0;
   const live = useRef({ zone, canAct });
   live.current = { zone, canAct };
+  const pointer = useRef('touch');
+  /** pile-scrub: where the pile was when the press began; the pile can move (the zone widening or collapsing) during a press. */
+  const anchor = useRef<{ left: number; top: number } | null>(null);
+  const lastPreview = useRef<string | null>(null);
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
+    // pile-scrub: the card under the finger, from where the fanned-out cards are drawn
+    const fanHit = (x: number) => {
+      const n = live.current.zone.cards.length;
+      if (!n) return null;
+      const fan = ref.current?.closest('.zone')?.querySelector('.pile-fan');
+      if (!fan || !useUI.getState().pileScrub) return 0;
+      const els = [...fan.querySelectorAll<HTMLElement>('[data-h]')];
+      const cx = x + origin.x;
+      let best = 0;
+      let bestD = Infinity;
+      els.forEach((e, i) => {
+        const r = e.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - cx);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return Math.min(best, n - 1);
+    };
+    const preview = (i: number) => {
+      const hh = live.current.zone.cards[i]?.h;
+      if (!hh) return;
+      if (hh !== lastPreview.current) vibrate(5);
+      lastPreview.current = hh;
+      useUI.setState({ preview: { h: hh, zone: live.current.zone.id } });
+    };
     // quick-flip: a single tap opens the sheet after a short pause, so a second tap can flip the top card
     let tapTimer: ReturnType<typeof setTimeout> | null = null;
     const openSheet = () => useUI.getState().setSheet({ kind: 'zone', zone: live.current.zone.id });
@@ -58,7 +93,29 @@ export function Pile({
       cancelTap: () => tapTimer && clearTimeout(tapTimer),
       g: new ZoneGesture(
         {
-          hit: () => (live.current.zone.cards.length ? 0 : null),
+          hit: (x) => fanHit(x),
+          onScrubStart: (i) => {
+            // pile-scrub: the pile opens in place as a spread and the loupe scrubs it
+            endFaceDown();
+            placeLoupe(ref.current, pointer.current);
+            lastPreview.current = null;
+            useUI.setState({ pileScrub: { zone: live.current.zone.id }, openZone: { id: live.current.zone.id, pinned: false } });
+            preview(i);
+          },
+          onScrub: (i) => {
+            const l = useUI.getState().loupe;
+            if (l?.details) useUI.setState({ loupe: { ...l, details: false } });
+            preview(i);
+          },
+          onDwell: () => {
+            const l = useUI.getState().loupe;
+            if (l) useUI.setState({ loupe: { ...l, details: true } });
+          },
+          onScrubEnd: () => {
+            const oz = useUI.getState().openZone;
+            useUI.setState({ pileScrub: null, ...(oz?.id === live.current.zone.id && !oz.pinned ? { openZone: null } : {}) });
+            finishScrub(pointer.current);
+          },
           onTap: (i) => {
             if (tapTimer) clearTimeout(tapTimer);
             if (i === null || !live.current.canAct) return openSheet();
@@ -74,8 +131,9 @@ export function Pile({
             if (c && live.current.canAct) void quickFlip(live.current.zone.id, c.h);
           },
           onLongPress: () => live.current.zone.cards[0] && onInfo(live.current.zone.cards[0].h),
-          onDragStart: (_i, s) => {
-            const c = live.current.zone.cards[0];
+          onDragStart: (i, s) => {
+            // a plain pull takes the top card; pulling out of a scrub takes the card that was scrubbed
+            const c = live.current.zone.cards[i] ?? live.current.zone.cards[0];
             if (!c || !live.current.canAct) return;
             // card-handling "Moving a whole pile": a selected pile carries its selected cards, in pile order
             const st = useUI.getState();
@@ -105,7 +163,7 @@ export function Pile({
           onDragEnd: (s) => endDrag(s.x + origin.x, s.y + origin.y),
           onCancel: () => cancelDrag(),
         },
-        { scrub: false },
+        { scrub: true },
       ),
     };
   }, [onInfo]);
@@ -120,7 +178,7 @@ export function Pile({
     };
   }, [g]);
   const local = (e: React.PointerEvent) => {
-    const r = ref.current!.getBoundingClientRect();
+    const r = anchor.current ?? ref.current!.getBoundingClientRect();
     g.origin({ x: r.left, y: r.top });
     return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() };
   };
@@ -136,7 +194,7 @@ export function Pile({
   return (
     <div
       ref={ref}
-      className="pile"
+      className={`pile${fanned ? ' fanned' : ''}`}
       style={
         room.t || room.r || room.b || room.l
           ? {
@@ -157,11 +215,20 @@ export function Pile({
             onPointerDown: (e: React.PointerEvent) => {
               if (e.button === 2 || isBoardPanning()) return;
               ref.current!.setPointerCapture(e.pointerId);
+              anchor.current = ref.current!.getBoundingClientRect();
+              pointer.current = e.pointerType;
+              g.g.allowScrub(e.pointerType !== 'mouse'); // the mouse keeps its drag; touch and pen scrub
               g.g.down(local(e));
             },
             onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),
-            onPointerUp: (e: React.PointerEvent) => g.g.up(local(e)),
-            onPointerCancel: () => g.g.cancel(),
+            onPointerUp: (e: React.PointerEvent) => {
+              g.g.up(local(e));
+              anchor.current = null;
+            },
+            onPointerCancel: () => {
+              g.g.cancel();
+              anchor.current = null;
+            },
             onContextMenu: (e: React.MouseEvent) => {
               e.preventDefault();
               if (top) onInfo(top.h);
@@ -353,6 +420,7 @@ export function ZoneBox({
   const over = useUI((s) => s.drag?.over);
   const isOver = over?.kind === 'zone' && over.zone === zone.id;
   const opened = useUI((s) => s.openZone?.id === zone.id);
+  const fanned = useUI((s) => s.pileScrub?.zone === zone.id);
   const slim = !!flow && zone.cards.length === 0 && zone.layout !== 'pile' && !isOver;
   const sectionRef = useRef<HTMLElement>(null);
   const header = useZoneHeader({ zoneId: zone.id, sectionRef, host: view.me.isHost, onTap: () => setSheet({ kind: 'zone', zone: zone.id }) });
@@ -406,7 +474,16 @@ export function ZoneBox({
         </div>
       ) : (
         <>
-          {zone.layout === 'pile' && <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} readOnly={readOnly} testId={readOnly ? `ov-pile-${zone.name}` : undefined} />}
+          {zone.layout === 'pile' && (
+            <div className="pile-wrap">
+              <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} readOnly={readOnly} testId={readOnly ? `ov-pile-${zone.name}` : undefined} fanned={fanned && !readOnly} />
+              {fanned && !readOnly && (
+                <div className="pile-fan" data-testid={`pile-fan-${zone.name}`} aria-hidden>
+                  <CardRow zone={{ ...zone, layout: 'spread' }} decks={view.decks} interactive={false} draggable={false} onInfo={onInfo} testId={`fan-${zone.name}`} />
+                </div>
+              )}
+            </div>
+          )}
           {zone.layout === 'spread' &&
             (readOnly ? (
               <CardRow zone={zone} decks={view.decks} interactive={false} draggable={false} onInfo={onInfo} onTapCard={onInfo} testId={`ov-row-${zone.name}`} emptyText="Empty" />

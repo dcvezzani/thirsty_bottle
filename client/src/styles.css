@@ -457,3 +457,11 @@ input[type='checkbox'] { width: 22px; min-height: 22px; accent-color: var(--acce
 .overview .ov-counters { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .overview .ov-notes { white-space: pre-wrap; margin: 0; }
 .overview button { border: 2px solid #fff; }
+
+/* pile-scrub: a pile scrubbed in place is drawn fanned out over its zone; the pile stays underneath to carry the finger */
+.pile-wrap { position: relative; min-height: calc(var(--card-w) * 1.4 + 8px); }
+.pile.fanned { opacity: 0; }
+.pile-fan { position: absolute; left: 0; top: 0; right: 0; z-index: 3; pointer-events: none; }
+.pile-fan .card-row { pointer-events: none; }
+.loupe-chip { position: absolute; top: 8px; right: 10px; z-index: 2; pointer-events: auto; min-height: 36px; padding: 0 12px; border-radius: 18px; border: 2px solid var(--control-line, #666); background: var(--panel); color: var(--ink); font-weight: 600; touch-action: none; }
+.loupe-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
