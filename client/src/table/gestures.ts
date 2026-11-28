@@ -27,6 +27,8 @@ export interface GestureCallbacks {
   onScrubStart?(index: number): void;
   onScrub?(index: number): void;
   onScrubEnd?(): void;
+  /** pile-scrub: the card a scrub sample points at, when the zone scrubs by finger travel instead of position (null = use `hit`). */
+  scrubAt?(s: Sample): number | null;
   /** scrub-loupe: the finger has stayed still for `dwellMs` during a scrub or a drag (once per resting place). */
   onDwell?(index: number | null, s: Sample): void;
   onDragStart?(index: number, s: Sample): void;
@@ -204,6 +206,8 @@ export class ZoneGesture {
 
   /** The card under the finger along the scrub axis (the cross position stays where the press began). */
   private scrubHit(s: Sample) {
+    const at = this.cb.scrubAt?.(s);
+    if (at !== undefined && at !== null) return at;
     return this.cfg.axis === 'y' ? this.cb.hit(this.start!.x, s.y) : this.cb.hit(s.x, this.start!.y);
   }
 

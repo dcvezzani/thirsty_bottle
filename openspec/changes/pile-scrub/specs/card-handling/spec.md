@@ -1,11 +1,19 @@
 ## ADDED Requirements
 
 ### Requirement: Scrub a pile in place
-A sideways slide on a pile SHALL fan the pile out into a spread in place and scrub through every card with the loupe, top card first, left to right. The pile SHALL collapse when the finger lifts, unless the player's Card loupe preference is "Stay open". Scrubbing SHALL NOT change the cards, their order or their faces for anyone.
+A sideways slide on a pile SHALL fan the pile out into a spread in place and scrub through every card with the loupe, top card first. The card shown SHALL follow how far the finger has travelled, not where it is: slow movement steps card by card and fast movement covers the pile, so that any card can be reached. The pile SHALL collapse when the finger lifts, unless the player's Card loupe preference is "Stay open". Scrubbing SHALL NOT change the cards, their order or their faces for anyone.
 
 #### Scenario: Slide across a pile
 - **WHEN** a player slides sideways across a pile of 30 cards
 - **THEN** the pile fans out in place, each card in turn appears in the loupe, and on release the pile collapses with its order and faces unchanged
+
+#### Scenario: Slow movement steps card by card
+- **WHEN** a player slides slowly across a pile of 52 cards
+- **THEN** the loupe moves about one card for every 12 px of finger travel, so any single card can be reached
+
+#### Scenario: A fast sweep covers the pile
+- **WHEN** a player sweeps quickly across the width of the screen over a pile of 52 cards
+- **THEN** the scrub passes through the whole pile, and slowing down at the end lets the player settle on a card exactly
 
 #### Scenario: Pull still takes the top card
 - **WHEN** a player pulls up or out from a pile instead of sliding sideways

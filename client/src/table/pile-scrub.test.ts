@@ -74,6 +74,28 @@ describe('pile gestures (1.1)', () => {
   });
 });
 
+describe('scrubbing by finger travel (1.2)', () => {
+  it('the zone can supply the scrubbed card from the sample, replacing the position hit', () => {
+    const ev: string[] = [];
+    let n = 0;
+    const g = new ZoneGesture(
+      {
+        hit: () => 0,
+        scrubAt: () => ++n, // one card further on every sample
+        onScrubStart: (i) => ev.push(`start:${i}`),
+        onScrub: (i) => ev.push(`scrub:${i}`),
+        onScrubEnd: () => ev.push('end'),
+      },
+      { scrub: true },
+    );
+    g.down(at(5, 30));
+    g.move(at(30, 30, 20));
+    g.move(at(31, 30, 40));
+    g.up(at(31, 30, 60));
+    expect(ev).toEqual(['start:0', 'scrub:1', 'scrub:2', 'end']);
+  });
+});
+
 const card = (h: string, known: boolean) => ({ h, faceUp: known, known }) as any;
 const view = (cards: any[], over: Record<string, unknown> = {}) =>
   ({

@@ -14,7 +14,7 @@ import { registerHeader } from './scrubStrip';
 import { zoneFocusCard } from './focusCard';
 import { pileCorner, pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
-import { fanLayout, hitIndex } from './layout';
+import { RelativeScrub } from './scrubGain';
 
 function vibrate(ms: number) {
   try {
@@ -56,23 +56,10 @@ export function Pile({
   const pointer = useRef('touch');
   /** pile-scrub: where the pile was when the press began; the pile can move (the zone widening or collapsing) during a press. */
   const anchor = useRef<{ left: number; top: number } | null>(null);
+  const rel = useRef<RelativeScrub | null>(null);
   const lastPreview = useRef<string | null>(null);
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
-    // pile-scrub: the card under the finger, from the fanned-out layout's own geometry (not the magnified cards drawn on
-    // screen, which shift as the focus moves and would make the target jump)
-    const fanHit = (x: number) => {
-      const n = live.current.zone.cards.length;
-      if (!n) return null;
-      const fan = ref.current?.closest('.zone')?.querySelector<HTMLElement>('.pile-fan');
-      if (!fan || !useUI.getState().pileScrub) return 0;
-      const raw = getComputedStyle(fan).getPropertyValue('--card-w').trim();
-      const cardW = /^[\d.]+px$/.test(raw) ? parseFloat(raw) : 64;
-      const padX = zonePad({ ...live.current.zone, layout: 'spread' }).x * cardW;
-      const L = fanLayout(n, fan.clientWidth, cardW, { arc: false, maxSpacing: cardW * 1.06, edge: padX });
-      const rel = x + origin.x - fan.getBoundingClientRect().left;
-      return hitIndex(L, rel) ?? (rel < L.left ? 0 : n - 1);
-    };
     const preview = (i: number) => {
       const hh = live.current.zone.cards[i]?.h;
       if (!hh) return;
@@ -88,7 +75,9 @@ export function Pile({
       cancelTap: () => tapTimer && clearTimeout(tapTimer),
       g: new ZoneGesture(
         {
-          hit: (x) => fanHit(x),
+          hit: () => (live.current.zone.cards.length ? 0 : null),
+          // pile-scrub: the card follows how far the finger travels, slowly for precision and fast to cover the pile
+          scrubAt: (s) => rel.current?.update(s) ?? null,
           onScrubStart: (i) => {
             // pile-scrub: the pile opens in place as a spread and the loupe scrubs it
             endFaceDown();
@@ -217,6 +206,7 @@ export function Pile({
               const top = live.current.zone.cards[0];
               const selected = st.selZone === live.current.zone.id && !!top && st.selected.includes(top.h);
               g.g.allowScrub(e.pointerType !== 'mouse' && !selected);
+              rel.current = new RelativeScrub(live.current.zone.cards.length, 0, { x: e.clientX - anchor.current!.left, t: performance.now() }, window.innerWidth); // same coordinates as the gesture's samples
               g.g.down(local(e));
             },
             onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),

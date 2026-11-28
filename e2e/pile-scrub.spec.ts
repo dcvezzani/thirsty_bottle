@@ -119,26 +119,48 @@ for (const scheme of ['light', 'dark'] as const) {
   });
 }
 
-test('a 52-card pile can be scrubbed to any card: the fan spans the whole zone and the finger maps along it (3.1)', async ({ browser }) => {
+test('a 52-card pile can be scrubbed to any card: slow movement steps one card at a time, a fast sweep covers the pile (3.1)', async ({ browser }) => {
   const { ctx, page, pile } = await start(browser, 'Pile granularity');
   const { c, touch } = await scrubOver(page, pile);
   const fan = page.getByTestId('pile-fan-Standard 52');
   await expect(fan).toBeVisible();
   await page.waitForTimeout(300); // the zone has widened
-  const box = (await fan.boundingBox())!;
-  expect(box.width).toBeGreaterThan(180); // not squeezed into the pile's own width
+  expect((await fan.boundingBox())!.width).toBeGreaterThan(180); // not squeezed into the pile's own width
   const order = await page.getByTestId('fan-Standard 52').locator('[data-h]').evaluateAll((els) => els.map((e) => e.getAttribute('data-h')));
-  const seen: number[] = [];
-  for (const frac of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-    await touch('touchMove', [f({ x: box.x + box.width * frac, y: c.y })]);
-    await page.waitForTimeout(80);
-    const h = await page.getByTestId('loupe').locator('[data-h]').first().getAttribute('data-h');
-    seen.push(order.indexOf(h));
+  const shown = async () => order.indexOf(await page.getByTestId('loupe').locator('[data-h]').first().getAttribute('data-h'));
+  let x = c.x + 90; // where scrubOver left the finger
+  const moveBy = async (dx: number, stepMs: number) => {
+    x += dx;
+    if (stepMs) await page.waitForTimeout(stepMs);
+    await touch('touchMove', [f({ x, y: c.y })]);
+  };
+
+  // slow: 8 steps of 3 px, 60 ms apart (24 px at 0.05 px/ms) moves about two cards, one at a time
+  await page.waitForTimeout(100);
+  const a = await shown();
+  const slowSeen: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    await moveBy(3, 60);
+    slowSeen.push(await shown());
   }
-  // every position reaches a different card, in order, including the middle of the pile
-  expect(seen.every((v, i) => i === 0 || v > seen[i - 1]), JSON.stringify(seen)).toBe(true);
-  expect(seen[2]).toBeGreaterThan(15);
-  expect(seen[2]).toBeLessThan(37);
+  const b = slowSeen[slowSeen.length - 1];
+  expect(b - a, JSON.stringify(slowSeen)).toBeGreaterThanOrEqual(1);
+  expect(b - a).toBeLessThanOrEqual(4);
+  expect(slowSeen.every((v, i) => v - (i ? slowSeen[i - 1] : a) <= 1), JSON.stringify(slowSeen)).toBe(true); // never skips a card
+
+  // fast: a quick sweep of 300 px passes through most of the pile
+  for (let i = 0; i < 10; i++) await moveBy(30, 0);
+  await page.waitForTimeout(40);
+  const swept = await shown();
+  expect(swept).toBeGreaterThan(30);
+
+  // slow again: stepping back 18 px (0.05 px/ms) moves about one or two cards, not a jump
+  await page.waitForTimeout(100);
+  const before = await shown();
+  for (let i = 0; i < 6; i++) await moveBy(-3, 60);
+  const after = await shown();
+  expect(before - after).toBeGreaterThanOrEqual(1);
+  expect(before - after).toBeLessThanOrEqual(3);
   await touch('touchEnd', []);
   await ctx.close();
 });
