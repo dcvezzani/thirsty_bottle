@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CardView, TableDeckView, TableView, ZoneView } from '@vct/shared';
 import { CardFace } from '../components/Card';
 import { CardRow, finishScrub, placeLoupe } from './CardRow';
@@ -16,6 +16,7 @@ import { pileCorner, pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
 import { RelativeScrub } from './scrubGain';
 import { slotCount, slotToIndex } from './pileDrop';
+import { createLens, uniformIndex, type Lens } from './scrubLens';
 
 function vibrate(ms: number) {
   try {
@@ -23,6 +24,23 @@ function vibrate(ms: number) {
   } catch {
     /* unsupported */
   }
+}
+
+/**
+ * pile-scrub-lens: the span a pile scrub maps over: the board's content width less the room the last card's body needs, and
+ * the card width, read where the press happened.
+ */
+function scrubBox(el: HTMLElement | null) {
+  const board = document.querySelector<HTMLElement>('.board');
+  const r = board?.getBoundingClientRect();
+  const cs = board ? getComputedStyle(board) : null;
+  const pl = parseFloat(cs?.paddingLeft ?? '0') || 0;
+  const pr = parseFloat(cs?.paddingRight ?? '0') || 0;
+  const left = (r?.left ?? 0) + pl;
+  const boardW = board ? board.clientWidth - pl - pr : window.innerWidth;
+  const raw = el ? getComputedStyle(el.closest('.zone') ?? el).getPropertyValue('--card-w').trim() : '';
+  const cardW = /^[\d.]+px$/.test(raw) ? parseFloat(raw) : 64;
+  return { left, width: Math.max(60, boardW - cardW + 8), cardW };
 }
 
 /** Pile: stacked, top card visible. Tap = pile actions, drag = take the top card, hold = info. */
@@ -57,7 +75,8 @@ export function Pile({
   const pointer = useRef('touch');
   /** pile-scrub: where the pile was when the press began; the pile can move (the zone widening or collapsing) during a press. */
   const anchor = useRef<{ left: number; top: number } | null>(null);
-  const rel = useRef<RelativeScrub | null>(null);
+  /** pile-scrub-lens: the lens this press maps through, pinned at the press and again at each rest. */
+  const lens = useRef<Lens | null>(null);
   /** pile-drop-slot: the gap's travel while a carried card is held over this open pile. */
   const dropRel = useRef<RelativeScrub | null>(null);
   /** pile-drop-slot: the loupe is up for this drop (it shows the card at the gap), and the card it last showed. */
@@ -81,14 +100,14 @@ export function Pile({
       g: new ZoneGesture(
         {
           hit: () => (live.current.zone.cards.length ? 0 : null),
-          // pile-scrub: the card follows how far the finger travels, slowly for precision and fast to cover the pile
-          scrubAt: (s) => rel.current?.update(s) ?? null,
+          // pile-scrub-lens: the card under the finger, through the lens pinned at the press (and again at each rest)
+          scrubAt: (s) => lens.current?.indexAt(s.x + origin.x) ?? null,
           onScrubStart: (i) => {
-            // pile-scrub: the pile opens in place as a spread and the loupe scrubs it
+            // the pile fans out across the board and the loupe shows the card under the finger
             endFaceDown();
             placeLoupe(ref.current, pointer.current);
             lastPreview.current = null;
-            useUI.setState({ pileScrub: { zone: live.current.zone.id }, openZone: { id: live.current.zone.id, pinned: false } });
+            useUI.setState({ pileScrub: { zone: live.current.zone.id, lens: lens.current } });
             preview(i);
           },
           onScrub: (i) => {
@@ -96,13 +115,18 @@ export function Pile({
             if (l?.details) useUI.setState({ loupe: { ...l, details: false } });
             preview(i);
           },
-          onDwell: () => {
+          onDwell: (i, s) => {
             const l = useUI.getState().loupe;
             if (l) useUI.setState({ loupe: { ...l, details: true } });
+            // a rest pins the lens again under the finger, on the card it is on, so it can be tuned there
+            if (i !== null && lens.current) {
+              const box = scrubBox(ref.current);
+              lens.current = createLens(live.current.zone.cards.length, box.left, box.width, { x: s.x + origin.x, card: i });
+              useUI.setState({ pileScrub: { zone: live.current.zone.id, lens: lens.current } });
+            }
           },
           onScrubEnd: () => {
-            const oz = useUI.getState().openZone;
-            useUI.setState({ pileScrub: null, ...(oz?.id === live.current.zone.id && !oz.pinned ? { openZone: null } : {}) });
+            useUI.setState({ pileScrub: null });
             finishScrub(pointer.current);
           },
           onTap: (i) => {
@@ -251,7 +275,10 @@ export function Pile({
               const top = live.current.zone.cards[0];
               const selected = st.selZone === live.current.zone.id && !!top && st.selected.includes(top.h);
               g.g.allowScrub(e.pointerType !== 'mouse' && !selected);
-              rel.current = new RelativeScrub(live.current.zone.cards.length, 0, { x: e.clientX - anchor.current!.left, t: performance.now() }, window.innerWidth); // same coordinates as the gesture's samples
+              // the lens is pinned at the press, on the card a plain layout puts there
+              const box = scrubBox(ref.current);
+              const n = live.current.zone.cards.length;
+              lens.current = createLens(n, box.left, box.width, { x: e.clientX, card: uniformIndex(n, box.left, box.width, e.clientX) });
               g.g.down(local(e));
             },
             onPointerMove: (e: React.PointerEvent) => g.g.state !== 'idle' && g.g.move(local(e)),
@@ -435,6 +462,55 @@ export function FreeZone({
 }
 
 /** A shared zone with its label (tap the label for zone actions). */
+/**
+ * pile-scrub-lens: the pile fanned across the board while it is scrubbed, drawn at the lens's own slots (what is drawn is
+ * what the finger aims at); the card under the finger is raised and enlarged.
+ */
+function LensFan({ zone, decks }: { zone: ZoneView; decks: TableDeckView[] }) {
+  const lens = useUI((s) => s.pileScrub?.lens ?? null);
+  const focusH = useUI((s) => (s.preview?.zone === zone.id ? s.preview.h : null));
+  const ref = useRef<HTMLDivElement>(null);
+  const [geom, setGeom] = useState<{ top: number; cardW: number } | null>(null);
+  useLayoutEffect(() => {
+    const wrap = ref.current?.parentElement;
+    if (!wrap) return;
+    const raw = getComputedStyle(wrap.closest('.zone') ?? wrap).getPropertyValue('--card-w').trim();
+    setGeom({ top: wrap.getBoundingClientRect().top, cardW: /^[\d.]+px$/.test(raw) ? parseFloat(raw) : 64 });
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="pile-fan lens-fan"
+      data-testid={`pile-fan-${zone.name}`}
+      aria-hidden
+      style={lens && geom ? { position: 'fixed', left: lens.left, width: lens.width + geom.cardW, top: geom.top, right: 'auto', height: geom.cardW * 1.4 + 8 } : { display: 'none' }}
+    >
+      {lens && geom && (
+        <div data-testid={`fan-${zone.name}`} style={{ position: 'relative', width: '100%', height: '100%', ['--card-w' as any]: `${geom.cardW}px` }}>
+          {zone.cards.map((c, i) => {
+            const focus = c.h === focusH;
+            return (
+              <CardFace
+                key={c.h}
+                card={c}
+                decks={decks}
+                className={focus ? 'lens-focus' : ''}
+                style={{
+                  position: 'absolute',
+                  left: lens.slot(i).x - lens.left,
+                  top: 0,
+                  zIndex: focus ? 1000 : i + 1,
+                  ...(focus ? { transform: 'translateY(-30%) scale(1.5)', transformOrigin: '50% 100%' } : {}),
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ZoneBox({
   view,
   zone,
@@ -514,7 +590,8 @@ export function ZoneBox({
           {zone.layout === 'pile' && (
             <div className="pile-wrap">
               <Pile zone={zone} decks={view.decks} onInfo={onInfo} canAct={canAct} readOnly={readOnly} testId={readOnly ? `ov-pile-${zone.name}` : undefined} fanned={fanned && !readOnly} />
-              {fanned && !readOnly && (
+              {scrubFan && !readOnly && <LensFan zone={zone} decks={view.decks} />}
+              {dropFan && !scrubFan && !readOnly && (
                 <div className="pile-fan" data-testid={`pile-fan-${zone.name}`} aria-hidden>
                   <CardRow zone={{ ...zone, layout: 'spread' }} decks={view.decks} interactive={false} draggable={false} onInfo={onInfo} testId={`fan-${zone.name}`} />
                 </div>

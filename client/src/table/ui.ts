@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Lens } from './scrubLens';
 import type { CardView, TableView, ZoneView } from '@vct/shared';
 import { boardSlots } from '@vct/shared';
 import { FOCUS_SETTLE_MS, type HandColumn } from './handFocus';
@@ -54,7 +55,7 @@ interface UIState {
   /** table-overview: the full-table overview page is open. */
   overview: boolean;
   /** pile-scrub: the pile being scrubbed, shown fanned out in place while the finger is down. */
-  pileScrub: { zone: string } | null;
+  pileScrub: { zone: string; lens: Lens | null } | null;
   /** pile-scrub: "See face-down" is on for this pile; `peeked` are the cards the chip peeked at (so only those are cleared). */
   seeFaceDown: { zone: string; peeked: string[] } | null;
   /** Host arrange mode (zone-arrangement): zones shown as draggable tiles, cards locked. */

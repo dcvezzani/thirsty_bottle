@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZoneGesture } from './gestures';
+import { createLens, uniformIndex, type Lens } from './scrubLens';
 import { canSeeFaceDown, endFaceDown, toggleFaceDown } from './pileFaceDown';
 import { useUI } from './ui';
 import { useTable } from '../store/table';
@@ -71,6 +72,53 @@ describe('pile gestures (1.1)', () => {
     h.g.down(at(5, 30, 0));
     h.g.tick(500);
     expect(h.ev).toEqual(['long:0']);
+  });
+});
+
+describe('press, move and rest through the lens (2.1)', () => {
+  const left = 6;
+  const width = 363;
+  const n = 52;
+  function harness(pressX: number) {
+    const shown: number[] = [];
+    let lens: Lens = createLens(n, left, width, { x: pressX, card: uniformIndex(n, left, width, pressX) });
+    const g = new ZoneGesture(
+      {
+        hit: () => 0,
+        scrubAt: (s) => lens.indexAt(s.x),
+        onScrubStart: (i) => shown.push(i),
+        onScrub: (i) => shown.push(i),
+        // a rest pins the lens again under the finger, on the card it is on
+        onDwell: (i, s) => {
+          if (i !== null) lens = createLens(n, left, width, { x: s.x, card: i });
+        },
+      },
+      { scrub: true },
+    );
+    return { g, shown, lens: () => lens };
+  }
+
+  it('the card under the finger at the press is the card the first slide shows, and small steps move one card each', () => {
+    const { g, shown, lens } = harness(200);
+    g.down(at(200, 30, 0));
+    g.move(at(212, 30, 20));
+    expect(shown[shown.length - 1]).toBe(lens().indexAt(212)); // the card shown is the one under the finger (the start's top card is replaced in the same event)
+    g.move(at(227, 30, 40));
+    g.move(at(242, 30, 60));
+    expect(shown[shown.length - 1] - shown[shown.length - 2]).toBe(1);
+  });
+
+  it('a rest pins the lens where the finger is, so steps from there are one card each', () => {
+    const { g, shown } = harness(60);
+    g.down(at(60, 30, 0));
+    g.move(at(72, 30, 20));
+    g.move(at(300, 30, 40)); // far across the pile
+    const far = shown[shown.length - 1];
+    g.tick(500); // the finger has rested past the dwell time
+    g.move(at(315, 30, 520));
+    g.move(at(330, 30, 540));
+    expect(shown[shown.length - 2]).toBe(far + 1);
+    expect(shown[shown.length - 1]).toBe(far + 2);
   });
 });
 

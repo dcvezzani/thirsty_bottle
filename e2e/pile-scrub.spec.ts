@@ -119,48 +119,59 @@ for (const scheme of ['light', 'dark'] as const) {
   });
 }
 
-test('a 52-card pile can be scrubbed to any card: slow movement steps one card at a time, a fast sweep covers the pile (3.1)', async ({ browser }) => {
-  const { ctx, page, pile } = await start(browser, 'Pile granularity');
+test('a 52-card pile is scrubbed by position over the whole board: edge to edge, fine steps in the lens, re-pinned by a rest (3.1)', async ({ browser }) => {
+  const { ctx, page, pile } = await start(browser, 'Pile lens');
   const { c, touch } = await scrubOver(page, pile);
   const fan = page.getByTestId('pile-fan-Standard 52');
   await expect(fan).toBeVisible();
-  await page.waitForTimeout(300); // the zone has widened
-  expect((await fan.boundingBox())!.width).toBeGreaterThan(180); // not squeezed into the pile's own width
+  const box = (await fan.boundingBox())!;
+  const vp = page.viewportSize()!;
+  expect(box.width).toBeGreaterThan(vp.width - 40); // across the board, not squeezed into the pile's zone
   const order = await page.getByTestId('fan-Standard 52').locator('[data-h]').evaluateAll((els) => els.map((e) => e.getAttribute('data-h')));
-  const shown = async () => order.indexOf(await page.getByTestId('loupe').locator('[data-h]').first().getAttribute('data-h'));
-  let x = c.x + 90; // where scrubOver left the finger
-  const moveBy = async (dx: number, stepMs: number) => {
-    x += dx;
-    if (stepMs) await page.waitForTimeout(stepMs);
+  expect(order).toHaveLength(52);
+  const loupe = page.getByTestId('loupe');
+  const shown = async () => order.indexOf(await loupe.locator('[data-h]').first().getAttribute('data-h'));
+  const moveTo = async (x: number, wait = 50) => {
     await touch('touchMove', [f({ x, y: c.y })]);
+    await page.waitForTimeout(wait);
   };
 
-  // slow: 8 steps of 3 px, 60 ms apart (24 px at 0.05 px/ms) moves about two cards, one at a time
-  await page.waitForTimeout(100);
-  const a = await shown();
-  const slowSeen: number[] = [];
-  for (let i = 0; i < 8; i++) {
-    await moveBy(3, 60);
-    slowSeen.push(await shown());
+  // the card under the finger is highlighted in the fan and shown in the loupe
+  await moveTo(c.x + 10);
+  const focused = await page.getByTestId('fan-Standard 52').locator('.lens-focus').first().getAttribute('data-h');
+  expect(order.indexOf(focused)).toBe(await shown());
+
+  // fine steps inside the lens: 15 px is one card either way from where the press landed
+  await moveTo(c.x);
+  const c0 = await shown();
+  await moveTo(c.x + 15);
+  expect(await shown()).toBe(c0 + 1);
+  await moveTo(c.x + 30);
+  expect(await shown()).toBe(c0 + 2);
+  await moveTo(c.x - 15);
+  expect(await shown()).toBe(c0 - 1);
+
+  // the whole pile in one slide: the left end is the first card, the right end the last, in order
+  await moveTo(box.x + 2);
+  expect(await shown()).toBe(0);
+  let prev = 0;
+  for (let x = box.x + 2; x <= box.x + box.width - 60; x += 14) {
+    await moveTo(x, 20);
+    const i = await shown();
+    expect(i, `at ${Math.round(x)}`).toBeGreaterThanOrEqual(prev);
+    prev = i;
   }
-  const b = slowSeen[slowSeen.length - 1];
-  expect(b - a, JSON.stringify(slowSeen)).toBeGreaterThanOrEqual(1);
-  expect(b - a).toBeLessThanOrEqual(4);
-  expect(slowSeen.every((v, i) => v - (i ? slowSeen[i - 1] : a) <= 1), JSON.stringify(slowSeen)).toBe(true); // never skips a card
+  await moveTo(box.x + box.width - 4);
+  expect(await shown()).toBe(51);
 
-  // a broad sweep of 300 px takes the scrub well into the pile (how far depends on its speed)
-  for (let i = 0; i < 10; i++) await moveBy(30, 0);
-  await page.waitForTimeout(40);
-  const swept = await shown();
-  expect(swept).toBeGreaterThan(20);
-
-  // slow again: stepping back 18 px (0.05 px/ms) moves about one or two cards, not a jump
-  await page.waitForTimeout(100);
-  const before = await shown();
-  for (let i = 0; i < 6; i++) await moveBy(-3, 60);
-  const after = await shown();
-  expect(before - after).toBeGreaterThanOrEqual(1);
-  expect(before - after).toBeLessThanOrEqual(3);
+  // resting far from the press pins the lens there: 15 px steps are one card each again
+  await moveTo(c.x + 120);
+  await page.waitForTimeout(450);
+  const cr = await shown();
+  await moveTo(c.x + 120 + 15);
+  expect(await shown()).toBe(cr + 1);
+  await moveTo(c.x + 120 - 15);
+  expect(await shown()).toBe(cr - 1);
   await touch('touchEnd', []);
   await ctx.close();
 });
