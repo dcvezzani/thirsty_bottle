@@ -4,8 +4,8 @@
  * that depends on speed: slow movement steps card by card, a fast sweep covers the whole pile. Pure.
  */
 export const SLOW_PX_PER_CARD = 12; // slow movement: one card per this many pixels
-export const V_SLOW = 0.12; // px/ms at or below which the gain is the slow one
-export const V_FAST = 1.0; // px/ms at or above which a sweep across `span` covers the pile
+export const V_SLOW = 0.3; // px/ms (300 px/s) at or below which the gain is the slow one: ordinary, deliberate movement stays fine
+export const V_FAST = 2.0; // px/ms (2000 px/s) at or above which a sweep across `span` covers the pile: only a real flick
 
 /** Cards per pixel at a finger speed (px/ms): slow stepping up to a sweep of `span` px covering all `n` cards. */
 export function scrubGain(speed: number, n: number, span: number): number {
@@ -13,7 +13,7 @@ export function scrubGain(speed: number, n: number, span: number): number {
   const fast = Math.max(slow, n / Math.max(1, span));
   const t = Math.min(1, Math.max(0, (speed - V_SLOW) / (V_FAST - V_SLOW)));
   const s = t * t * (3 - 2 * t); // smoothstep: no sudden jump of gain
-  return slow + (fast - slow) * s;
+  return slow * Math.pow(fast / slow, s); // geometric between the two, so moderate speeds stay close to the slow gain
 }
 
 export class RelativeScrub {

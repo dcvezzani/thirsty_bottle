@@ -8,6 +8,11 @@ import { EdgeScroller, bandSpeed } from './edgeScroll';
 /** Drop-target resolvers registered by rendered zones: client point → insertion index / free position. */
 export const dropRegistry = new Map<string, (x: number, y: number) => { index?: number; pos?: { x: number; y: number } }>();
 
+/** The pointer type of the latest press anywhere (a drag does not carry its own): the loupe is for touch and pen. */
+let lastPointer = 'touch';
+if (typeof document !== 'undefined') document.addEventListener('pointerdown', (e) => (lastPointer = e.pointerType), true);
+export const lastPointerType = () => lastPointer;
+
 let lastSent = 0;
 let boardEl: HTMLElement | null = null;
 export function setBoardElement(el: HTMLElement | null) {
@@ -109,6 +114,9 @@ function dwellTick() {
   }
   if (now - rest.t >= OPEN_DWELL_MS && d.over?.kind === 'zone' && d.over.zone !== open?.id && openable(d.over.zone)) {
     useUI.setState({ openZone: { id: d.over.zone, pinned: false, from: { x: d.x, t: now } } });
+    // evaluate the target now that the zone is open (a resting finger sends no move): the gap and the loupe show at once
+    const cur = useUI.getState().drag;
+    if (cur) useUI.setState({ drag: { ...cur, over: targetAt(cur.x, cur.y) } });
   }
 }
 function stopDwell() {
@@ -138,6 +146,9 @@ function closeAfterDrag(droppedInto: string | null) {
   stopDwell();
   const open = useUI.getState().openZone;
   if (open && !(open.pinned && open.id === droppedInto)) useUI.setState({ openZone: null });
+  // pile-drop-slot: the loupe that followed the gap goes with the drag (no scrub is running during a one-finger drag)
+  const st = useUI.getState();
+  if (st.loupe && !st.viewed) useUI.setState({ preview: null, loupe: null });
 }
 
 export function cancelDrag() {

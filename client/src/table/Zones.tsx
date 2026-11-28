@@ -6,7 +6,7 @@ import { endFaceDown } from './pileFaceDown';
 import { ColumnZone } from './ColumnZone';
 import { ZoneGesture } from './gestures';
 import { useUI, zoneLabel } from './ui';
-import { cancelDrag, dropRegistry, endDrag, moveDrag, startDrag } from './drag';
+import { cancelDrag, dropRegistry, endDrag, lastPointerType, moveDrag, startDrag } from './drag';
 import { isBoardPanning, onCancelCardGestures } from './pan';
 import type { FlowItem } from './flow';
 import { useZoneHeader } from './headerScrub';
@@ -60,6 +60,8 @@ export function Pile({
   const rel = useRef<RelativeScrub | null>(null);
   /** pile-drop-slot: the gap's travel while a carried card is held over this open pile. */
   const dropRel = useRef<RelativeScrub | null>(null);
+  /** pile-drop-slot: the loupe is up for this drop (it shows the card at the gap), and the card it last showed. */
+  const dropLoupe = useRef<string | null>(null);
   const lastPreview = useRef<string | null>(null);
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
@@ -172,18 +174,36 @@ export function Pile({
       const st = useUI.getState();
       if (!st.drag || st.openZone?.id !== zone.id) {
         dropRel.current = null;
+        if (dropLoupe.current !== null) {
+          dropLoupe.current = null;
+          useUI.setState({ preview: null, loupe: null });
+        }
         return {};
       }
       const carried = new Set(st.drag.handles);
       const cards = live.current.zone.cards;
       const now = performance.now();
       // the finger has to stay over the zone, so a fast sweep covers the pile in a sweep of about two fifths of the screen
-      if (!dropRel.current) dropRel.current = new RelativeScrub(slotCount(cards, carried), 0, st.openZone.from ?? { x, t: now }, window.innerWidth * 0.4);
-      return { index: slotToIndex(cards, carried, dropRel.current.update({ x, t: now })) };
+      if (!dropRel.current) {
+        dropRel.current = new RelativeScrub(slotCount(cards, carried), 0, st.openZone.from ?? { x, t: now }, window.innerWidth * 0.4);
+        // the loupe shows the card at the gap, to make the slot easy to choose (touch and pen; the mouse can see the fan)
+        placeLoupe(ref.current, lastPointerType());
+        dropLoupe.current = '';
+      }
+      const slot = dropRel.current.update({ x, t: now });
+      // the card the dropped one will sit directly above (the last card for the bottom slot)
+      const staying = cards.filter((c) => !carried.has(c.h));
+      const at = staying[Math.min(slot, staying.length - 1)];
+      if (at && useUI.getState().loupe && dropLoupe.current !== at.h) {
+        dropLoupe.current = at.h;
+        useUI.setState({ preview: { h: at.h, zone: live.current.zone.id } });
+      }
+      return { index: slotToIndex(cards, carried, slot) };
     });
     return () => {
       dropRegistry.delete(zone.id);
       dropRel.current = null;
+      dropLoupe.current = null;
     };
   }, [zone.id, readOnly]);
   const local = (e: React.PointerEvent) => {

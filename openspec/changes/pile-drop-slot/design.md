@@ -15,6 +15,9 @@ A held drag opens a zone in place after about 300 ms (`dwellTick` in `drag.ts`),
 - **Counting.** Slots are positions in the pile with any carried cards removed, as for spreads: `endDrag` already subtracts the carried cards that sit before the index when the drop is into the zone they came from.
 - **Closing.** A drop or a cancel closes the zone as for any held drag; the resolver's state is dropped with it. Moving away from the pile for more than the exit margin closes it and the slot state resets.
 
+- **The loupe.** When the pile opens under a drag, the loupe is placed as for a scrub (touch and pen only) and shows the card at the gap: the card the dropped cards will sit directly above, or the last card for the bottom slot. It follows the slot through `preview`, which also makes the fan magnify that card, and goes with the drag.
+- **Gain curve.** The first version let a short span (the drop's sweep of two fifths of the screen) make moderate speeds coarse: at 500 px/s the drop stepped a card per 5 px against 9.5 px for the scrub. The curve now stays at the slow gain up to 300 px/s and ramps only to a flick at 2000 px/s, interpolating geometrically between the slow and fast gains, so deliberate movement stays fine for both the scrub and the drop and only a flick covers the pile.
+
 ## Risks / Trade-offs
 
 - The slot follows travel, not position, so the gap is not under the finger; the fan's focus and the gap make the chosen slot visible.

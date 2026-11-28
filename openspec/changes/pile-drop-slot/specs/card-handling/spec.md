@@ -13,7 +13,7 @@ While a player carries cards, holding still over a pile that has cards for about
 
 #### Scenario: Slow movement steps one slot at a time
 - **WHEN** a player moves the finger slowly after the pile has fanned out
-- **THEN** the gap moves about one slot for every 12 px of finger travel, so any single slot can be chosen
+- **THEN** the gap moves about one slot for every 12 px of finger travel at ordinary speeds, up to about 800 px/s, so any single slot can be chosen; only a real flick covers the pile
 
 #### Scenario: Pass over a pile
 - **WHEN** a player drags a card across a pile without holding still
@@ -22,3 +22,10 @@ While a player carries cards, holding still over a pile that has cards for about
 #### Scenario: Return a card to its own pile
 - **WHEN** a player lifts a card from a pile and drops it back into the same pile at a chosen slot
 - **THEN** the slot is counted in the pile without the lifted card, and the card ends up there
+
+### Requirement: The loupe follows the drop gap
+While a carried card is held over an open pile, the loupe SHALL show the card at the gap, the one the dropped cards will sit directly above (the last card for the bottom slot), following it as the gap moves, and it SHALL go away with the drop or when the drag leaves the pile. The mouse does not get the loupe.
+
+#### Scenario: The loupe follows the gap
+- **WHEN** a player holds a carried card over a pile until it fans out and then moves the gap down the pile
+- **THEN** the loupe shows the card at the gap, starting with the top card, and follows it card by card

@@ -139,3 +139,41 @@ for (const scheme of ['light', 'dark'] as const) {
     await ctx.close();
   });
 }
+
+test('while a card is held over a pile the loupe shows the card at the gap and follows it; it goes away with the drop (3.1)', async ({ browser }) => {
+  const { ctx, page } = await start(browser, 'Pile drop loupe');
+  const hand = (await stripCenters(page, 'row-hand'))[0];
+  const target = centerOf((await deck(page).boundingBox())!);
+  const cdp = await page.context().newCDPSession(page);
+  const t = (type: string, p?: { x: number; y: number }) => cdp.send('Input.dispatchTouchEvent', { type: type as any, touchPoints: p ? [{ ...p, id: 1 }] : [] });
+  await t('touchStart', hand);
+  await t('touchMove', { x: hand.x, y: hand.y - 16 });
+  await t('touchMove', { x: hand.x, y: hand.y - 40 });
+  for (let i = 1; i <= 8; i++) {
+    await page.waitForTimeout(15);
+    await t('touchMove', { x: hand.x + ((target.x - hand.x) * i) / 8, y: hand.y - 40 + ((target.y - hand.y + 40) * i) / 8 });
+  }
+  const loupe = page.getByTestId('loupe');
+  await expect(loupe).toHaveCount(0); // not before the pile has opened
+  await page.waitForTimeout(450);
+  await expect(page.getByTestId('pile-fan-Standard 52')).toBeVisible();
+  // the fan's own order (the card being carried is not in it)
+  await expect(loupe).toBeVisible();
+  const order = await page.getByTestId('fan-Standard 52').locator('[data-h]').evaluateAll((els) => els.map((e) => e.getAttribute('data-h')));
+  const shown = async () => order.indexOf(await loupe.locator('[data-h]').first().getAttribute('data-h'));
+  expect(await shown()).toBe(0); // the gap starts on top: the loupe shows the top card
+  // slow movement moves the gap one slot at a time and the loupe follows
+  let x = target.x;
+  const seen: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    x += 3;
+    await page.waitForTimeout(60);
+    await t('touchMove', { x, y: target.y });
+    seen.push(await shown());
+  }
+  expect(seen[seen.length - 1], JSON.stringify(seen)).toBeGreaterThanOrEqual(1);
+  expect(seen.every((v, i) => v - (i ? seen[i - 1] : 0) <= 1), JSON.stringify(seen)).toBe(true);
+  await t('touchEnd');
+  await expect(loupe).toHaveCount(0);
+  await ctx.close();
+});
