@@ -14,6 +14,7 @@ import { registerHeader } from './scrubStrip';
 import { zoneFocusCard } from './focusCard';
 import { pileCorner, pileShown, zonePad } from './rotation';
 import { quickFlip } from './flip';
+import { fanLayout, hitIndex } from './layout';
 
 function vibrate(ms: number) {
   try {
@@ -58,25 +59,19 @@ export function Pile({
   const lastPreview = useRef<string | null>(null);
   const g = useMemo(() => {
     let origin = { x: 0, y: 0 };
-    // pile-scrub: the card under the finger, from where the fanned-out cards are drawn
+    // pile-scrub: the card under the finger, from the fanned-out layout's own geometry (not the magnified cards drawn on
+    // screen, which shift as the focus moves and would make the target jump)
     const fanHit = (x: number) => {
       const n = live.current.zone.cards.length;
       if (!n) return null;
-      const fan = ref.current?.closest('.zone')?.querySelector('.pile-fan');
+      const fan = ref.current?.closest('.zone')?.querySelector<HTMLElement>('.pile-fan');
       if (!fan || !useUI.getState().pileScrub) return 0;
-      const els = [...fan.querySelectorAll<HTMLElement>('[data-h]')];
-      const cx = x + origin.x;
-      let best = 0;
-      let bestD = Infinity;
-      els.forEach((e, i) => {
-        const r = e.getBoundingClientRect();
-        const d = Math.abs(r.left + r.width / 2 - cx);
-        if (d < bestD) {
-          bestD = d;
-          best = i;
-        }
-      });
-      return Math.min(best, n - 1);
+      const raw = getComputedStyle(fan).getPropertyValue('--card-w').trim();
+      const cardW = /^[\d.]+px$/.test(raw) ? parseFloat(raw) : 64;
+      const padX = zonePad({ ...live.current.zone, layout: 'spread' }).x * cardW;
+      const L = fanLayout(n, fan.clientWidth, cardW, { arc: false, maxSpacing: cardW * 1.06, edge: padX });
+      const rel = x + origin.x - fan.getBoundingClientRect().left;
+      return hitIndex(L, rel) ?? (rel < L.left ? 0 : n - 1);
     };
     const preview = (i: number) => {
       const hh = live.current.zone.cards[i]?.h;

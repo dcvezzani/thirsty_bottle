@@ -118,3 +118,27 @@ for (const scheme of ['light', 'dark'] as const) {
     await ctx.close();
   });
 }
+
+test('a 52-card pile can be scrubbed to any card: the fan spans the whole zone and the finger maps along it (3.1)', async ({ browser }) => {
+  const { ctx, page, pile } = await start(browser, 'Pile granularity');
+  const { c, touch } = await scrubOver(page, pile);
+  const fan = page.getByTestId('pile-fan-Standard 52');
+  await expect(fan).toBeVisible();
+  await page.waitForTimeout(300); // the zone has widened
+  const box = (await fan.boundingBox())!;
+  expect(box.width).toBeGreaterThan(180); // not squeezed into the pile's own width
+  const order = await page.getByTestId('fan-Standard 52').locator('[data-h]').evaluateAll((els) => els.map((e) => e.getAttribute('data-h')));
+  const seen: number[] = [];
+  for (const frac of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+    await touch('touchMove', [f({ x: box.x + box.width * frac, y: c.y })]);
+    await page.waitForTimeout(80);
+    const h = await page.getByTestId('loupe').locator('[data-h]').first().getAttribute('data-h');
+    seen.push(order.indexOf(h));
+  }
+  // every position reaches a different card, in order, including the middle of the pile
+  expect(seen.every((v, i) => i === 0 || v > seen[i - 1]), JSON.stringify(seen)).toBe(true);
+  expect(seen[2]).toBeGreaterThan(15);
+  expect(seen[2]).toBeLessThan(37);
+  await touch('touchEnd', []);
+  await ctx.close();
+});
