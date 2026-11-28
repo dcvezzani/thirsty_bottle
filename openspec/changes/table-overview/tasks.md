@@ -9,4 +9,4 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Add an e2e with several players: open the Overview and check the sections, that hands show counts only, that a card shown to everyone appears and a peeked card does not, that dragging does nothing, that it updates when another player moves a card, and that closing returns to the table. Include light and dark readability checks. Run lint, unit and the full e2e suites.
+- [x] 3.1 Add an e2e with several players: open the Overview and check the sections, that hands show counts only, that a card shown to everyone appears and a peeked card does not, that dragging does nothing, that it updates when another player moves a card, and that closing returns to the table. Include light and dark readability checks. Run lint, unit and the full e2e suites.
